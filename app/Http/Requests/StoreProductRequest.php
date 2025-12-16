@@ -1,0 +1,66 @@
+<?php
+
+namespace App\Http\Requests;
+
+use Illuminate\Foundation\Http\FormRequest;
+
+class StoreProductRequest extends FormRequest
+{
+    /**
+     * Determine if the user is authorized to make this request.
+     */
+    public function authorize(): bool
+    {
+        return $this->user()->can('create_products');
+    }
+
+    /**
+     * Prepare the data for validation.
+     */
+    protected function prepareForValidation(): void
+    {
+        $this->merge([
+            'name' => \Illuminate\Support\Str::of($this->name ?? '')->trim()->value(),
+            'sku' => \Illuminate\Support\Str::of($this->sku ?? '')->trim()->upper()->value(),
+        ]);
+    }
+
+    /**
+     * Get the validation rules that apply to the request.
+     *
+     * @return array<string, \Illuminate\Contracts\Validation\ValidationRule|array<mixed>|string>
+     */
+    public function rules(): array
+    {
+        return [
+            'name' => 'required|string|max:255',
+            'sku' => 'required|string|unique:products,sku|max:255',
+            'category_id' => 'required|exists:categories,id',
+            'quantity' => 'required|integer|min:0',
+            'low_stock_threshold' => 'required|integer|min:0',
+            'price' => 'required|numeric|min:0',
+            'cost_price' => 'nullable|numeric|min:0',
+            'status' => 'required|in:active,inactive,discontinued',
+        ];
+    }
+
+    /**
+     * Get custom messages for validator errors.
+     *
+     * @return array<string, string>
+     */
+    public function messages(): array
+    {
+        return [
+            'name.required' => 'El nombre del producto es obligatorio.',
+            'sku.required' => 'El SKU es obligatorio.',
+            'sku.unique' => 'Este SKU ya está en uso.',
+            'category_id.required' => 'La categoría es obligatoria.',
+            'category_id.exists' => 'La categoría seleccionada no existe.',
+            'quantity.required' => 'La cantidad es obligatoria.',
+            'quantity.min' => 'La cantidad no puede ser negativa.',
+            'price.required' => 'El precio es obligatorio.',
+            'price.min' => 'El precio no puede ser negativo.',
+        ];
+    }
+}

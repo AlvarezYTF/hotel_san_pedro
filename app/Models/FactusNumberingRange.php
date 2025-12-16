@@ -1,0 +1,99 @@
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Model;
+
+class FactusNumberingRange extends Model
+{
+    protected $table = 'factus_numbering_ranges';
+
+    protected $fillable = [
+        'factus_id',
+        'document',
+        'document_code',
+        'prefix',
+        'range_from',
+        'range_to',
+        'current',
+        'resolution_number',
+        'technical_key',
+        'start_date',
+        'end_date',
+        'is_expired',
+        'is_active',
+    ];
+
+    protected $casts = [
+        'factus_id' => 'integer',
+        'range_from' => 'integer',
+        'range_to' => 'integer',
+        'current' => 'integer',
+        'start_date' => 'date',
+        'end_date' => 'date',
+        'is_expired' => 'boolean',
+        'is_active' => 'boolean',
+    ];
+
+    public function electronicInvoices()
+    {
+        return $this->hasMany(ElectronicInvoice::class, 'factus_numbering_range_id', 'factus_id');
+    }
+
+    public function scopeActive($query)
+    {
+        return $query->where('is_active', true)
+                    ->where('is_expired', false);
+    }
+
+    public function scopeValid($query)
+    {
+        return $query->where('is_active', true)
+                    ->where('is_expired', false)
+                    ->where(function($q) {
+                        $q->whereNull('start_date')
+                          ->orWhere('start_date', '<=', now());
+                    })
+                    ->where(function($q) {
+                        $q->whereNull('end_date')
+                          ->orWhere('end_date', '>=', now());
+                    });
+    }
+
+    public function scopeForDocument($query, string $document)
+    {
+        return $query->where('document', $document);
+    }
+
+    public function isValid(): bool
+    {
+        if (!$this->is_active || $this->is_expired) {
+            return false;
+        }
+
+        if ($this->start_date && now()->lt($this->start_date)) {
+            return false;
+        }
+
+        if ($this->end_date && now()->gt($this->end_date)) {
+            return false;
+        }
+
+        return true;
+    }
+
+    public function isExhausted(): bool
+    {
+        return $this->current >= $this->range_to;
+    }
+
+    public function getRemainingNumbers(): int
+    {
+        return max(0, $this->range_to - $this->current);
+    }
+
+    public function getFactusId(): int
+    {
+        return $this->factus_id;
+    }
+}
