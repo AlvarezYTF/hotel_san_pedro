@@ -14,7 +14,7 @@ class UpdateCustomerRequest extends FormRequest
     public function rules(): array
     {
         $customerId = $this->route('customer')->id;
-        
+
         $rules = [
             'name' => 'required|string|max:255',
             'email' => 'nullable|email|max:255|unique:customers,email,' . $customerId,
@@ -27,7 +27,12 @@ class UpdateCustomerRequest extends FormRequest
             'is_active' => 'boolean',
             'requires_electronic_invoice' => 'boolean',
             'identification_document_id' => 'required_if:requires_electronic_invoice,1|nullable|exists:dian_identification_documents,id',
-            'identification' => 'required_if:requires_electronic_invoice,1|nullable|string|max:20',
+            'identification' => [
+                'required_if:requires_electronic_invoice,1',
+                'nullable',
+                'string',
+                'max:20',
+            ],
             'municipality_id' => [
                 'required_if:requires_electronic_invoice,1',
                 'nullable',
@@ -62,6 +67,21 @@ class UpdateCustomerRequest extends FormRequest
             // Company required for juridical persons (NIT) when electronic invoice is enabled
             if ($identificationDocument && $identificationDocument->code === 'NIT') {
                 $rules['company'] = 'required_if:requires_electronic_invoice,1|string|max:255';
+            }
+
+            // Unique identification validation: combination of identification + identification_document_id must be unique
+            // Exclude current customer from validation
+            if ($this->has('identification') && $this->filled('identification')) {
+                $rules['identification'][] = function ($_attribute, $value, $fail) use ($customerId) {
+                    $exists = \App\Models\CustomerTaxProfile::where('identification', $value)
+                        ->where('identification_document_id', $this->input('identification_document_id'))
+                        ->where('customer_id', '!=', $customerId)
+                        ->exists();
+
+                    if ($exists) {
+                        $fail('Ya existe otro cliente con este número de identificación y tipo de documento.');
+                    }
+                };
             }
         }
 

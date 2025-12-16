@@ -25,7 +25,12 @@ class StoreCustomerRequest extends FormRequest
             'is_active' => 'boolean',
             'requires_electronic_invoice' => 'boolean',
             'identification_document_id' => 'required_if:requires_electronic_invoice,1|nullable|exists:dian_identification_documents,id',
-            'identification' => 'required_if:requires_electronic_invoice,1|nullable|string|max:20',
+            'identification' => [
+                'required_if:requires_electronic_invoice,1',
+                'nullable',
+                'string',
+                'max:20',
+            ],
             'municipality_id' => [
                 'required_if:requires_electronic_invoice,1',
                 'nullable',
@@ -60,6 +65,19 @@ class StoreCustomerRequest extends FormRequest
             // Company required for juridical persons (NIT) when electronic invoice is enabled
             if ($identificationDocument && $identificationDocument->code === 'NIT') {
                 $rules['company'] = 'required_if:requires_electronic_invoice,1|string|max:255';
+            }
+
+            // Unique identification validation: combination of identification + identification_document_id must be unique
+            if ($this->has('identification') && $this->filled('identification')) {
+                $rules['identification'][] = function ($_attribute, $value, $fail) {
+                    $exists = \App\Models\CustomerTaxProfile::where('identification', $value)
+                        ->where('identification_document_id', $this->input('identification_document_id'))
+                        ->exists();
+
+                    if ($exists) {
+                        $fail('Ya existe un cliente con este número de identificación y tipo de documento.');
+                    }
+                };
             }
         }
 
