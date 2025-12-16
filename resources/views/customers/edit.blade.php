@@ -18,38 +18,6 @@
         </div>
     </div>
 
-    <!-- Mensajes de éxito/error -->
-    @if(session('success'))
-        <div class="bg-emerald-50 border-l-4 border-emerald-500 p-4 rounded-lg shadow-sm">
-            <div class="flex items-center">
-                <div class="flex-shrink-0">
-                    <i class="fas fa-check-circle text-emerald-500 text-lg"></i>
-                </div>
-                <div class="ml-3 flex-1">
-                    <p class="text-sm font-semibold text-emerald-800">{{ session('success') }}</p>
-                </div>
-                <button type="button" onclick="this.parentElement.parentElement.remove()" class="ml-auto text-emerald-500 hover:text-emerald-700">
-                    <i class="fas fa-times"></i>
-                </button>
-            </div>
-        </div>
-    @endif
-
-    @if(session('error'))
-        <div class="bg-red-50 border-l-4 border-red-500 p-4 rounded-lg shadow-sm">
-            <div class="flex items-center">
-                <div class="flex-shrink-0">
-                    <i class="fas fa-exclamation-circle text-red-500 text-lg"></i>
-                </div>
-                <div class="ml-3 flex-1">
-                    <p class="text-sm font-semibold text-red-800">{{ session('error') }}</p>
-                </div>
-                <button type="button" onclick="this.parentElement.parentElement.remove()" class="ml-auto text-red-500 hover:text-red-700">
-                    <i class="fas fa-times"></i>
-                </button>
-            </div>
-        </div>
-    @endif
 
     <form method="POST" action="{{ route('customers.update', $customer) }}" id="customer-form" 
           x-data="customerForm()" 
@@ -671,13 +639,13 @@
 
             <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
                 <a href="{{ route('customers.index') }}"
-                   class="w-full sm:w-auto inline-flex items-center justify-center px-4 sm:px-5 py-3 sm:py-2.5 rounded-xl border-2 border-gray-200 bg-white text-gray-700 text-sm sm:text-base font-semibold hover:bg-gray-50 hover:border-gray-300 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 min-h-[44px]">
+                   class="inline-flex items-center justify-center px-4 sm:px-5 py-2.5 rounded-xl border-2 border-gray-200 bg-white text-gray-700 text-sm font-semibold hover:bg-gray-50 hover:border-gray-300 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500">
                     <i class="fas fa-arrow-left mr-2"></i>
                     Volver
                 </a>
 
                 <button type="submit"
-                        class="w-full sm:w-auto inline-flex items-center justify-center px-4 sm:px-5 py-3 sm:py-2.5 rounded-xl border-2 border-emerald-600 bg-emerald-600 text-white text-sm sm:text-base font-semibold hover:bg-emerald-700 hover:border-emerald-700 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500 shadow-sm hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed min-h-[44px]"
+                        class="inline-flex items-center justify-center px-4 sm:px-5 py-2.5 rounded-xl border-2 border-emerald-600 bg-emerald-600 text-white text-sm font-semibold hover:bg-emerald-700 hover:border-emerald-700 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500 shadow-sm hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
                         :disabled="loading"
                         x-bind:class="loading ? 'opacity-50 cursor-not-allowed' : ''">
                     <template x-if="!loading">
