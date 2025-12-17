@@ -277,7 +277,7 @@
                         <span class="ml-3 text-sm font-medium text-gray-700">Cliente activo</span>
                     </label>
                     <p class="mt-2 text-xs text-gray-500">
-                        Los clientes inactivos no aparecerán en los listados internos
+                        Los clientes inactivos no aparecerán en los formularios de reserva
                     </p>
                 </div>
             </div>
