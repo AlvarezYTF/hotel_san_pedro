@@ -14,7 +14,7 @@ class StoreCustomerRequest extends FormRequest
 
     public function rules(): array
     {
-        return [
+        $rules = [
             'name' => ['required', 'string', 'max:255'],
             'email' => ['nullable', 'email', 'max:255', Rule::unique('customers', 'email')],
             'phone' => ['nullable', 'string', 'max:20'],
@@ -55,5 +55,22 @@ class StoreCustomerRequest extends FormRequest
             'tax_email' => ['nullable', 'email', 'max:255'],
             'tax_phone' => ['nullable', 'string', 'max:20'],
         ];
+
+        // Reglas dinámicas basadas en el tipo de documento (de f8a468da85c38ac34413141724265228e85a0ff9)
+        if ($this->boolean('requires_electronic_invoice') && $this->has('identification_document_id')) {
+            $identificationDocument = \App\Models\DianIdentificationDocument::find(
+                $this->input('identification_document_id')
+            );
+
+            if ($identificationDocument && $identificationDocument->requires_dv) {
+                $rules['dv'] = ['required_if:requires_electronic_invoice,1', 'string', 'size:1'];
+            }
+
+            if ($identificationDocument && $identificationDocument->code === 'NIT') {
+                $rules['company'] = ['required_if:requires_electronic_invoice,1', 'string', 'max:255'];
+            }
+        }
+
+        return $rules;
     }
 }

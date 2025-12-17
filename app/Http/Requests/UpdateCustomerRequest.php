@@ -19,7 +19,7 @@ class UpdateCustomerRequest extends FormRequest
         $taxProfileId = $customer?->taxProfile?->id;
         $identificationDocumentId = $this->input('identification_document_id');
 
-        return [
+        $rules = [
             'name' => ['required', 'string', 'max:255'],
             'email' => [
                 'nullable',
@@ -66,5 +66,22 @@ class UpdateCustomerRequest extends FormRequest
             'tax_email' => ['nullable', 'email', 'max:255'],
             'tax_phone' => ['nullable', 'string', 'max:20'],
         ];
+
+        // Reglas dinámicas basadas en el tipo de documento
+        if ($this->boolean('requires_electronic_invoice') && $this->has('identification_document_id')) {
+            $identificationDocument = \App\Models\DianIdentificationDocument::find(
+                $this->input('identification_document_id')
+            );
+
+            if ($identificationDocument && $identificationDocument->requires_dv) {
+                $rules['dv'] = ['required_if:requires_electronic_invoice,1', 'string', 'size:1'];
+            }
+
+            if ($identificationDocument && $identificationDocument->code === 'NIT') {
+                $rules['company'] = ['required_if:requires_electronic_invoice,1', 'string', 'max:255'];
+            }
+        }
+
+        return $rules;
     }
 }

@@ -277,7 +277,7 @@
                         <span class="ml-3 text-sm font-medium text-gray-700">Cliente activo</span>
                     </label>
                     <p class="mt-2 text-xs text-gray-500">
-                        Los clientes inactivos no aparecerán en los formularios de ventas
+                        Los clientes inactivos no aparecerán en los formularios de reserva
                     </p>
                 </div>
             </div>
@@ -594,23 +594,11 @@
                 <div class="bg-gray-50 rounded-xl p-4 border border-gray-200">
                     <div class="flex items-center space-x-3">
                         <div class="h-10 w-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center shadow-sm">
-                            <i class="fas fa-shopping-cart text-sm"></i>
+                            <i class="fas fa-history text-sm"></i>
                         </div>
                         <div>
-                            <div class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">Total de Ventas</div>
-                            <div class="text-base sm:text-lg font-bold text-gray-900">{{ $customer->sales_count ?? 0 }} ventas</div>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="bg-gray-50 rounded-xl p-4 border border-gray-200">
-                    <div class="flex items-center space-x-3">
-                        <div class="h-10 w-10 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center shadow-sm">
-                            <i class="fas fa-tools text-sm"></i>
-                        </div>
-                        <div>
-                            <div class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">Total de Reparaciones</div>
-                            <div class="text-base sm:text-lg font-bold text-gray-900">{{ $customer->repairs_count ?? 0 }} reparaciones</div>
+                            <div class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">Actividad Reciente</div>
+                            <div class="text-xs text-gray-500 italic">Próximamente: Reservas</div>
                         </div>
                     </div>
                 </div>

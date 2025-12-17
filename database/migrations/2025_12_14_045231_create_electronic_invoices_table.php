@@ -62,7 +62,6 @@ return new class extends Migration
             $table->foreign('payment_form_code')->references('code')->on('dian_payment_forms')->onDelete('set null');
             
             // Índices
-            $table->index('sale_id');
             $table->index('customer_id');
             $table->index('status');
             $table->index('cufe');
