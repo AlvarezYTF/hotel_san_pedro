@@ -164,17 +164,9 @@
                             <div class="flex flex-col space-y-2">
                                 <div class="flex items-center">
                                     <div class="p-1.5 rounded-lg bg-emerald-50 text-emerald-600 mr-2">
-                                        <i class="fas fa-shopping-cart text-xs"></i>
+                                        <i class="fas fa-history text-xs"></i>
                                     </div>
-                                    <span class="text-sm font-semibold text-gray-900">{{ $customer->sales_count ?? 0 }}</span>
-                                    <span class="text-xs text-gray-500 ml-1">ventas</span>
-                                </div>
-                                <div class="flex items-center">
-                                    <div class="p-1.5 rounded-lg bg-blue-50 text-blue-600 mr-2">
-                                        <i class="fas fa-tools text-xs"></i>
-                                </div>
-                                    <span class="text-sm font-semibold text-gray-900">{{ $customer->repairs_count ?? 0 }}</span>
-                                    <span class="text-xs text-gray-500 ml-1">reparaciones</span>
+                                    <span class="text-xs text-gray-500 italic">Próximamente: Reservas</span>
                                 </div>
                             </div>
                         </td>
@@ -315,25 +307,11 @@
                 <!-- Actividad -->
                 <div>
                     <p class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">Actividad</p>
-                    <div class="grid grid-cols-2 gap-3">
-                        <div class="flex items-center p-2 bg-emerald-50 rounded-lg">
-                            <div class="p-1.5 rounded-lg bg-emerald-100 text-emerald-600 mr-2">
-                                <i class="fas fa-shopping-cart text-xs"></i>
-                            </div>
-                            <div>
-                                <div class="text-sm font-semibold text-gray-900">{{ $customer->sales_count ?? 0 }}</div>
-                                <div class="text-xs text-gray-500">ventas</div>
-                            </div>
+                    <div class="flex items-center p-2 bg-gray-50 rounded-lg">
+                        <div class="p-1.5 rounded-lg bg-white border border-gray-200 text-gray-400 mr-2">
+                            <i class="fas fa-history text-xs"></i>
                         </div>
-                        <div class="flex items-center p-2 bg-blue-50 rounded-lg">
-                            <div class="p-1.5 rounded-lg bg-blue-100 text-blue-600 mr-2">
-                                <i class="fas fa-tools text-xs"></i>
-                            </div>
-                            <div>
-                                <div class="text-sm font-semibold text-gray-900">{{ $customer->repairs_count ?? 0 }}</div>
-                                <div class="text-xs text-gray-500">reparaciones</div>
-                            </div>
-                        </div>
+                        <span class="text-xs text-gray-500 italic">Próximamente: Reservas</span>
                     </div>
                 </div>
             </div>
@@ -408,7 +386,7 @@
                         </div>
                         <div class="flex-1 min-w-0">
                             <div class="text-sm font-semibold text-gray-900 mb-1" id="delete-customer-name"></div>
-                            <div class="text-xs text-gray-500">Las ventas y reparaciones asociadas no se eliminarán</div>
+                            <div class="text-xs text-gray-500">La información del cliente será eliminada permanentemente</div>
                         </div>
                     </div>
                 </div>
