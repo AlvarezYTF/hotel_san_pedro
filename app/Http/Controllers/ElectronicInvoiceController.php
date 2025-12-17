@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\ElectronicInvoice\ElectronicInvoiceFilterRequest;
 use App\Models\ElectronicInvoice;
 use App\Services\ElectronicInvoiceService;
 use Illuminate\Http\Request;
@@ -16,50 +17,52 @@ class ElectronicInvoiceController extends Controller
     // La facturación electrónica se generará desde las reservas, no desde ventas
     // public function generate(Reservation $reservation) { ... }
 
-    public function index(Request $request)
+    public function index(ElectronicInvoiceFilterRequest $request)
     {
+        $filters = $request->validated();
+
         $query = ElectronicInvoice::with(['customer.taxProfile', 'documentType', 'operationType', 'paymentMethod', 'paymentForm'])
             ->orderBy('created_at', 'desc');
 
         // Filtro por número de documento
-        if ($request->filled('filter_number')) {
-            $query->where('document', 'like', '%' . $request->input('filter_number') . '%');
+        if (!empty($filters['filter_number'] ?? null)) {
+            $query->where('document', 'like', '%' . $filters['filter_number'] . '%');
         }
 
         // Filtro por código de referencia
-        if ($request->filled('filter_reference_code')) {
-            $query->where('reference_code', 'like', '%' . $request->input('filter_reference_code') . '%');
+        if (!empty($filters['filter_reference_code'] ?? null)) {
+            $query->where('reference_code', 'like', '%' . $filters['filter_reference_code'] . '%');
         }
 
         // Filtro por estado
-        if ($request->filled('filter_status')) {
+        if (!empty($filters['filter_status'] ?? null)) {
             $statusMap = [
                 '1' => 'accepted',
                 '0' => 'pending',
             ];
-            $status = $statusMap[$request->input('filter_status')] ?? $request->input('filter_status');
+            $status = $statusMap[$filters['filter_status']] ?? $filters['filter_status'];
             if (in_array($status, ['pending', 'sent', 'accepted', 'rejected', 'cancelled'])) {
                 $query->where('status', $status);
             }
         }
 
         // Filtro por identificación del cliente
-        if ($request->filled('filter_identification')) {
-            $query->whereHas('customer.taxProfile', function ($q) use ($request) {
-                $q->where('identification', 'like', '%' . $request->input('filter_identification') . '%');
+        if (!empty($filters['filter_identification'] ?? null)) {
+            $query->whereHas('customer.taxProfile', function ($q) use ($filters) {
+                $q->where('identification', 'like', '%' . $filters['filter_identification'] . '%');
             });
         }
 
         // Filtro por nombre del cliente
-        if ($request->filled('filter_names')) {
-            $query->whereHas('customer', function ($q) use ($request) {
-                $q->where('name', 'like', '%' . $request->input('filter_names') . '%');
+        if (!empty($filters['filter_names'] ?? null)) {
+            $query->whereHas('customer', function ($q) use ($filters) {
+                $q->where('name', 'like', '%' . $filters['filter_names'] . '%');
             });
         }
 
         // Filtro por prefijo (del número de documento)
-        if ($request->filled('filter_prefix')) {
-            $query->where('document', 'like', $request->input('filter_prefix') . '%');
+        if (!empty($filters['filter_prefix'] ?? null)) {
+            $query->where('document', 'like', $filters['filter_prefix'] . '%');
         }
 
         $invoices = $query->paginate(15)->withQueryString();
