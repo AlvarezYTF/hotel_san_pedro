@@ -155,70 +155,57 @@ class CustomerController extends Controller
      */
     public function getTaxProfile(Customer $customer): JsonResponse
     {
-        try {
-            $customer->load('taxProfile.identificationDocument');
-            /** @var \App\Models\CustomerTaxProfile|null $taxProfile */
-            $taxProfile = $customer->taxProfile;
+        $customer->load('taxProfile.identificationDocument');
+        /** @var \App\Models\CustomerTaxProfile|null $taxProfile */
+        $taxProfile = $customer->taxProfile;
 
-            $catalogs = $this->getTaxCatalogs();
+        $catalogs = $this->getTaxCatalogs();
 
-            return Response::json([
-                'customer' => [
-                    'id' => $customer->id,
-                    'name' => $customer->name,
-                    'requires_electronic_invoice' => (bool) $customer->requires_electronic_invoice,
-                    'tax_profile' => $taxProfile ? [
-                        'identification_document_id' => $taxProfile->identification_document_id,
-                        'identification' => $taxProfile->identification,
-                        'dv' => $taxProfile->dv,
-                        'legal_organization_id' => $taxProfile->legal_organization_id,
-                        'company' => $taxProfile->company,
-                        'trade_name' => $taxProfile->trade_name,
-                        'names' => $taxProfile->names,
-                        'address' => $taxProfile->address,
-                        'email' => $taxProfile->email,
-                        'phone' => $taxProfile->phone,
-                        'tribute_id' => $taxProfile->tribute_id,
-                        'municipality_id' => $taxProfile->municipality_id,
-                    ] : null,
-                ],
-                'catalogs' => [
-                    'identification_documents' => $catalogs['identificationDocuments']->map(fn($doc) => [
-                        'id' => $doc->id,
-                        'code' => $doc->code,
-                        'name' => $doc->name,
-                        'requires_dv' => (bool) $doc->requires_dv,
-                    ])->values(),
-                    'legal_organizations' => $catalogs['legalOrganizations']->map(fn($org) => [
-                        'id' => $org->id,
-                        'name' => $org->name,
-                    ])->values(),
-                    'tributes' => $catalogs['tributes']->map(fn($t) => [
-                        'id' => $t->id,
-                        'code' => $t->code,
-                        'name' => $t->name,
-                    ])->values(),
-                    'municipalities' => $catalogs['municipalities']->groupBy('department')->map(function ($municipalities) {
-                        return $municipalities->map(fn($m) => [
-                            'factus_id' => $m->factus_id,
-                            'name' => $m->name,
-                            'department' => $m->department,
-                        ])->values();
-                    }),
-                ],
-            ], 200, [], JSON_UNESCAPED_UNICODE);
-        } catch (\Exception $e) {
-            Log::error('Error al obtener perfil fiscal del cliente', [
-                'customer_id' => $customer->id,
-                'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString(),
-            ]);
-
-            return Response::json([
-                'error' => true,
-                'message' => 'No se pudieron cargar los datos del cliente.',
-            ], 500, [], JSON_UNESCAPED_UNICODE);
-        }
+        return Response::json([
+            'customer' => [
+                'id' => $customer->id,
+                'name' => $customer->name,
+                'requires_electronic_invoice' => (bool) $customer->requires_electronic_invoice,
+                'tax_profile' => $taxProfile ? [
+                    'identification_document_id' => $taxProfile->identification_document_id,
+                    'identification' => $taxProfile->identification,
+                    'dv' => $taxProfile->dv,
+                    'legal_organization_id' => $taxProfile->legal_organization_id,
+                    'company' => $taxProfile->company,
+                    'trade_name' => $taxProfile->trade_name,
+                    'names' => $taxProfile->names,
+                    'address' => $taxProfile->address,
+                    'email' => $taxProfile->email,
+                    'phone' => $taxProfile->phone,
+                    'tribute_id' => $taxProfile->tribute_id,
+                    'municipality_id' => $taxProfile->municipality_id,
+                ] : null,
+            ],
+            'catalogs' => [
+                'identification_documents' => $catalogs['identificationDocuments']->map(fn($doc) => [
+                    'id' => $doc->id,
+                    'code' => $doc->code,
+                    'name' => $doc->name,
+                    'requires_dv' => (bool) $doc->requires_dv,
+                ])->values(),
+                'legal_organizations' => $catalogs['legalOrganizations']->map(fn($org) => [
+                    'id' => $org->id,
+                    'name' => $org->name,
+                ])->values(),
+                'tributes' => $catalogs['tributes']->map(fn($t) => [
+                    'id' => $t->id,
+                    'code' => $t->code,
+                    'name' => $t->name,
+                ])->values(),
+                'municipalities' => $catalogs['municipalities']->groupBy('department')->map(function ($municipalities) {
+                    return $municipalities->map(fn($m) => [
+                        'factus_id' => $m->factus_id,
+                        'name' => $m->name,
+                        'department' => $m->department,
+                    ])->values();
+                }),
+            ],
+        ], 200, [], JSON_UNESCAPED_UNICODE);
     }
 
     /**
