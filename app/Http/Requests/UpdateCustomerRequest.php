@@ -35,7 +35,9 @@ class UpdateCustomerRequest extends FormRequest
                 'nullable',
                 'string',
                 'max:20',
-                Rule::unique('customer_tax_profiles', 'identification')->ignore($currentTaxProfileId),
+                Rule::unique('customer_tax_profiles', 'identification')
+                    ->ignore($currentTaxProfileId)
+                    ->where('identification_document_id', $this->input('identification_document_id')),
             ],
             'municipality_id' => [
                 'required_if:requires_electronic_invoice,1',

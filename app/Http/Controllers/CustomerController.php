@@ -103,7 +103,12 @@ class CustomerController extends Controller
      */
     public function show(Customer $customer): ViewContract
     {
-        $customer->load('taxProfile');
+        $customer->load([
+            'taxProfile.identificationDocument',
+            'taxProfile.legalOrganization',
+            'taxProfile.tribute',
+            'taxProfile.municipality',
+        ]);
 
         return View::make('customers.show', compact('customer'));
     }

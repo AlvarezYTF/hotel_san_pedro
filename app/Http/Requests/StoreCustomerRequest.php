@@ -31,7 +31,8 @@ class StoreCustomerRequest extends FormRequest
                 'nullable',
                 'string',
                 'max:20',
-                Rule::unique('customer_tax_profiles', 'identification'),
+                Rule::unique('customer_tax_profiles', 'identification')
+                    ->where('identification_document_id', $this->input('identification_document_id')),
             ],
             'municipality_id' => [
                 'required_if:requires_electronic_invoice,1',
