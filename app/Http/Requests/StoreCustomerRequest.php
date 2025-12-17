@@ -56,7 +56,7 @@ class StoreCustomerRequest extends FormRequest
             'tax_phone' => ['nullable', 'string', 'max:20'],
         ];
 
-        // Reglas dinámicas basadas en el tipo de documento (de f8a468da85c38ac34413141724265228e85a0ff9)
+        // Reglas dinámicas basadas en el tipo de documento
         if ($this->boolean('requires_electronic_invoice') && $this->has('identification_document_id')) {
             $identificationDocument = \App\Models\DianIdentificationDocument::find(
                 $this->input('identification_document_id')

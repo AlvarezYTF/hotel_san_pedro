@@ -11,22 +11,22 @@
             <div class="flex items-center space-x-3 sm:space-x-4">
                 <div class="p-2.5 sm:p-3 rounded-xl bg-emerald-50 text-emerald-600">
                     <i class="fas fa-users text-lg sm:text-xl"></i>
-                    </div>
-                    <div>
+                </div>
+                <div>
                     <h1 class="text-xl sm:text-2xl font-bold text-gray-900">Gestión de Clientes</h1>
                     <div class="flex items-center space-x-2 mt-1">
                         <span class="text-xs sm:text-sm text-gray-500">
                             <span class="font-semibold text-gray-900">{{ $customers->total() }}</span> clientes registrados
-                            </span>
+                        </span>
                         <span class="text-gray-300 hidden sm:inline">•</span>
                         <span class="text-xs sm:text-sm text-gray-500 hidden sm:inline">
                             <i class="fas fa-database mr-1"></i> Base de datos de clientes
-                            </span>
+                        </span>
                     </div>
                 </div>
             </div>
             
-            <a href="{{ route('customers.create') }}" 
+            <a href="{{ route('customers.create') }}"
                class="inline-flex items-center justify-center px-4 sm:px-5 py-2.5 rounded-xl border-2 border-emerald-600 bg-emerald-600 text-white text-sm font-semibold hover:bg-emerald-700 hover:border-emerald-700 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500 shadow-sm hover:shadow-md">
                 <i class="fas fa-plus mr-2"></i>
                 <span>Nuevo Cliente</span>
@@ -36,53 +36,93 @@
     
     <!-- Filtros -->
     <div class="bg-white rounded-xl border border-gray-100 p-4 sm:p-6">
-        <form method="GET" action="{{ route('customers.index') }}" class="space-y-4">
-            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div>
+        <form method="GET" action="{{ route('customers.index') }}" class="space-y-4" id="filter-form">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-sm font-semibold text-gray-700">Filtros de Búsqueda</h3>
+                @if(request('search') || request('status'))
+                    <a href="{{ route('customers.index') }}" 
+                       class="text-xs text-emerald-600 hover:text-emerald-700 font-medium flex items-center">
+                        <i class="fas fa-times mr-1"></i>
+                        Limpiar filtros
+                    </a>
+                @endif
+            </div>
+            
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-5">
+                <div>
                     <label for="search" class="block text-xs font-semibold text-gray-700 uppercase tracking-wider mb-2">
-                        Buscar
+                        Buscar Cliente
                     </label>
                     <div class="relative">
                         <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                             <i class="fas fa-search text-gray-400 text-sm"></i>
                         </div>
-                <input type="text" id="search" name="search" value="{{ request('search') }}" 
+                        <input type="text" 
+                               id="search" 
+                               name="search" 
+                               value="{{ request('search') }}" 
                                class="block w-full pl-10 pr-3 py-2.5 border border-gray-300 rounded-xl text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all"
                                placeholder="Nombre, email o teléfono...">
                     </div>
-            </div>
-            
-            <div>
+                    @if(request('search'))
+                        <p class="mt-1.5 text-xs text-gray-500 flex items-center">
+                            <i class="fas fa-info-circle mr-1.5"></i>
+                            Buscando: "{{ request('search') }}"
+                        </p>
+                    @endif
+                </div>
+                
+                <div>
                     <label for="status" class="block text-xs font-semibold text-gray-700 uppercase tracking-wider mb-2">
-                        Estado
+                        Estado del Cliente
                     </label>
                     <div class="relative">
-                        <select id="status" name="status"
+                        <select id="status" 
+                                name="status"
                                 class="block w-full pl-3 sm:pl-4 pr-10 py-2.5 border border-gray-300 rounded-xl text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent appearance-none bg-white">
-                    <option value="">Todos los estados</option>
-                    <option value="active" {{ request('status') == 'active' ? 'selected' : '' }}>Activo</option>
-                    <option value="inactive" {{ request('status') == 'inactive' ? 'selected' : '' }}>Inactivo</option>
-                </select>
+                            <option value="">Todos los estados</option>
+                            <option value="active" {{ request('status') == 'active' ? 'selected' : '' }}>Activo</option>
+                            <option value="inactive" {{ request('status') == 'inactive' ? 'selected' : '' }}>Inactivo</option>
+                        </select>
                         <div class="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
                             <i class="fas fa-chevron-down text-gray-400 text-xs"></i>
                         </div>
                     </div>
-            </div>
-            
-            <div class="flex items-end">
+                </div>
+                
+                <div class="flex items-end">
                     <button type="submit"
                             class="w-full inline-flex items-center justify-center px-4 py-2.5 rounded-xl border-2 border-gray-200 bg-white text-gray-700 text-sm font-semibold hover:bg-gray-50 hover:border-gray-300 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500">
                         <i class="fas fa-filter mr-2"></i>
-                    Filtrar
-                </button>
+                        Filtrar
+                    </button>
                 </div>
             </div>
+            
+            @if(request('search') || request('status'))
+                <div class="pt-3 border-t border-gray-100">
+                    <div class="flex items-center text-xs text-gray-600">
+                        <i class="fas fa-info-circle mr-2 text-emerald-600"></i>
+                        <span>
+                            Mostrando 
+                            <span class="font-semibold text-gray-900">{{ $customers->total() }}</span> 
+                            {{ $customers->total() === 1 ? 'cliente' : 'clientes' }}
+                            @if(request('search'))
+                                que coinciden con "{{ request('search') }}"
+                            @endif
+                            @if(request('status'))
+                                con estado {{ request('status') == 'active' ? 'activo' : 'inactivo' }}
+                            @endif
+                        </span>
+                    </div>
+                </div>
+            @endif
         </form>
     </div>
     
     <!-- Tabla de clientes - Desktop -->
     <div class="hidden lg:block bg-white rounded-xl border border-gray-100 overflow-hidden">
-        <div class="overflow-x-auto">
+        <div class="overflow-x-auto -mx-6 lg:mx-0">
             <table class="min-w-full divide-y divide-gray-100">
                 <thead class="bg-gray-50">
                     <tr>
@@ -96,7 +136,7 @@
                             Ubicación
                         </th>
                         <th class="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                            Actividad
+                            Registro y Actividad
                         </th>
                         <th class="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
                             Estado
@@ -161,12 +201,22 @@
                         </td>
                         
                         <td class="px-6 py-4 whitespace-nowrap">
-                            <div class="flex flex-col space-y-2">
-                                <div class="flex items-center">
-                                    <div class="p-1.5 rounded-lg bg-emerald-50 text-emerald-600 mr-2">
-                                        <i class="fas fa-history text-xs"></i>
+                            <div class="flex flex-col space-y-1.5">
+                                <div class="flex items-center space-x-2">
+                                    @if($customer->requires_electronic_invoice && $customer->taxProfile)
+                                        <div class="p-1.5 rounded-lg bg-blue-50 text-blue-600" title="Facturación Electrónica">
+                                            <i class="fas fa-file-invoice text-xs"></i>
+                                        </div>
+                                    @endif
+                                    <div class="text-xs text-gray-500">
+                                        {{ $customer->created_at->format('d/m/Y') }}
                                     </div>
-                                    <span class="text-xs text-gray-500 italic">Próximamente: Reservas</span>
+                                </div>
+                                <div class="flex items-center">
+                                    <div class="p-1 rounded-lg bg-emerald-50 text-emerald-600 mr-2">
+                                        <i class="fas fa-history text-[10px]"></i>
+                                    </div>
+                                    <span class="text-[10px] text-gray-500 italic">Próximamente: Reservas</span>
                                 </div>
                             </div>
                         </td>
@@ -186,35 +236,60 @@
                         </td>
                         
                         <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                            <div class="flex items-center justify-end space-x-3">
+                            <div class="flex items-center justify-end space-x-2 sm:space-x-3">
                                 <a href="{{ route('customers.show', $customer) }}"
-                                   class="text-blue-600 hover:text-blue-700 transition-colors"
+                                   class="p-2 sm:p-1.5 text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded-lg transition-colors min-w-[44px] min-h-[44px] sm:min-w-0 sm:min-h-0 flex items-center justify-center"
                                    title="Ver detalles">
-                                    <i class="fas fa-eye"></i>
+                                    <i class="fas fa-eye text-sm sm:text-base"></i>
                                 </a>
                                 
                                 <a href="{{ route('customers.edit', $customer) }}"
-                                   class="text-indigo-600 hover:text-indigo-700 transition-colors"
+                                   class="p-2 sm:p-1.5 text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50 rounded-lg transition-colors min-w-[44px] min-h-[44px] sm:min-w-0 sm:min-h-0 flex items-center justify-center"
                                    title="Editar">
-                                    <i class="fas fa-edit"></i>
+                                    <i class="fas fa-edit text-sm sm:text-base"></i>
                                 </a>
                                 
                                 <button type="button"
                                         onclick="openDeleteModal({{ $customer->id }}, {{ json_encode($customer->name) }})"
-                                        class="text-red-600 hover:text-red-700 transition-colors"
+                                        class="p-2 sm:p-1.5 text-red-600 hover:text-red-700 hover:bg-red-50 rounded-lg transition-colors min-w-[44px] min-h-[44px] sm:min-w-0 sm:min-h-0 flex items-center justify-center"
                                         title="Eliminar">
-                                        <i class="fas fa-trash"></i>
-                                    </button>
+                                    <i class="fas fa-trash text-sm sm:text-base"></i>
+                                </button>
                             </div>
                         </td>
                     </tr>
                     @empty
                     <tr>
-                        <td colspan="6" class="px-6 py-12 text-center">
+                        <td colspan="6" class="px-6 py-16 text-center">
                             <div class="flex flex-col items-center">
-                                <i class="fas fa-users text-4xl text-gray-300 mb-4"></i>
-                                <p class="text-base font-semibold text-gray-500 mb-1">No se encontraron clientes</p>
-                                <p class="text-sm text-gray-400">Crea tu primer cliente para comenzar</p>
+                                @if(request('search') || request('status'))
+                                    <div class="p-4 rounded-full bg-amber-50 text-amber-600 mb-4">
+                                        <i class="fas fa-search text-3xl"></i>
+                                    </div>
+                                    <p class="text-lg font-semibold text-gray-900 mb-2">No se encontraron resultados</p>
+                                    <p class="text-sm text-gray-500 mb-4">
+                                        No hay clientes que coincidan con los filtros aplicados.
+                                    </p>
+                                    <a href="{{ route('customers.index') }}"
+                                       class="inline-flex items-center justify-center px-4 sm:px-5 py-3 sm:py-2.5 rounded-xl border-2 border-emerald-600 bg-emerald-600 text-white text-sm sm:text-base font-semibold hover:bg-emerald-700 transition-all min-h-[44px]">
+                                        <i class="fas fa-times mr-2"></i>
+                                        Limpiar filtros
+                                    </a>
+                                @else
+                                    <div class="p-4 rounded-full bg-gray-50 text-gray-400 mb-4">
+                                        <i class="fas fa-users text-3xl"></i>
+                                    </div>
+                                    <p class="text-lg font-semibold text-gray-900 mb-2">No hay clientes registrados</p>
+                                    <p class="text-sm text-gray-500 mb-4">
+                                        Comienza agregando tu primer cliente al sistema.
+                                    </p>
+                                    <a href="{{ route('customers.create') }}"
+                                       class="inline-flex items-center justify-center px-4 sm:px-5 py-3 sm:py-2.5 rounded-xl border-2 border-emerald-600 bg-emerald-600 text-white text-sm sm:text-base font-semibold hover:bg-emerald-700 transition-all min-h-[44px]">
+                                        <i class="fas fa-plus mr-2"></i>
+                                        <span class="hidden sm:inline">Crear Primer Cliente</span>
+                                        <span class="sm:hidden">Crear Cliente</span>
+                                    </a>
+                                @endif
                             </div>
                         </td>
                     </tr>
@@ -226,7 +301,20 @@
         <!-- Paginación Desktop -->
         @if($customers->hasPages())
         <div class="bg-white px-6 py-4 border-t border-gray-100">
-            {{ $customers->appends(request()->query())->links() }}
+            <div class="flex items-center justify-between">
+                <div class="text-sm text-gray-600">
+                    Mostrando 
+                    <span class="font-semibold text-gray-900">{{ $customers->firstItem() }}</span>
+                    a 
+                    <span class="font-semibold text-gray-900">{{ $customers->lastItem() }}</span>
+                    de 
+                    <span class="font-semibold text-gray-900">{{ $customers->total() }}</span>
+                    {{ $customers->total() === 1 ? 'cliente' : 'clientes' }}
+                </div>
+                <div class="flex-1">
+                    {{ $customers->appends(request()->query())->links() }}
+                </div>
+            </div>
         </div>
         @endif
     </div>
@@ -304,51 +392,98 @@
                 </div>
                 @endif
                 
-                <!-- Actividad -->
+                <!-- Información y Actividad -->
                 <div>
-                    <p class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">Actividad</p>
-                    <div class="flex items-center p-2 bg-gray-50 rounded-lg">
-                        <div class="p-1.5 rounded-lg bg-white border border-gray-200 text-gray-400 mr-2">
-                            <i class="fas fa-history text-xs"></i>
+                    <p class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">Información y Actividad</p>
+                    <div class="space-y-2">
+                        <div class="flex items-center space-x-2">
+                            <div class="flex items-center text-xs text-gray-600">
+                                <i class="fas fa-calendar text-gray-400 mr-2 text-xs w-4"></i>
+                                <span>Registrado: {{ $customer->created_at->format('d/m/Y') }}</span>
+                            </div>
+                            @if($customer->requires_electronic_invoice && $customer->taxProfile)
+                                <div class="flex items-center text-xs text-blue-600">
+                                    <i class="fas fa-file-invoice text-blue-400 mr-2 text-xs w-4"></i>
+                                    <span>Facturación Electrónica</span>
+                                </div>
+                            @endif
                         </div>
-                        <span class="text-xs text-gray-500 italic">Próximamente: Reservas</span>
+                        <div class="flex items-center p-2 bg-gray-50 rounded-lg">
+                            <div class="p-1.5 rounded-lg bg-white border border-gray-200 text-gray-400 mr-2">
+                                <i class="fas fa-history text-xs"></i>
+                            </div>
+                            <span class="text-xs text-gray-500 italic">Próximamente: Reservas</span>
+                        </div>
                     </div>
                 </div>
             </div>
             
             <!-- Acciones -->
-            <div class="flex items-center justify-end space-x-3 pt-3 border-t border-gray-100">
+            <div class="flex items-center justify-end space-x-2 sm:space-x-3 pt-3 border-t border-gray-100">
                 <a href="{{ route('customers.show', $customer) }}"
-                   class="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                   class="p-3 sm:p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors min-w-[44px] min-h-[44px] sm:min-w-0 sm:min-h-0 flex items-center justify-center"
                    title="Ver">
-                    <i class="fas fa-eye text-sm"></i>
+                    <i class="fas fa-eye text-base sm:text-sm"></i>
                 </a>
                 
                 <a href="{{ route('customers.edit', $customer) }}"
-                   class="p-2 text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
+                   class="p-3 sm:p-2 text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors min-w-[44px] min-h-[44px] sm:min-w-0 sm:min-h-0 flex items-center justify-center"
                    title="Editar">
-                    <i class="fas fa-edit text-sm"></i>
+                    <i class="fas fa-edit text-base sm:text-sm"></i>
                 </a>
                 
                 <button type="button"
                         onclick="openDeleteModal({{ $customer->id }}, {{ json_encode($customer->name) }})"
-                        class="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                        class="p-3 sm:p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors min-w-[44px] min-h-[44px] sm:min-w-0 sm:min-h-0 flex items-center justify-center"
                         title="Eliminar">
-                    <i class="fas fa-trash text-sm"></i>
+                    <i class="fas fa-trash text-base sm:text-sm"></i>
                 </button>
             </div>
         </div>
         @empty
         <div class="bg-white rounded-xl border border-gray-100 p-12 text-center">
-            <i class="fas fa-users text-4xl text-gray-300 mb-4"></i>
-            <p class="text-base font-semibold text-gray-500 mb-1">No se encontraron clientes</p>
-            <p class="text-sm text-gray-400">Crea tu primer cliente para comenzar</p>
+            @if(request('search') || request('status'))
+                <div class="p-4 rounded-full bg-amber-50 text-amber-600 mb-4 inline-block">
+                    <i class="fas fa-search text-3xl"></i>
+                </div>
+                <p class="text-lg font-semibold text-gray-900 mb-2">No se encontraron resultados</p>
+                <p class="text-sm text-gray-500 mb-4">
+                    No hay clientes que coincidan con los filtros aplicados.
+                </p>
+                <a href="{{ route('customers.index') }}" 
+                   class="inline-flex items-center px-4 py-2 rounded-xl border-2 border-emerald-600 bg-emerald-600 text-white text-sm font-semibold hover:bg-emerald-700 transition-all">
+                    <i class="fas fa-times mr-2"></i>
+                    Limpiar filtros
+                </a>
+            @else
+                <div class="p-4 rounded-full bg-gray-50 text-gray-400 mb-4 inline-block">
+                    <i class="fas fa-users text-3xl"></i>
+                </div>
+                <p class="text-lg font-semibold text-gray-900 mb-2">No hay clientes registrados</p>
+                <p class="text-sm text-gray-500 mb-4">
+                    Comienza agregando tu primer cliente al sistema.
+                </p>
+                <a href="{{ route('customers.create') }}" 
+                   class="inline-flex items-center px-4 py-2 rounded-xl border-2 border-emerald-600 bg-emerald-600 text-white text-sm font-semibold hover:bg-emerald-700 transition-all">
+                    <i class="fas fa-plus mr-2"></i>
+                    Crear Primer Cliente
+                </a>
+            @endif
         </div>
         @endforelse
         
         <!-- Paginación Mobile -->
         @if($customers->hasPages())
         <div class="bg-white rounded-xl border border-gray-100 p-4">
+            <div class="text-center text-sm text-gray-600 mb-3">
+                Mostrando 
+                <span class="font-semibold text-gray-900">{{ $customers->firstItem() }}</span>
+                a 
+                <span class="font-semibold text-gray-900">{{ $customers->lastItem() }}</span>
+                de 
+                <span class="font-semibold text-gray-900">{{ $customers->total() }}</span>
+                {{ $customers->total() === 1 ? 'cliente' : 'clientes' }}
+            </div>
             {{ $customers->appends(request()->query())->links() }}
         </div>
         @endif

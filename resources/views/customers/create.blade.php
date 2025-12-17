@@ -18,9 +18,9 @@
         </div>
     </div>
 
-    <form method="POST" action="{{ route('customers.store') }}" id="customer-form" 
-          x-data="customerForm()" 
-          x-init="init()" 
+    <form method="POST" action="{{ route('customers.store') }}" id="customer-form"
+          x-data="customerForm()"
+          x-init="init()"
           @submit.prevent="submitForm">
         @csrf
 
@@ -52,8 +52,9 @@
                                :class="errors.name ? 'border-red-300 focus:ring-red-500' : ''"
                                placeholder="Ej: Juan Pérez García">
                     </div>
-                    <p x-show="!errors.name" class="mt-1.5 text-xs text-gray-500">
-                        Nombre completo del cliente para identificación
+                    <p x-show="!errors.name" class="mt-1.5 text-xs text-gray-500 flex items-start">
+                        <i class="fas fa-info-circle mr-1.5 mt-0.5 text-gray-400"></i>
+                        <span>Nombre completo del cliente para identificación y facturación</span>
                     </p>
                     <p x-show="errors.name" x-text="errors.name" class="mt-1.5 text-xs text-red-600 flex items-center" x-cloak></p>
                     @error('name')
@@ -64,7 +65,7 @@
                     @enderror
                 </div>
 
-                <div class="grid grid-cols-1 sm:grid-cols-2 gap-5 sm:gap-6">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-5 md:gap-6">
                     <!-- Email -->
                     <div>
                         <label for="email" class="block text-xs sm:text-sm font-semibold text-gray-700 mb-2">
@@ -83,8 +84,9 @@
                                    :class="errors.email ? 'border-red-300 focus:ring-red-500' : ''"
                                    placeholder="juan.perez@email.com">
                         </div>
-                        <p x-show="!errors.email" class="mt-1.5 text-xs text-gray-500">
-                            Email para comunicaciones y facturas
+                        <p x-show="!errors.email" class="mt-1.5 text-xs text-gray-500 flex items-start">
+                            <i class="fas fa-info-circle mr-1.5 mt-0.5 text-gray-400"></i>
+                            <span>Email para comunicaciones y envío de facturas electrónicas (opcional)</span>
                         </p>
                         <p x-show="errors.email" x-text="errors.email" class="mt-1.5 text-xs text-red-600 flex items-center" x-cloak></p>
                         @error('email')
@@ -108,12 +110,17 @@
                                    id="phone"
                                    name="phone"
                                    x-model="formData.phone"
+                                   @input="formatPhone()"
+                                   @blur="validateField('phone')"
                                    class="block w-full pl-10 sm:pl-11 pr-3 sm:pr-4 py-2.5 border border-gray-300 rounded-xl text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all @error('phone') border-red-300 focus:ring-red-500 @enderror"
+                                   :class="errors.phone ? 'border-red-300 focus:ring-red-500' : ''"
                                    placeholder="+1 (555) 123-4567">
                         </div>
-                        <p class="mt-1.5 text-xs text-gray-500">
-                            Número de contacto principal
+                        <p x-show="!errors.phone" class="mt-1.5 text-xs text-gray-500 flex items-start">
+                            <i class="fas fa-info-circle mr-1.5 mt-0.5 text-gray-400"></i>
+                            <span>Número de contacto principal. Puede incluir código de país (opcional)</span>
                         </p>
+                        <p x-show="errors.phone" x-text="errors.phone" class="mt-1.5 text-xs text-red-600 flex items-center" x-cloak></p>
                         @error('phone')
                             <p class="mt-1.5 text-xs text-red-600 flex items-center">
                                 <i class="fas fa-exclamation-circle mr-1.5"></i>
@@ -151,8 +158,9 @@
                                class="block w-full pl-10 sm:pl-11 pr-3 sm:pr-4 py-2.5 border border-gray-300 rounded-xl text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all @error('address') border-red-300 focus:ring-red-500 @enderror"
                                placeholder="Calle, número, colonia">
                     </div>
-                    <p class="mt-1.5 text-xs text-gray-500">
-                        Dirección completa para envíos y facturación
+                    <p class="mt-1.5 text-xs text-gray-500 flex items-start">
+                        <i class="fas fa-info-circle mr-1.5 mt-0.5 text-gray-400"></i>
+                        <span>Dirección completa para envíos y facturación (opcional)</span>
                     </p>
                     @error('address')
                         <p class="mt-1.5 text-xs text-red-600 flex items-center">
@@ -162,7 +170,7 @@
                     @enderror
                 </div>
 
-                <div class="grid grid-cols-1 sm:grid-cols-3 gap-5 sm:gap-6">
+                <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 sm:gap-5 md:gap-6">
                     <!-- Ciudad -->
                     <div>
                         <label for="city" class="block text-xs sm:text-sm font-semibold text-gray-700 mb-2">
@@ -281,8 +289,9 @@
                                class="h-4 w-4 sm:h-5 sm:w-5 text-emerald-600 border-gray-300 rounded focus:ring-emerald-500 focus:ring-2 transition-colors">
                         <span class="ml-3 text-sm font-medium text-gray-700">Cliente activo</span>
                     </label>
-                    <p class="mt-2 text-xs text-gray-500">
-                        Los clientes inactivos no aparecerán en los formularios de reserva
+                    <p class="mt-2 text-xs text-gray-500 flex items-start">
+                        <i class="fas fa-info-circle mr-1.5 mt-0.5 text-gray-400"></i>
+                        <span>Los clientes inactivos no aparecerán en los formularios de reservas y facturación</span>
                     </p>
                 </div>
             </div>
@@ -320,20 +329,20 @@
                  x-transition:enter-start="opacity-0 transform scale-95"
                  x-transition:enter-end="opacity-100 transform scale-100"
                  class="mt-6 space-y-5 border-t border-gray-200 pt-6" x-cloak>
-                
+
                 <!-- Mensaje informativo -->
                 <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
                     <div class="flex items-start">
                         <i class="fas fa-info-circle text-blue-600 mt-0.5 mr-3"></i>
                         <div class="text-sm text-blue-800">
                             <p class="font-semibold mb-1">Campos Obligatorios para Facturación Electrónica</p>
-                            <p class="text-xs">Complete todos los campos marcados con <span class="text-red-500 font-bold">*</span> para poder generar facturas electrónicas válidas según la normativa DIAN.</p>
+                            <p class="text-xs">Complete todos los campos marcados con <span class="text-red-500 font-bold">*</span> para poder generar facturas electrónicas válidas según la normativa DIAN. Los campos opcionales pueden completarse más tarde.</p>
                         </div>
                     </div>
                 </div>
 
                 <!-- Tipo de Documento -->
-                <div class="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-5">
                     <div>
                         <label class="block text-xs font-semibold text-gray-700 mb-2">
                             Tipo de Documento <span class="text-red-500">*</span>
@@ -346,7 +355,7 @@
                                 :class="errors.identification_document_id ? 'border-red-300 focus:ring-red-500' : ''">
                             <option value="">Seleccione...</option>
                             @foreach($identificationDocuments as $doc)
-                                <option value="{{ $doc->id }}" 
+                                <option value="{{ $doc->id }}"
                                         data-code="{{ $doc->code }}"
                                         data-requires-dv="{{ $doc->requires_dv ? 'true' : 'false' }}"
                                         {{ (string)old('identification_document_id') === (string)$doc->id ? 'selected' : '' }}>
@@ -419,6 +428,7 @@
                         <input type="text"
                                name="company"
                                x-model="formData.company"
+                               @blur="validateField('company')"
                                :required="requiresElectronicInvoice && isJuridicalPerson"
                                class="block w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm"
                                :class="errors.company ? 'border-red-300 focus:ring-red-500' : ''">
@@ -512,6 +522,7 @@
                         <select name="municipality_id"
                                 id="municipality_id"
                                 x-model="formData.municipality_id"
+                                @change="validateField('municipality_id')"
                                 class="block w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
                                 :required="requiresElectronicInvoice"
                                 :class="errors.municipality_id ? 'border-red-300 focus:ring-red-500' : ''">
@@ -574,7 +585,7 @@
                 </div>
 
                 <!-- Información de Contacto Adicional -->
-                <div class="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-5">
                     <div>
                         <label class="block text-xs font-semibold text-gray-700 mb-2">
                             Dirección Fiscal
@@ -639,7 +650,7 @@
         </div>
 
         <!-- Botones de Acción -->
-        <div class="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4 pt-4 border-t border-gray-100">
+        <div class="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 sm:gap-4 pt-4 border-t border-gray-100">
             <div class="text-xs sm:text-sm text-gray-500 flex items-center">
                 <i class="fas fa-info-circle mr-1.5"></i>
                 Los campos marcados con <span class="text-red-500 ml-1">*</span> son obligatorios
@@ -653,15 +664,21 @@
                 </a>
 
                 <button type="submit"
-                        class="inline-flex items-center justify-center px-4 sm:px-5 py-2.5 rounded-xl border-2 border-emerald-600 bg-emerald-600 text-white text-sm font-semibold hover:bg-emerald-700 hover:border-emerald-700 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500 shadow-sm hover:shadow-md"
-                        :disabled="loading">
+                        class="inline-flex items-center justify-center px-4 sm:px-5 py-2.5 rounded-xl border-2 border-emerald-600 bg-emerald-600 text-white text-sm font-semibold hover:bg-emerald-700 hover:border-emerald-700 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500 shadow-sm hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
+                        :disabled="loading"
+                        x-bind:class="loading ? 'opacity-50 cursor-not-allowed' : ''">
                     <template x-if="!loading">
-                        <i class="fas fa-user-plus mr-2"></i>
+                        <span>
+                            <i class="fas fa-user-plus mr-2"></i>
+                            Crear Cliente
+                        </span>
                     </template>
                     <template x-if="loading">
-                        <i class="fas fa-spinner fa-spin mr-2"></i>
+                        <span>
+                            <i class="fas fa-spinner fa-spin mr-2"></i>
+                            Procesando...
+                        </span>
                     </template>
-                    <span x-text="loading ? 'Procesando...' : 'Crear Cliente'">Crear Cliente</span>
                 </button>
             </div>
         </div>
@@ -679,7 +696,7 @@ function customerForm() {
         dv: @json(old('dv')),
         requiresDV: false,
         isJuridicalPerson: false,
-        
+
         formData: {
             name: @json(old('name', '')),
             email: @json(old('email', '')),
@@ -687,7 +704,7 @@ function customerForm() {
             company: @json(old('company', '')),
             municipality_id: @json(old('municipality_id', ''))
         },
-        
+
         errors: {},
 
         init() {
@@ -713,26 +730,40 @@ function customerForm() {
         },
 
         calculateDV() {
-            if (this.requiresDV && this.identification && this.identification.length >= 9) {
-                // DV calculation intentionally manual for now
+            if (this.requiresDV && this.identification && this.identification.length >= 5) {
+                // DV calculation logic can be implemented here if needed client-side
+                // For now, it's handled by specific business logic or on backend
             }
         },
-        
+
+        formatPhone() {
+            let value = this.formData.phone.replace(/\D/g, '');
+            if (value.length > 0 && !this.formData.phone.startsWith('+')) {
+                this.formData.phone = '+' + value;
+            }
+        },
+
         validateField(field) {
             this.errors[field] = null;
-            
+
             if (field === 'name') {
                 if (!this.formData.name || this.formData.name.trim() === '') {
                     this.errors.name = 'El nombre es obligatorio.';
                 }
             }
-            
+
             if (field === 'email') {
                 if (this.formData.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(this.formData.email)) {
                     this.errors.email = 'Ingrese un correo electrónico válido.';
                 }
             }
-            
+
+            if (field === 'phone') {
+                if (this.formData.phone && !/^[\+]?[1-9][\d\s\-\(\)]{7,15}$/.test(this.formData.phone)) {
+                    this.errors.phone = 'Ingrese un número de teléfono válido.';
+                }
+            }
+
             if (this.requiresElectronicInvoice) {
                 if (field === 'identification' && !this.identification) {
                     this.errors.identification = 'La identificación es obligatoria para facturación electrónica.';
@@ -748,14 +779,15 @@ function customerForm() {
                 }
             }
         },
-        
+
         submitForm() {
             this.errors = {};
-            
+
             // Validate all necessary fields
             this.validateField('name');
             this.validateField('email');
-            
+            this.validateField('phone');
+
             if (this.requiresElectronicInvoice) {
                 this.validateField('identification');
                 this.validateField('identification_document_id');
@@ -764,9 +796,9 @@ function customerForm() {
                     this.validateField('company');
                 }
             }
-            
+
             const hasErrors = Object.values(this.errors).some(error => error !== null);
-            
+
             if (hasErrors) {
                 // Scroll to first error
                 const firstError = Object.keys(this.errors).find(key => this.errors[key] !== null);
@@ -777,7 +809,7 @@ function customerForm() {
                 }
                 return;
             }
-            
+
             this.loading = true;
             this.$el.submit();
         }
