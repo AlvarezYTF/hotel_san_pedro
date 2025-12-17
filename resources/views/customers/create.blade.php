@@ -18,9 +18,9 @@
         </div>
     </div>
 
-    <form method="POST" action="{{ route('customers.store') }}" id="customer-form" 
-          x-data="customerForm()" 
-          x-init="init()" 
+    <form method="POST" action="{{ route('customers.store') }}" id="customer-form"
+          x-data="customerForm()"
+          x-init="init()"
           @submit.prevent="submitForm">
         @csrf
 
@@ -329,7 +329,7 @@
                  x-transition:enter-start="opacity-0 transform scale-95"
                  x-transition:enter-end="opacity-100 transform scale-100"
                  class="mt-6 space-y-5 border-t border-gray-200 pt-6" x-cloak>
-                
+
                 <!-- Mensaje informativo -->
                 <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
                     <div class="flex items-start">
@@ -696,7 +696,7 @@ function customerForm() {
         dv: @json(old('dv')),
         requiresDV: false,
         isJuridicalPerson: false,
-        
+
         formData: {
             name: @json(old('name', '')),
             email: @json(old('email', '')),
@@ -704,7 +704,7 @@ function customerForm() {
             company: @json(old('company', '')),
             municipality_id: @json(old('municipality_id', ''))
         },
-        
+
         errors: {},
 
         init() {
@@ -742,16 +742,16 @@ function customerForm() {
                 this.formData.phone = '+' + value;
             }
         },
-        
+
         validateField(field) {
             this.errors[field] = null;
-            
+
             if (field === 'name') {
                 if (!this.formData.name || this.formData.name.trim() === '') {
                     this.errors.name = 'El nombre es obligatorio.';
                 }
             }
-            
+
             if (field === 'email') {
                 if (this.formData.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(this.formData.email)) {
                     this.errors.email = 'Ingrese un correo electrónico válido.';
@@ -763,7 +763,7 @@ function customerForm() {
                     this.errors.phone = 'Ingrese un número de teléfono válido.';
                 }
             }
-            
+
             if (this.requiresElectronicInvoice) {
                 if (field === 'identification' && !this.identification) {
                     this.errors.identification = 'La identificación es obligatoria para facturación electrónica.';
@@ -779,15 +779,15 @@ function customerForm() {
                 }
             }
         },
-        
+
         submitForm() {
             this.errors = {};
-            
+
             // Validate all necessary fields
             this.validateField('name');
             this.validateField('email');
             this.validateField('phone');
-            
+
             if (this.requiresElectronicInvoice) {
                 this.validateField('identification');
                 this.validateField('identification_document_id');
@@ -796,9 +796,9 @@ function customerForm() {
                     this.validateField('company');
                 }
             }
-            
+
             const hasErrors = Object.values(this.errors).some(error => error !== null);
-            
+
             if (hasErrors) {
                 // Scroll to first error
                 const firstError = Object.keys(this.errors).find(key => this.errors[key] !== null);
@@ -809,7 +809,7 @@ function customerForm() {
                 }
                 return;
             }
-            
+
             this.loading = true;
             this.$el.submit();
         }
