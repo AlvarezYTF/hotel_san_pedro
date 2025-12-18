@@ -3,114 +3,189 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Registro - MovilTech</title>
+    <title>Registro - Hotel San Pedro</title>
     
     <!-- TailwindCSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
     <!-- Font Awesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <style>
+        body {
+            font-family: 'Plus Jakarta Sans', sans-serif;
+        }
+        .login-bg {
+            background-image: url('{{ asset('assets/img/backgrounds/login-bg.jpeg') }}');
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+        }
+        .login-overlay {
+            background: rgba(0, 0, 0, 0.4);
+            backdrop-filter: blur(8px);
+        }
+        .glass-card {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        @keyframes slideUp {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .animate-slide-up {
+            animation: slideUp 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+    </style>
 </head>
-<body class="bg-gray-100 min-h-screen flex items-center justify-center py-12">
-    <div class="max-w-md w-full space-y-8">
-        <div class="text-center">
-            <div class="mx-auto h-16 w-16 bg-blue-600 rounded-full flex items-center justify-center">
-                <i class="fas fa-user-plus text-white text-2xl"></i>
+<body class="min-h-screen flex items-center justify-center login-bg relative overflow-y-auto py-6 sm:py-12">
+    <div class="absolute inset-0 login-overlay fixed"></div>
+
+    <div class="max-w-lg w-full px-4 z-10 animate-slide-up my-auto">
+        <div class="relative">
+            <!-- Badge -->
+            <div class="absolute -top-6 left-1/2 -translate-x-1/2 z-20">
+                <div class="bg-slate-900/90 text-white px-5 py-2.5 rounded-2xl flex items-center shadow-2xl text-[10px] sm:text-xs font-bold whitespace-nowrap border border-white/10 backdrop-blur-md tracking-wider">
+                    <i class="fas fa-hotel mr-2 text-sm text-slate-300"></i>
+                    SISTEMA DE GESTIÓN HOTELERA
+                </div>
             </div>
-            <h2 class="mt-6 text-3xl font-extrabold text-gray-900">
-                Crear Cuenta
-            </h2>
-            <p class="mt-2 text-sm text-gray-600">
-                Únete a MovilTech
-            </p>
-        </div>
-        
-        <div class="bg-white py-8 px-6 shadow rounded-lg">
-            <form class="space-y-6" method="POST" action="{{ route('register') }}">
-                @csrf
-                
-                <div>
-                    <label for="name" class="block text-sm font-medium text-gray-700">
-                        Nombre Completo
-                    </label>
-                    <div class="mt-1">
-                        <input id="name" name="name" type="text" required 
-                               class="appearance-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm"
-                               placeholder="Tu nombre completo"
-                               value="{{ old('name') }}">
+
+            <!-- Register Card -->
+            <div class="glass-card pt-10 pb-8 px-6 sm:px-12 rounded-[2.5rem] shadow-2xl overflow-hidden">
+                <!-- Logo -->
+                <div class="text-center mb-6">
+                    <div class="inline-flex items-center justify-center w-14 h-14 bg-slate-100 rounded-2xl mb-3">
+                        <i class="fas fa-user-plus text-slate-800 text-2xl"></i>
                     </div>
-                    @error('name')
-                        <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
-                    @enderror
+                    <h1 class="text-2xl font-extrabold text-slate-900 tracking-tight">Crear Cuenta</h1>
+                    <p class="mt-1 text-slate-500 text-sm font-medium italic">Hotel San Pedro</p>
                 </div>
-                
-                <div>
-                    <label for="email" class="block text-sm font-medium text-gray-700">
-                        Correo Electrónico
-                    </label>
-                    <div class="mt-1">
-                        <input id="email" name="email" type="email" required 
-                               class="appearance-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm"
-                               placeholder="correo@ejemplo.com"
-                               value="{{ old('email') }}">
+
+                <form class="space-y-4" method="POST" action="{{ route('register') }}">
+                    @csrf
+                    
+                    <!-- Name Field -->
+                    <div>
+                        <label for="name" class="flex items-center text-xs font-semibold text-slate-700 mb-1.5 ml-1">
+                            <i class="fas fa-id-card mr-2 text-slate-400"></i>
+                            Nombre Completo
+                        </label>
+                        <div class="relative group">
+                            <input id="name" name="name" type="text" required
+                                   class="block w-full pl-4 pr-12 py-3 bg-slate-50/50 border border-slate-200 rounded-2xl text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-slate-900/5 focus:border-slate-900 transition-all duration-200 text-sm"
+                                   placeholder="Tu nombre completo"
+                                   value="{{ old('name') }}">
+                        </div>
+                        @error('name')
+                            <p class="mt-1.5 text-xs text-red-500 flex items-center font-medium">
+                                <i class="fas fa-circle-exclamation mr-1.5"></i>
+                                {{ $message }}
+                            </p>
+                        @enderror
                     </div>
-                    @error('email')
-                        <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
-                    @enderror
-                </div>
-                
-                <div>
-                    <label for="password" class="block text-sm font-medium text-gray-700">
-                        Contraseña
-                    </label>
-                    <div class="mt-1">
-                        <input id="password" name="password" type="password" required 
-                               class="appearance-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm"
-                               placeholder="••••••••">
+
+                    <!-- Email Field -->
+                    <div>
+                        <label for="email" class="flex items-center text-xs font-semibold text-slate-700 mb-1.5 ml-1">
+                            <i class="fas fa-envelope-open mr-2 text-slate-400"></i>
+                            Correo Electrónico
+                        </label>
+                        <div class="relative group">
+                            <input id="email" name="email" type="email" required autocomplete="email"
+                                   class="block w-full pl-4 pr-12 py-3 bg-slate-50/50 border border-slate-200 rounded-2xl text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-slate-900/5 focus:border-slate-900 transition-all duration-200 text-sm"
+                                   placeholder="correo@ejemplo.com"
+                                   value="{{ old('email') }}">
+                        </div>
+                        @error('email')
+                            <p class="mt-1.5 text-xs text-red-500 flex items-center font-medium">
+                                <i class="fas fa-circle-exclamation mr-1.5"></i>
+                                {{ $message }}
+                            </p>
+                        @enderror
                     </div>
-                    @error('password')
-                        <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
-                    @enderror
-                </div>
-                
-                <div>
-                    <label for="password_confirmation" class="block text-sm font-medium text-gray-700">
-                        Confirmar Contraseña
-                    </label>
-                    <div class="mt-1">
-                        <input id="password_confirmation" name="password_confirmation" type="password" required 
-                               class="appearance-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm"
-                               placeholder="••••••••">
+                    
+                    <!-- Password Field -->
+                    <div>
+                        <label for="password" class="flex items-center text-xs font-semibold text-slate-700 mb-1.5 ml-1">
+                            <i class="fas fa-shield-alt mr-2 text-slate-400"></i>
+                            Contraseña
+                        </label>
+                        <div class="relative group">
+                            <input id="password" name="password" type="password" required autocomplete="new-password"
+                                   class="block w-full pl-4 pr-12 py-3 bg-slate-50/50 border border-slate-200 rounded-2xl text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-slate-900/5 focus:border-slate-900 transition-all duration-200 text-sm"
+                                   placeholder="••••••••">
+                        </div>
+                        @error('password')
+                            <p class="mt-1.5 text-xs text-red-500 flex items-center font-medium">
+                                <i class="fas fa-circle-exclamation mr-1.5"></i>
+                                {{ $message }}
+                            </p>
+                        @enderror
+                    </div>
+
+                    <!-- Confirm Password Field -->
+                    <div>
+                        <label for="password_confirmation" class="flex items-center text-xs font-semibold text-slate-700 mb-1.5 ml-1">
+                            <i class="fas fa-check-double mr-2 text-slate-400"></i>
+                            Confirmar Contraseña
+                        </label>
+                        <div class="relative group">
+                            <input id="password_confirmation" name="password_confirmation" type="password" required autocomplete="new-password"
+                                   class="block w-full pl-4 pr-12 py-3 bg-slate-50/50 border border-slate-200 rounded-2xl text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-slate-900/5 focus:border-slate-900 transition-all duration-200 text-sm"
+                                   placeholder="••••••••">
+                        </div>
+                    </div>
+                    
+                    <!-- Submit Button -->
+                    <div class="pt-2">
+                        <button type="submit" 
+                                class="w-full flex justify-center items-center py-3.5 px-4 border border-transparent text-sm font-bold rounded-2xl text-white bg-slate-900 hover:bg-slate-800 focus:outline-none focus:ring-4 focus:ring-slate-900/10 shadow-xl shadow-slate-900/20 transition-all duration-200 active:scale-[0.98]">
+                            <i class="fas fa-user-plus mr-2"></i>
+                            Crear Cuenta
+                        </button>
+                    </div>
+                </form>
+
+                <!-- Divider -->
+                <div class="relative my-6">
+                    <div class="absolute inset-0 flex items-center">
+                        <div class="w-full border-t border-slate-100"></div>
+                    </div>
+                    <div class="relative flex justify-center text-[10px]">
+                        <span class="px-4 bg-white/50 text-slate-400 font-medium backdrop-blur-sm uppercase tracking-wider">¿Ya tienes cuenta?</span>
                     </div>
                 </div>
-                
-                <div>
-                    <button type="submit" 
-                            class="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
-                        <span class="absolute left-0 inset-y-0 flex items-center pl-3">
-                            <i class="fas fa-user-plus text-blue-500 group-hover:text-blue-400"></i>
-                        </span>
-                        Crear Cuenta
-                    </button>
-                </div>
-                
+
                 <div class="text-center">
-                    <p class="text-sm text-gray-600">
-                        ¿Ya tienes una cuenta? 
-                        <a href="{{ route('login') }}" class="font-medium text-blue-600 hover:text-blue-500">
-                            Inicia sesión aquí
-                        </a>
-                    </p>
+                    <a href="{{ route('login') }}" class="inline-flex items-center justify-center px-6 py-2.5 text-xs font-bold text-slate-700 bg-slate-100 rounded-xl border border-slate-200 hover:bg-slate-200 transition-all duration-200 w-full sm:w-auto">
+                        <i class="fas fa-sign-in-alt mr-2 text-[10px]"></i>
+                        Inicia sesión aquí
+                    </a>
                 </div>
-            </form>
+
+                <!-- Information Section -->
+                <div class="mt-6 pt-5 border-t border-slate-100">
+                    <div class="bg-slate-50 rounded-2xl p-3 flex items-start space-x-3">
+                        <div class="flex-shrink-0 mt-0.5">
+                            <i class="fas fa-info-circle text-slate-400 text-xs"></i>
+                        </div>
+                        <p class="text-[10px] text-slate-500 font-medium leading-relaxed">
+                            Rol asignado automáticamente: <span class="text-slate-900 font-bold">"Cliente"</span>.
+                        </p>
+                    </div>
+                </div>
+            </div>
         </div>
         
-        <!-- Información sobre el registro -->
-        <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
-            <h3 class="text-sm font-medium text-blue-800 mb-2">Información:</h3>
-            <p class="text-xs text-blue-700">
-                Al registrarte, se te asignará automáticamente el rol de "Cliente". 
-                Para acceder a funcionalidades adicionales, contacta al administrador.
+        <!-- Footer -->
+        <div class="mt-6 text-center">
+            <p class="text-white/60 text-[10px] font-semibold tracking-widest uppercase">
+                &copy; {{ date('Y') }} HOTEL SAN PEDRO
             </p>
         </div>
     </div>
