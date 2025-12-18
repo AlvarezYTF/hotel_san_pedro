@@ -94,7 +94,19 @@ class ReservationController extends Controller
      */
     public function destroy(Reservation $reservation)
     {
+        $reservationId = $reservation->id;
+        $customerName = $reservation->customer->name;
+        
         $reservation->delete();
+
+        \App\Models\AuditLog::create([
+            'user_id' => auth()->id(),
+            'event' => 'reservation_deleted',
+            'description' => "Eliminó la reserva #{$reservationId} del cliente {$customerName}",
+            'ip_address' => request()->ip(),
+            'user_agent' => request()->userAgent(),
+        ]);
+
         return redirect()->route('reservations.index')->with('success', 'Reserva eliminada correctamente.');
     }
 

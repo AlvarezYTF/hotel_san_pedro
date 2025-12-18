@@ -22,6 +22,9 @@ class User extends Authenticatable
         'username',
         'email',
         'password',
+        'allowed_ip',
+        'working_hours',
+        'security_pin',
     ];
 
     /**
@@ -32,18 +35,26 @@ class User extends Authenticatable
     protected $hidden = [
         'password',
         'remember_token',
+        'security_pin',
     ];
 
     /**
+     * Verify the user's security PIN.
+     */
+    public function verifyPin(string $pin): bool
+    {
+        return $this->security_pin === $pin;
+    }
+
+    /**
      * Get the attributes that should be cast.
-     *
-     * @return array<string, string>
      */
     protected function casts(): array
     {
         return [
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
+            'working_hours' => 'array',
         ];
     }
 

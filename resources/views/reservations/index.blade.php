@@ -139,7 +139,7 @@
                 <p class="text-sm text-gray-500">¿Estás seguro de eliminar esta reserva? Esta acción no se puede deshacer.</p>
             </div>
             <div class="items-center px-4 py-3">
-                <form id="delete-form" method="POST">
+                <form id="delete-form" method="POST" onsubmit="event.preventDefault(); confirmDeleteWithPin(this);">
                     @csrf
                     @method('DELETE')
                     <button type="submit" class="px-4 py-2 bg-red-600 text-white text-base font-medium rounded-lg w-full shadow-sm hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-300">Eliminar</button>
@@ -161,6 +161,18 @@ function openDeleteModal(id) {
 
 function closeDeleteModal() {
     document.getElementById('delete-modal').classList.add('hidden');
+}
+
+function confirmDeleteWithPin(form) {
+    window.dispatchEvent(new CustomEvent('open-pin-modal', {
+        detail: {
+            title: 'Confirmar Eliminación de Reserva',
+            description: 'Para eliminar esta reserva, debe ingresar su PIN administrativo de 4 dígitos.',
+            onSuccess: () => {
+                form.submit();
+            }
+        }
+    }));
 }
 </script>
 @endpush

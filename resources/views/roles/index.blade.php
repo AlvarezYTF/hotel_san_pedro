@@ -5,37 +5,33 @@
 
 @section('content')
 <div class="space-y-4 sm:space-y-6">
+    <!-- Navigation Tabs -->
+    <div class="flex items-center space-x-4 border-b border-gray-200">
+        <a href="{{ route('roles.index') }}" class="px-4 py-2 border-b-2 border-indigo-500 text-indigo-600 font-semibold text-sm">
+            Usuarios y Roles
+        </a>
+        <a href="{{ route('admin.security.permissions') }}" class="px-4 py-2 border-b-2 border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 text-sm transition-all">
+            Matriz de Permisos
+        </a>
+        <a href="{{ route('admin.security.audit') }}" class="px-4 py-2 border-b-2 border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 text-sm transition-all">
+            Registro de Auditoría
+        </a>
+    </div>
+
     <!-- Header Info -->
-    <div class="bg-white rounded-xl border border-gray-100 p-4 sm:p-6">
-        <div class="flex items-center space-x-3 sm:space-x-4">
-            <div class="p-2.5 sm:p-3 rounded-xl bg-indigo-50 text-indigo-600">
-                <i class="fas fa-user-shield text-lg sm:text-xl"></i>
-            </div>
-            <div>
-                <h1 class="text-xl sm:text-2xl font-bold text-gray-900">Configuración de Accesos</h1>
-                <p class="text-xs sm:text-sm text-gray-500 mt-1">Asigna roles a los usuarios del sistema para controlar sus permisos</p>
+    <div class="bg-white rounded-xl border border-gray-100 p-4 sm:p-6 shadow-sm">
+        <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div class="flex items-center space-x-3 sm:space-x-4">
+                <div class="p-2.5 sm:p-3 rounded-xl bg-indigo-50 text-indigo-600">
+                    <i class="fas fa-user-shield text-lg sm:text-xl"></i>
+                </div>
+                <div>
+                    <h1 class="text-xl sm:text-2xl font-bold text-gray-900">Configuración de Accesos</h1>
+                    <p class="text-xs sm:text-sm text-gray-500 mt-1">Gestione usuarios, roles y seguridad avanzada del hotel</p>
+                </div>
             </div>
         </div>
     </div>
-
-    <!-- Alert Messages -->
-    @if(session('success'))
-        <div class="bg-emerald-50 border-l-4 border-emerald-500 p-4 rounded-lg shadow-sm mb-6">
-            <div class="flex items-center">
-                <i class="fas fa-check-circle text-emerald-500 mr-3"></i>
-                <p class="text-sm text-emerald-700 font-medium">{{ session('success') }}</p>
-            </div>
-        </div>
-    @endif
-
-    @if(session('error'))
-        <div class="bg-red-50 border-l-4 border-red-500 p-4 rounded-lg shadow-sm mb-6">
-            <div class="flex items-center">
-                <i class="fas fa-exclamation-circle text-red-500 mr-3"></i>
-                <p class="text-sm text-red-700 font-medium">{{ session('error') }}</p>
-            </div>
-        </div>
-    @endif
 
     <!-- Users Table -->
     <div class="bg-white rounded-xl border border-gray-100 overflow-hidden shadow-sm">
@@ -46,7 +42,8 @@
                         <th class="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Usuario</th>
                         <th class="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Email</th>
                         <th class="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Rol Actual</th>
-                        <th class="px-6 py-4 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">Asignar Nuevo Rol</th>
+                        <th class="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Restricciones</th>
+                        <th class="px-6 py-4 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">Acciones</th>
                     </tr>
                 </thead>
                 <tbody class="bg-white divide-y divide-gray-100">
@@ -80,24 +77,52 @@
                                 {{ $roleName }}
                             </span>
                         </td>
-                        <td class="px-6 py-4 whitespace-nowrap text-right">
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <div class="flex flex-col space-y-1">
+                                @if($user->allowed_ip)
+                                    <span class="text-[10px] text-gray-500 flex items-center">
+                                        <i class="fas fa-network-wired mr-1"></i> IP: {{ $user->allowed_ip }}
+                                    </span>
+                                @endif
+                                @if($user->working_hours)
+                                    <span class="text-[10px] text-gray-500 flex items-center">
+                                        <i class="fas fa-clock mr-1"></i> {{ $user->working_hours['start'] }} - {{ $user->working_hours['end'] }}
+                                    </span>
+                                @endif
+                                @if(!$user->allowed_ip && !$user->working_hours)
+                                    <span class="text-[10px] text-gray-400 italic">Sin restricciones</span>
+                                @endif
+                            </div>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-right space-x-2">
                             @if($user->id !== auth()->id())
-                                <form action="{{ route('usuarios.rol.update', $user) }}" method="POST" class="inline-flex items-center space-x-2">
-                                    @csrf
-                                    <select name="role" class="block w-48 pl-3 pr-10 py-2 text-sm border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 rounded-lg">
-                                        <option value="">Seleccionar rol...</option>
-                                        @foreach($roles as $role)
-                                            <option value="{{ $role->name }}" {{ $user->hasRole($role->name) ? 'selected' : '' }}>
-                                                {{ $role->name }}
-                                            </option>
-                                        @endforeach
-                                    </select>
-                                    <button type="submit" class="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-lg text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-all">
-                                        Asignar
-                                    </button>
-                                </form>
+                                <div class="inline-flex items-center space-x-3">
+                                    <form action="{{ route('usuarios.rol.update', $user) }}" method="POST" class="inline-flex items-center space-x-2">
+                                        @csrf
+                                        <select name="role" class="block w-40 pl-3 pr-10 py-1.5 text-xs border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 rounded-lg">
+                                            <option value="">Nuevo rol...</option>
+                                            @foreach($roles as $role)
+                                                <option value="{{ $role->name }}" {{ $user->hasRole($role->name) ? 'selected' : '' }}>
+                                                    {{ $role->name }}
+                                                </option>
+                                            @endforeach
+                                        </select>
+                                        <button type="submit" class="p-1.5 bg-indigo-50 text-indigo-600 rounded-lg hover:bg-indigo-100 transition-colors" title="Guardar Rol">
+                                            <i class="fas fa-save text-xs"></i>
+                                        </button>
+                                    </form>
+
+                                    @if(!$user->hasRole('Administrador'))
+                                        <form action="{{ route('admin.security.impersonate.start', $user) }}" method="POST" class="inline">
+                                            @csrf
+                                            <button type="submit" class="p-1.5 bg-amber-50 text-amber-600 rounded-lg hover:bg-amber-100 transition-colors" title="Ver como este usuario">
+                                                <i class="fas fa-user-secret text-xs"></i>
+                                            </button>
+                                        </form>
+                                    @endif
+                                </div>
                             @else
-                                <span class="text-xs text-gray-400 italic">No puedes cambiar tu propio rol</span>
+                                <span class="text-xs text-gray-400 italic">Sesión actual</span>
                             @endif
                         </td>
                     </tr>

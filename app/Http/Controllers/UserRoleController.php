@@ -34,7 +34,17 @@ class UserRoleController extends Controller
 
         // 3. Sincronizar el rol (Spatie Laravel Permission)
         // syncRoles reemplaza todos los roles actuales por el nuevo
+        $oldRole = $user->getRoleNames()->first();
         $user->syncRoles([$roleName]);
+
+        \App\Models\AuditLog::create([
+            'user_id' => Auth::id(),
+            'event' => 'role_changed',
+            'description' => "Cambió el rol de {$user->name} de '{$oldRole}' a '{$roleName}'",
+            'ip_address' => $request->ip(),
+            'user_agent' => $request->userAgent(),
+            'metadata' => ['target_user_id' => $user->id, 'old_role' => $oldRole, 'new_role' => $roleName]
+        ]);
 
         return back()->with('success', "Rol de {$user->name} actualizado a {$roleName} correctamente.");
     }

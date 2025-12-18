@@ -21,6 +21,7 @@ class UserSeeder extends Seeder
         $adminData = [
             'name' => 'Administrador',
             'password' => Hash::make('Brandon-Administrador-2025#'),
+            'security_pin' => '1234',
         ];
 
         if ($hasUsernameColumn) {
@@ -40,6 +41,8 @@ class UserSeeder extends Seeder
         $receptionistData = [
             'name' => 'Recepcionista Día',
             'password' => Hash::make('Recepcionista2025#'),
+            'security_pin' => '0000',
+            'working_hours' => ['start' => '06:00', 'end' => '14:00'],
         ];
 
         if ($hasUsernameColumn) {
@@ -53,6 +56,27 @@ class UserSeeder extends Seeder
         
         if (!$receptionist->hasRole('Recepcionista Día')) {
             $receptionist->assignRole('Recepcionista Día');
+        }
+
+        // Usuario recepcionista noche
+        $nightData = [
+            'name' => 'Recepcionista Noche',
+            'password' => Hash::make('Noche2025#'),
+            'security_pin' => '1111',
+            'working_hours' => ['start' => '22:00', 'end' => '06:00'],
+        ];
+
+        if ($hasUsernameColumn) {
+            $nightData['username'] = 'recepcionista.noche';
+        }
+
+        $night = User::firstOrCreate(
+            ['email' => 'recepcionista.noche@hotel.com'],
+            $nightData
+        );
+
+        if (!$night->hasRole('Recepcionista Noche')) {
+            $night->assignRole('Recepcionista Noche');
         }
     }
 }
