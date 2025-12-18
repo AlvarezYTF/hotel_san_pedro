@@ -6,6 +6,7 @@ use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\ProductController;
 use App\Http\Controllers\CategoryController;
 use App\Http\Controllers\CustomerController;
+use App\Http\Controllers\ReservationController;
 use App\Http\Controllers\ReportController;
 use App\Http\Controllers\DeploymentController;
 use App\Http\Controllers\ElectronicInvoiceController;
@@ -75,6 +76,26 @@ Route::middleware('auth')->group(function () {
     // Show debe ir al final para evitar conflictos con create y edit
     Route::middleware('permission:view_customers')->group(function () {
         Route::get('/customers/{customer}', [CustomerController::class, 'show'])->name('customers.show');
+    });
+
+    // Reservas
+    Route::middleware('permission:view_reservations')->group(function () {
+        Route::get('/reservations', [ReservationController::class, 'index'])->name('reservations.index');
+        Route::get('/reservations/{reservation}/download', [ReservationController::class, 'download'])->name('reservations.download');
+    });
+
+    Route::middleware('permission:create_reservations')->group(function () {
+        Route::get('/reservations/create', [ReservationController::class, 'create'])->name('reservations.create');
+        Route::post('/reservations', [ReservationController::class, 'store'])->name('reservations.store');
+    });
+
+    Route::middleware('permission:edit_reservations')->group(function () {
+        Route::get('/reservations/{reservation}/edit', [ReservationController::class, 'edit'])->name('reservations.edit');
+        Route::put('/reservations/{reservation}', [ReservationController::class, 'update'])->name('reservations.update');
+    });
+
+    Route::middleware('permission:delete_reservations')->group(function () {
+        Route::delete('/reservations/{reservation}', [ReservationController::class, 'destroy'])->name('reservations.destroy');
     });
 
     // Categorías - con middleware de permisos para administradores

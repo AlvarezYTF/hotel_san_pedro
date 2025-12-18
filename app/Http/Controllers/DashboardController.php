@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use App\Models\Product;
 use App\Models\Customer;
+use App\Models\Reservation;
 use Illuminate\Support\Facades\DB;
 
 class DashboardController extends Controller
@@ -18,6 +19,7 @@ class DashboardController extends Controller
             'total_products' => Product::count(),
             'low_stock_products' => Product::where('quantity', '<', 10)->count(),
             'total_customers' => Customer::count(),
+            'total_reservations' => Reservation::count(),
         ];
 
         // Productos con bajo stock
