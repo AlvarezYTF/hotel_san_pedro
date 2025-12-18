@@ -25,9 +25,22 @@ class ReservationController extends Controller
      */
     public function create()
     {
-        $customers = Customer::all();
+        $customers = Customer::active()->get();
         $rooms = Room::where('status', '!=', 'maintenance')->get();
-        return view('reservations.create', compact('customers', 'rooms'));
+        
+        // Preparar datos de habitaciones para Alpine.js
+        $roomsData = $rooms->map(function($room) {
+            return [
+                'id' => $room->id,
+                'number' => $room->room_number,
+                'type' => $room->room_type,
+                'price' => (float)$room->price_per_night,
+                'capacity' => 2, // Asumiendo capacidad por defecto si no existe en BD
+                'status' => $room->status
+            ];
+        });
+
+        return view('reservations.create', compact('customers', 'rooms', 'roomsData'));
     }
 
     /**
