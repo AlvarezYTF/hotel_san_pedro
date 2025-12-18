@@ -33,21 +33,11 @@ class UpdateProductRequest extends FormRequest
      */
     public function rules(): array
     {
-        $productId = $this->route('product')->id ?? null;
-
         return [
             'name' => 'required|string|max:255',
-            'sku' => [
-                'required',
-                'string',
-                'max:255',
-                Rule::unique('products', 'sku')->ignore($productId),
-            ],
             'category_id' => 'required|exists:categories,id',
             'quantity' => 'required|integer|min:0',
-            'low_stock_threshold' => 'required|integer|min:0',
             'price' => 'required|numeric|min:0',
-            'cost_price' => 'nullable|numeric|min:0',
             'status' => 'required|in:active,inactive,discontinued',
         ];
     }
@@ -61,11 +51,9 @@ class UpdateProductRequest extends FormRequest
     {
         return [
             'name.required' => 'El nombre del producto es obligatorio.',
-            'sku.required' => 'El SKU es obligatorio.',
-            'sku.unique' => 'Este SKU ya está en uso.',
             'category_id.required' => 'La categoría es obligatoria.',
             'category_id.exists' => 'La categoría seleccionada no existe.',
-            'quantity.required' => 'La cantidad es obligatoria.',
+            'quantity.required' => 'La cantidad (stock) es obligatoria.',
             'quantity.min' => 'La cantidad no puede ser negativa.',
             'price.required' => 'El precio es obligatorio.',
             'price.min' => 'El precio no puede ser negativo.',

@@ -29,8 +29,7 @@ class ProductRepository
         if (isset($filters['search']) && $filters['search']) {
             $search = $filters['search'];
             $query->where(function ($q) use ($search) {
-                $q->where('name', 'like', "%{$search}%")
-                  ->orWhere('sku', 'like', "%{$search}%");
+                $q->where('name', 'like', "%{$search}%");
             });
         }
 
