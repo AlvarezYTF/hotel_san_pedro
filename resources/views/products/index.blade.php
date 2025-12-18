@@ -139,7 +139,6 @@
                                 </div>
                                 <div>
                                     <div class="text-sm font-semibold text-gray-900">{{ $product->name }}</div>
-                                    <div class="text-xs text-gray-500 mt-0.5">{{ $product->sku }}</div>
                                 </div>
                             </div>
                         </td>
@@ -152,16 +151,8 @@
                         </td>
                         
                         <td class="px-6 py-4 whitespace-nowrap">
-                            <div class="space-y-0.5">
-                                <div class="text-sm font-semibold text-gray-900">
-                                    {{ $product->quantity }} disponible
-                                </div>
-                                <div class="text-xs text-gray-500">
-                                    Inicial: <span class="font-medium">{{ $product->initial_stock }}</span>
-                                </div>
-                                <div class="text-xs text-emerald-600">
-                                    Vendido: <span class="font-medium">{{ $product->sold_quantity ?? 0 }}</span>
-                                </div>
+                            <div class="text-sm font-semibold text-gray-900">
+                                {{ $product->quantity }} unidades
                             </div>
                             @if($product->hasLowStock())
                                 <div class="text-xs text-red-600 mt-1 font-medium">Stock bajo</div>
@@ -172,9 +163,6 @@
                         
                         <td class="px-6 py-4 whitespace-nowrap">
                             <div class="text-sm font-semibold text-gray-900">${{ number_format($product->price, 2) }}</div>
-                            @if($product->cost_price)
-                                <div class="text-xs text-gray-500 mt-0.5">Costo: ${{ number_format($product->cost_price, 2) }}</div>
-                            @endif
                         </td>
                         
                         <td class="px-6 py-4 whitespace-nowrap">

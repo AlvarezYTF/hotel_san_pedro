@@ -13,47 +13,26 @@ class CategorySeeder extends Seeder
      */
     public function run(): void
     {
+        // Delete all other categories
+        \App\Models\Category::whereNotIn('name', ['Bebidas', 'Mecato'])->delete();
+
         $categories = [
             [
-                'name' => 'Teléfonos',
-                'description' => 'Smartphones y teléfonos móviles',
+                'name' => 'Bebidas',
+                'description' => 'Todo lo relacionado con bebidas y líquidos',
                 'color' => '#3B82F6',
                 'is_active' => true,
             ],
             [
-                'name' => 'Accesorios',
-                'description' => 'Carcasas, protectores y accesorios varios',
-                'color' => '#10B981',
-                'is_active' => true,
-            ],
-            [
-                'name' => 'Cables y Cargadores',
-                'description' => 'Cables USB, cargadores y adaptadores',
+                'name' => 'Mecato',
+                'description' => 'Todo lo relacionado con comida y snacks',
                 'color' => '#F59E0B',
-                'is_active' => true,
-            ],
-            [
-                'name' => 'Auriculares',
-                'description' => 'Auriculares con cable y bluetooth',
-                'color' => '#8B5CF6',
-                'is_active' => true,
-            ],
-            [
-                'name' => 'Repuestos',
-                'description' => 'Pantallas, baterías y otros repuestos',
-                'color' => '#EF4444',
-                'is_active' => true,
-            ],
-            [
-                'name' => 'Herramientas',
-                'description' => 'Herramientas para reparación de dispositivos',
-                'color' => '#6B7280',
                 'is_active' => true,
             ],
         ];
 
         foreach ($categories as $category) {
-            Category::firstOrCreate(
+            \App\Models\Category::updateOrCreate(
                 ['name' => $category['name']],
                 $category
             );
