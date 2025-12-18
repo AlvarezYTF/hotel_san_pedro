@@ -66,14 +66,14 @@
                     <span class="ml-3">Inventario</span>
                 </a>
                 @endcan
-                
-                @can('view_categories')
-                <a href="{{ route('categories.index') }}" @click="sidebarOpen = false" class="flex items-center px-4 py-3 text-gray-300 hover:bg-gray-700 hover:text-white transition-colors {{ request()->routeIs('categories.*') ? 'bg-gray-700 text-white' : '' }}">
-                    <i class="fas fa-tags w-5"></i>
-                    <span class="ml-3">Categorías</span>
+
+                @can('view_reservations')
+                <a href="{{ route('reservations.index') }}" @click="sidebarOpen = false" class="flex items-center px-4 py-3 text-gray-300 hover:bg-gray-700 hover:text-white transition-colors {{ request()->routeIs('reservations.*') ? 'bg-gray-700 text-white' : '' }}">
+                    <i class="fas fa-calendar-check w-5"></i>
+                    <span class="ml-3">Reservaciones</span>
                 </a>
                 @endcan
-                
+
                 <a href="{{ route('customers.index') }}" @click="sidebarOpen = false" class="flex items-center px-4 py-3 text-gray-300 hover:bg-gray-700 hover:text-white transition-colors {{ request()->routeIs('customers.*') ? 'bg-gray-700 text-white' : '' }}">
                     <i class="fas fa-users w-5"></i>
                     <span class="ml-3">Clientes</span>

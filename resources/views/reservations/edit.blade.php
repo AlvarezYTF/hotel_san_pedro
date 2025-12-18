@@ -1,0 +1,114 @@
+@extends('layouts.app')
+
+@section('title', 'Editar Reserva')
+@section('header', 'Editar Reserva')
+
+@section('content')
+<div class="max-w-4xl mx-auto space-y-4 sm:space-y-6">
+    <!-- Header -->
+    <div class="bg-white rounded-xl border border-gray-100 p-4 sm:p-6">
+        <div class="flex items-center space-x-3 sm:space-x-4">
+            <div class="p-2.5 sm:p-3 rounded-xl bg-indigo-50 text-indigo-600">
+                <i class="fas fa-calendar-edit text-lg sm:text-xl"></i>
+            </div>
+            <div>
+                <h1 class="text-xl sm:text-2xl font-bold text-gray-900">Editar Reserva #{{ $reservation->id }}</h1>
+                <p class="text-xs sm:text-sm text-gray-500 mt-1">Actualiza la información de la reserva</p>
+            </div>
+        </div>
+    </div>
+
+    <form method="POST" action="{{ route('reservations.update', $reservation) }}" class="space-y-6">
+        @csrf
+        @method('PUT')
+
+        <!-- Información de la Reserva -->
+        <div class="bg-white rounded-xl border border-gray-100 p-4 sm:p-6 space-y-5">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <!-- Cliente -->
+                <div>
+                    <label for="customer_id" class="block text-sm font-semibold text-gray-700 mb-2">Cliente <span class="text-red-500">*</span></label>
+                    <select name="customer_id" id="customer_id" class="block w-full border-gray-300 rounded-xl text-sm focus:ring-emerald-500 focus:border-emerald-500" required>
+                        @foreach($customers as $customer)
+                            <option value="{{ $customer->id }}" {{ old('customer_id', $reservation->customer_id) == $customer->id ? 'selected' : '' }}>{{ $customer->name }}</option>
+                        @endforeach
+                    </select>
+                    @error('customer_id') <p class="text-red-500 text-xs mt-1">{{ $message }}</p> @enderror
+                </div>
+
+                <!-- Habitación -->
+                <div>
+                    <label for="room_id" class="block text-sm font-semibold text-gray-700 mb-2">Habitación <span class="text-red-500">*</span></label>
+                    <select name="room_id" id="room_id" class="block w-full border-gray-300 rounded-xl text-sm focus:ring-emerald-500 focus:border-emerald-500" required>
+                        @foreach($rooms as $room)
+                            <option value="{{ $room->id }}" {{ old('room_id', $reservation->room_id) == $room->id ? 'selected' : '' }}>
+                                {{ $room->room_number }} - {{ $room->room_type }}
+                            </option>
+                        @endforeach
+                    </select>
+                    @error('room_id') <p class="text-red-500 text-xs mt-1">{{ $message }}</p> @enderror
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <!-- Fecha Reserva -->
+                <div>
+                    <label for="reservation_date" class="block text-sm font-semibold text-gray-700 mb-2">Fecha de Reserva <span class="text-red-500">*</span></label>
+                    <input type="date" name="reservation_date" id="reservation_date" value="{{ old('reservation_date', $reservation->reservation_date->format('Y-m-d')) }}" class="block w-full border-gray-300 rounded-xl text-sm focus:ring-emerald-500 focus:border-emerald-500" required>
+                    @error('reservation_date') <p class="text-red-500 text-xs mt-1">{{ $message }}</p> @enderror
+                </div>
+
+                <!-- Fecha Entrada -->
+                <div>
+                    <label for="check_in_date" class="block text-sm font-semibold text-gray-700 mb-2">Fecha de Entrada <span class="text-red-500">*</span></label>
+                    <input type="date" name="check_in_date" id="check_in_date" value="{{ old('check_in_date', $reservation->check_in_date->format('Y-m-d')) }}" class="block w-full border-gray-300 rounded-xl text-sm focus:ring-emerald-500 focus:border-emerald-500" required>
+                    @error('check_in_date') <p class="text-red-500 text-xs mt-1">{{ $message }}</p> @enderror
+                </div>
+
+                <!-- Fecha Salida -->
+                <div>
+                    <label for="check_out_date" class="block text-sm font-semibold text-gray-700 mb-2">Fecha de Salida <span class="text-red-500">*</span></label>
+                    <input type="date" name="check_out_date" id="check_out_date" value="{{ old('check_out_date', $reservation->check_out_date->format('Y-m-d')) }}" class="block w-full border-gray-300 rounded-xl text-sm focus:ring-emerald-500 focus:border-emerald-500" required>
+                    @error('check_out_date') <p class="text-red-500 text-xs mt-1">{{ $message }}</p> @enderror
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <!-- Valor Total -->
+                <div>
+                    <label for="total_amount" class="block text-sm font-semibold text-gray-700 mb-2">Valor Total <span class="text-red-500">*</span></label>
+                    <div class="relative">
+                        <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-gray-500">$</span>
+                        <input type="number" step="1" name="total_amount" id="total_amount" value="{{ old('total_amount', round($reservation->total_amount)) }}" class="block w-full pl-8 border-gray-300 rounded-xl text-sm focus:ring-emerald-500 focus:border-emerald-500" required>
+                    </div>
+                    @error('total_amount') <p class="text-red-500 text-xs mt-1">{{ $message }}</p> @enderror
+                </div>
+
+                <!-- Abono -->
+                <div>
+                    <label for="deposit" class="block text-sm font-semibold text-gray-700 mb-2">Abono <span class="text-red-500">*</span></label>
+                    <div class="relative">
+                        <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-gray-500">$</span>
+                        <input type="number" step="1" name="deposit" id="deposit" value="{{ old('deposit', round($reservation->deposit)) }}" class="block w-full pl-8 border-gray-300 rounded-xl text-sm focus:ring-emerald-500 focus:border-emerald-500" required>
+                    </div>
+                    @error('deposit') <p class="text-red-500 text-xs mt-1">{{ $message }}</p> @enderror
+                </div>
+            </div>
+
+            <!-- Observaciones -->
+            <div>
+                <label for="notes" class="block text-sm font-semibold text-gray-700 mb-2">Observaciones</label>
+                <textarea name="notes" id="notes" rows="3" class="block w-full border-gray-300 rounded-xl text-sm focus:ring-emerald-500 focus:border-emerald-500">{{ old('notes', $reservation->notes) }}</textarea>
+                @error('notes') <p class="text-red-500 text-xs mt-1">{{ $message }}</p> @enderror
+            </div>
+        </div>
+
+        <!-- Botones -->
+        <div class="flex items-center justify-end space-x-4">
+            <a href="{{ route('reservations.index') }}" class="px-5 py-2.5 rounded-xl border border-gray-300 bg-white text-gray-700 text-sm font-semibold hover:bg-gray-50 transition-all">Cancelar</a>
+            <button type="submit" class="px-5 py-2.5 rounded-xl bg-indigo-600 text-white text-sm font-semibold hover:bg-indigo-700 transition-all shadow-sm">Actualizar Reserva</button>
+        </div>
+    </form>
+</div>
+@endsection
+

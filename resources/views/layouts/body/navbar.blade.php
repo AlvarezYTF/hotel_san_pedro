@@ -26,7 +26,40 @@
                         </a>
                     </li>
 
-                    <li class="nav-item dropdown {{ request()->is('users*', 'categories*') ? 'active' : null }}">
+                    <li class="nav-item {{ request()->is('customers*') ? 'active' : null }}">
+                        <a class="nav-link" href="{{ route('customers.index') }}" >
+                            <span class="nav-link-icon d-md-none d-lg-inline-block">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-users" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+                                    <path stroke="none" d="M0 0h24v24H0z" fill="none"/>
+                                    <path d="M9 7a4 4 0 1 0 8 0a4 4 0 0 0 -8 0" />
+                                    <path d="M3 21v-2a4 4 0 0 1 4 -4h4a4 4 0 0 1 4 4v2" />
+                                    <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+                                    <path d="M21 21v-2a4 4 0 0 0 -3 -3.85" />
+                                </svg>
+                            </span>
+                            <span class="nav-link-title">
+                                {{ __('Clientes') }}
+                            </span>
+                        </a>
+                    </li>
+
+                    <li class="nav-item {{ request()->is('reservations*') ? 'active' : null }}">
+                        <a class="nav-link" href="{{ route('reservations.index') }}" >
+                            <span class="nav-link-icon d-md-none d-lg-inline-block">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-calendar-check" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+                                    <path stroke="none" d="M0 0h24v24H0z" fill="none"/>
+                                    <path d="M11.5 21h-5.5a2 2 0 0 1 -2 -2v-12a2 2 0 0 1 2 -2h12a2 2 0 0 1 2 2v6" />
+                                    <path d="M16 3v4" /><path d="M8 3v4" /><path d="M4 11h16" />
+                                    <path d="M15 19l2 2l4 -4" />
+                                </svg>
+                            </span>
+                            <span class="nav-link-title">
+                                {{ __('Reservas') }}
+                            </span>
+                        </a>
+                    </li>
+
+                    <li class="nav-item dropdown {{ request()->is('users*', 'company-tax-settings*') ? 'active' : null }}">
                         <a class="nav-link dropdown-toggle" href="#navbar-base" data-bs-toggle="dropdown" data-bs-auto-close="outside" role="button" aria-expanded="false">
                             <span class="nav-link-icon d-md-none d-lg-inline-block">
                                 <svg xmlns="http://www.w3.org/2000/svg"
@@ -47,8 +80,8 @@
                         <div class="dropdown-menu">
                             <div class="dropdown-menu-columns">
                                 <div class="dropdown-menu-column">
-                                    <a class="dropdown-item" href="{{ route('categories.index') }}">
-                                        {{ __('Categorías') }}
+                                    <a class="dropdown-item" href="{{ route('company-tax-settings.edit') }}">
+                                        {{ __('Configuración Fiscal') }}
                                     </a>
                                 </div>
                             </div>
