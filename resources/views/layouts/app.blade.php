@@ -27,6 +27,22 @@
 </head>
 <body class="bg-gray-100" x-data="{ sidebarOpen: false }" x-cloak>
     <div class="min-h-screen flex">
+        <!-- Impersonation Banner -->
+        @if(session()->has('impersonated_by'))
+            <div class="fixed top-0 left-0 right-0 z-[100] bg-amber-600 text-white px-4 py-2 flex items-center justify-between shadow-lg animate-pulse">
+                <div class="flex items-center space-x-3">
+                    <i class="fas fa-user-secret text-xl"></i>
+                    <span class="text-sm font-bold">ESTÁS IMPERSONANDO A: {{ strtoupper(Auth::user()->name) }}</span>
+                </div>
+                <form action="{{ route('admin.security.impersonate.stop') }}" method="POST">
+                    @csrf
+                    <button type="submit" class="bg-white text-amber-600 px-4 py-1 rounded-lg text-xs font-bold hover:bg-amber-50 transition-all uppercase">
+                        Volver a mi sesión
+                    </button>
+                </form>
+            </div>
+        @endif
+
         <!-- Overlay para móvil -->
         <div x-show="sidebarOpen"
              x-cloak
@@ -100,9 +116,13 @@
                 <div class="px-4 mt-4 mb-2">
                     <p class="text-xs font-semibold text-gray-400 uppercase tracking-wider">Administración</p>
                 </div>
-                <a href="{{ route('roles.index') }}" @click="sidebarOpen = false" class="flex items-center px-4 py-3 text-gray-300 hover:bg-gray-700 hover:text-white transition-colors {{ request()->routeIs('roles.*') ? 'bg-gray-700 text-white' : '' }}">
+                <a href="{{ route('roles.index') }}" @click="sidebarOpen = false" class="flex items-center px-4 py-3 text-gray-300 hover:bg-gray-700 hover:text-white transition-colors {{ request()->routeIs('roles.*') || request()->routeIs('admin.security.*') ? 'bg-gray-700 text-white' : '' }}">
                     <i class="fas fa-user-shield w-5"></i>
-                    <span class="ml-3">Gestión de Roles</span>
+                    <span class="ml-3">Control de Accesos</span>
+                </a>
+                <a href="{{ route('admin.security.audit') }}" @click="sidebarOpen = false" class="flex items-center px-4 py-3 text-gray-300 hover:bg-gray-700 hover:text-white transition-colors {{ request()->routeIs('admin.security.audit') ? 'bg-gray-700 text-white' : '' }}">
+                    <i class="fas fa-clipboard-list w-5"></i>
+                    <span class="ml-3">Registro Auditoría</span>
                 </a>
                 <a href="{{ route('company-tax-settings.edit') }}" @click="sidebarOpen = false" class="flex items-center px-4 py-3 text-gray-300 hover:bg-gray-700 hover:text-white transition-colors {{ request()->routeIs('company-tax-settings.*') ? 'bg-gray-700 text-white' : '' }}">
                     <i class="fas fa-building w-5"></i>
@@ -262,5 +282,138 @@
     </div>
     
     @stack('scripts')
+
+    <!-- Modal de Verificación de PIN -->
+    <div x-data="pinVerification()" 
+         x-show="isOpen" 
+         x-cloak
+         @open-pin-modal.window="openModal($event.detail)"
+         class="fixed inset-0 z-[110] overflow-y-auto" 
+         aria-labelledby="modal-title" role="dialog" aria-modal="true">
+        <div class="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+            <div x-show="isOpen" 
+                 x-transition:enter="ease-out duration-300" 
+                 x-transition:enter-start="opacity-0" 
+                 x-transition:enter-end="opacity-100" 
+                 x-transition:leave="ease-in duration-200" 
+                 x-transition:leave-start="opacity-100" 
+                 x-transition:leave-end="opacity-0" 
+                 class="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" aria-hidden="true"></div>
+
+            <span class="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
+
+            <div x-show="isOpen" 
+                 x-transition:enter="ease-out duration-300" 
+                 x-transition:enter-start="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95" 
+                 x-transition:enter-end="opacity-100 translate-y-0 sm:scale-100" 
+                 x-transition:leave="ease-in duration-200" 
+                 x-transition:leave-start="opacity-100 translate-y-0 sm:scale-100" 
+                 x-transition:leave-end="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95" 
+                 class="inline-block align-bottom bg-white rounded-2xl text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
+                <div class="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+                    <div class="sm:flex sm:items-start">
+                        <div class="mx-auto flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-full bg-red-100 sm:mx-0 sm:h-10 sm:w-10">
+                            <i class="fas fa-lock text-red-600"></i>
+                        </div>
+                        <div class="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left">
+                            <h3 class="text-lg leading-6 font-bold text-gray-900" id="modal-title" x-text="title">Acción Protegida</h3>
+                            <div class="mt-2">
+                                <p class="text-sm text-gray-500" x-text="description">Esta acción requiere verificación de PIN administrativo.</p>
+                            </div>
+                            <div class="mt-4">
+                                <input type="password" 
+                                       x-model="pin" 
+                                       maxlength="4" 
+                                       placeholder="Ingrese PIN de 4 dígitos"
+                                       class="block w-full px-4 py-3 text-center text-2xl tracking-widest border-2 border-gray-200 rounded-xl focus:border-red-500 focus:ring-0 transition-all">
+                                <p x-show="error" x-text="error" class="mt-2 text-xs text-red-600 font-bold"></p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
+                    <button type="button" 
+                            @click="verify()"
+                            :disabled="loading"
+                            class="w-full inline-flex justify-center rounded-xl border border-transparent shadow-sm px-4 py-2 bg-red-600 text-base font-medium text-white hover:bg-red-700 focus:outline-none sm:ml-3 sm:w-auto sm:text-sm disabled:opacity-50">
+                        <span x-show="!loading">Confirmar Acción</span>
+                        <span x-show="loading"><i class="fas fa-spinner fa-spin mr-2"></i>Verificando...</span>
+                    </button>
+                    <button type="button" 
+                            @click="closeModal()"
+                            class="mt-3 w-full inline-flex justify-center rounded-xl border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm">
+                        Cancelar
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+    function pinVerification() {
+        return {
+            isOpen: false,
+            loading: false,
+            pin: '',
+            error: '',
+            title: '',
+            description: '',
+            onSuccess: null,
+
+            openModal(data) {
+                this.isOpen = true;
+                this.title = data.title || 'Acción Protegida';
+                this.description = data.description || 'Esta acción requiere verificación de PIN administrativo.';
+                this.onSuccess = data.onSuccess;
+                this.pin = '';
+                this.error = '';
+            },
+
+            closeModal() {
+                this.isOpen = false;
+                this.pin = '';
+                this.error = '';
+            },
+
+            async verify() {
+                if (this.pin.length !== 4) {
+                    this.error = 'El PIN debe ser de 4 dígitos.';
+                    return;
+                }
+
+                this.loading = true;
+                this.error = '';
+
+                try {
+                    const response = await fetch('{{ route("api.admin.security.verify-pin") }}', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRF-TOKEN': '{{ csrf_token() }}'
+                        },
+                        body: JSON.stringify({ pin: this.pin })
+                    });
+
+                    const data = await response.json();
+
+                    if (response.ok && data.success) {
+                        this.closeModal();
+                        if (typeof this.onSuccess === 'function') {
+                            this.onSuccess();
+                        } else if (typeof window[this.onSuccess] === 'function') {
+                            window[this.onSuccess]();
+                        }
+                    } else {
+                        this.error = data.message || 'PIN incorrecto.';
+                    }
+                } catch (e) {
+                    this.error = 'Error de comunicación con el servidor.';
+                } finally {
+                    this.loading = false;
+                }
+            }
+        }
+    }
+    </script>
 </body>
 </html>

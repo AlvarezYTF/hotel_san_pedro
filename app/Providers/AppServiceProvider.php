@@ -29,5 +29,32 @@ class AppServiceProvider extends ServiceProvider
                 config(['session.secure' => true]);
             }
         }
+
+        // Audit Logs para Autenticación
+        \Illuminate\Support\Facades\Event::listen(
+            \Illuminate\Auth\Events\Login::class,
+            function ($event) {
+                \App\Models\AuditLog::create([
+                    'user_id' => $event->user->id,
+                    'event' => 'login',
+                    'description' => 'Inicio de sesión exitoso',
+                    'ip_address' => request()->ip(),
+                    'user_agent' => request()->userAgent(),
+                ]);
+            }
+        );
+
+        \Illuminate\Support\Facades\Event::listen(
+            \Illuminate\Auth\Events\Failed::class,
+            function ($event) {
+                \App\Models\AuditLog::create([
+                    'user_id' => $event->user?->id,
+                    'event' => 'failed_login',
+                    'description' => 'Intento de inicio de sesión fallido para: ' . ($event->credentials['email'] ?? 'unknown'),
+                    'ip_address' => request()->ip(),
+                    'user_agent' => request()->userAgent(),
+                ]);
+            }
+        );
     }
 }

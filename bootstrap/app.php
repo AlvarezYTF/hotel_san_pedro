@@ -21,6 +21,11 @@ return Application::configure(basePath: dirname(__DIR__))
             'role' => \Spatie\Permission\Middleware\RoleMiddleware::class,
             'permission' => \Spatie\Permission\Middleware\PermissionMiddleware::class,
             'role_or_permission' => \Spatie\Permission\Middleware\RoleOrPermissionMiddleware::class,
+            'security_control' => \App\Http\Middleware\SecurityControlMiddleware::class,
+        ]);
+
+        $middleware->web(append: [
+            \App\Http\Middleware\SecurityControlMiddleware::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

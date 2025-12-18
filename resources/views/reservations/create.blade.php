@@ -4,141 +4,418 @@
 @section('header', 'Nueva Reserva')
 
 @section('content')
-<div class="max-w-4xl mx-auto space-y-4 sm:space-y-6">
-    <!-- Header -->
-    <div class="bg-white rounded-xl border border-gray-100 p-4 sm:p-6">
-        <div class="flex items-center space-x-3 sm:space-x-4">
-            <div class="p-2.5 sm:p-3 rounded-xl bg-emerald-50 text-emerald-600">
-                <i class="fas fa-calendar-plus text-lg sm:text-xl"></i>
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8" x-data="reservationForm()">
+    <!-- Header Contextual -->
+    <div class="mb-6 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+        <div class="flex items-center space-x-3">
+            <div class="p-3 rounded-2xl bg-emerald-100 text-emerald-600 shadow-sm">
+                <i class="fas fa-calendar-plus text-2xl"></i>
             </div>
             <div>
-                <h1 class="text-xl sm:text-2xl font-bold text-gray-900">Nueva Reserva</h1>
-                <p class="text-xs sm:text-sm text-gray-500 mt-1">Registra una nueva reserva de habitación</p>
+                <h1 class="text-2xl font-bold text-gray-900 leading-tight">Nueva Reserva</h1>
+                <p class="text-sm text-gray-500">Configura la estancia y pagos del huésped</p>
             </div>
+        </div>
+        
+        <div class="flex items-center space-x-3">
+            <a href="{{ route('reservations.index') }}" class="px-4 py-2 text-sm font-semibold text-gray-600 bg-white border border-gray-200 rounded-xl hover:bg-gray-50 transition-all">
+                Cancelar
+            </a>
+            <button type="submit" form="reservation-form" 
+                    :disabled="!isValid || loading"
+                    class="px-6 py-2 text-sm font-bold text-white bg-emerald-600 rounded-xl hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm transition-all flex items-center">
+                <i class="fas fa-save mr-2" x-show="!loading"></i>
+                <i class="fas fa-spinner fa-spin mr-2" x-show="loading"></i>
+                Confirmar Reserva
+            </button>
         </div>
     </div>
 
-    <form method="POST" action="{{ route('reservations.store') }}" class="space-y-6">
+    <form id="reservation-form" method="POST" action="{{ route('reservations.store') }}" class="grid grid-cols-1 lg:grid-cols-3 gap-6">
         @csrf
-
-        <!-- Información de la Reserva -->
-        <div class="bg-white rounded-xl border border-gray-100 p-4 sm:p-6 space-y-5">
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <!-- Cliente -->
-                <div>
-                    <label for="customer_id" class="block text-sm font-semibold text-gray-700 mb-2">Cliente <span class="text-red-500">*</span></label>
-                    <select name="customer_id" id="customer_id" class="block w-full border-gray-300 rounded-xl text-sm focus:ring-emerald-500 focus:border-emerald-500" required>
-                        <option value="">Seleccione un cliente...</option>
-                        @foreach($customers as $customer)
-                            <option value="{{ $customer->id }}" {{ old('customer_id') == $customer->id ? 'selected' : '' }}>{{ $customer->name }}</option>
-                        @endforeach
-                    </select>
-                    @error('customer_id') <p class="text-red-500 text-xs mt-1">{{ $message }}</p> @enderror
-                </div>
-
-                <!-- Habitación -->
-                <div>
-                    <label for="room_id" class="block text-sm font-semibold text-gray-700 mb-2">Habitación <span class="text-red-500">*</span></label>
-                    <select name="room_id" id="room_id" class="block w-full border-gray-300 rounded-xl text-sm focus:ring-emerald-500 focus:border-emerald-500" required>
-                        <option value="">Seleccione una habitación...</option>
-                        @foreach($rooms as $room)
-                            <option value="{{ $room->id }}" {{ old('room_id') == $room->id ? 'selected' : '' }}>
-                                {{ $room->room_number }} - {{ $room->room_type }} (${{ number_format($room->price_per_night, 0, ',', '.') }})
-                            </option>
-                        @endforeach
-                    </select>
-                    <div id="availability-status" class="mt-2 text-xs hidden"></div>
-                    @error('room_id') <p class="text-red-500 text-xs mt-1">{{ $message }}</p> @enderror
-                </div>
-            </div>
-
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <!-- Fecha Reserva -->
-                <div>
-                    <label for="reservation_date" class="block text-sm font-semibold text-gray-700 mb-2">Fecha de Reserva <span class="text-red-500">*</span></label>
-                    <input type="date" name="reservation_date" id="reservation_date" value="{{ old('reservation_date', date('Y-m-d')) }}" class="block w-full border-gray-300 rounded-xl text-sm focus:ring-emerald-500 focus:border-emerald-500" required>
-                    @error('reservation_date') <p class="text-red-500 text-xs mt-1">{{ $message }}</p> @enderror
-                </div>
-
-                <!-- Fecha Entrada -->
-                <div>
-                    <label for="check_in_date" class="block text-sm font-semibold text-gray-700 mb-2">Fecha de Entrada <span class="text-red-500">*</span></label>
-                    <input type="date" name="check_in_date" id="check_in_date" value="{{ old('check_in_date') }}" class="block w-full border-gray-300 rounded-xl text-sm focus:ring-emerald-500 focus:border-emerald-500" required>
-                    @error('check_in_date') <p class="text-red-500 text-xs mt-1">{{ $message }}</p> @enderror
-                </div>
-
-                <!-- Fecha Salida -->
-                <div>
-                    <label for="check_out_date" class="block text-sm font-semibold text-gray-700 mb-2">Fecha de Salida <span class="text-red-500">*</span></label>
-                    <input type="date" name="check_out_date" id="check_out_date" value="{{ old('check_out_date') }}" class="block w-full border-gray-300 rounded-xl text-sm focus:ring-emerald-500 focus:border-emerald-500" required>
-                    @error('check_out_date') <p class="text-red-500 text-xs mt-1">{{ $message }}</p> @enderror
-                </div>
-            </div>
-
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <!-- Valor Total -->
-                <div>
-                    <label for="total_amount" class="block text-sm font-semibold text-gray-700 mb-2">Valor Total <span class="text-red-500">*</span></label>
-                    <div class="relative">
-                        <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-gray-500">$</span>
-                        <input type="number" step="1" name="total_amount" id="total_amount" value="{{ old('total_amount') }}" class="block w-full pl-8 border-gray-300 rounded-xl text-sm focus:ring-emerald-500 focus:border-emerald-500" placeholder="0" required>
+        
+        <!-- Columna Principal (2/3) -->
+        <div class="lg:col-span-2 space-y-6">
+            
+            <!-- SECCIÓN 1: CLIENTE -->
+            <div class="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+                <div class="p-5 border-b border-gray-50 flex items-center justify-between bg-gray-50/50">
+                    <div class="flex items-center space-x-2">
+                        <i class="fas fa-user-circle text-blue-500"></i>
+                        <h2 class="font-bold text-gray-800">Información del Cliente</h2>
                     </div>
-                    @error('total_amount') <p class="text-red-500 text-xs mt-1">{{ $message }}</p> @enderror
+                    <a href="{{ route('customers.create') }}" target="_blank" class="text-xs font-bold text-blue-600 hover:text-blue-800 flex items-center">
+                        <i class="fas fa-plus-circle mr-1"></i> NUEVO CLIENTE
+                    </a>
                 </div>
-
-                <!-- Abono -->
-                <div>
-                    <label for="deposit" class="block text-sm font-semibold text-gray-700 mb-2">Abono <span class="text-red-500">*</span></label>
-                    <div class="relative">
-                        <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-gray-500">$</span>
-                        <input type="number" step="1" name="deposit" id="deposit" value="{{ old('deposit', 0) }}" class="block w-full pl-8 border-gray-300 rounded-xl text-sm focus:ring-emerald-500 focus:border-emerald-500" placeholder="0" required>
+                <div class="p-6">
+                    <div class="grid grid-cols-1 gap-4">
+                        <div>
+                            <label class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Seleccionar Huésped</label>
+                            <select name="customer_id" id="customer_id" x-model="customerId" required class="w-full">
+                                <option value="">Buscar por nombre o identificación...</option>
+                                @foreach($customers as $customer)
+                                    <option value="{{ $customer->id }}" 
+                                            data-phone="{{ $customer->phone }}" 
+                                            data-id="{{ $customer->taxProfile->identification ?? 'N/A' }}">
+                                        {{ $customer->name }} ({{ $customer->taxProfile->identification ?? 'S/N' }})
+                                    </option>
+                                @endforeach
+                            </select>
+                        </div>
+                        
+                        <!-- Info Preview del Cliente Seleccionado -->
+                        <template x-if="selectedCustomerInfo">
+                            <div class="mt-2 p-3 bg-blue-50 rounded-xl flex items-center justify-between border border-blue-100 transition-all animate-fadeIn">
+                                <div class="flex items-center space-x-4 text-sm text-blue-800">
+                                    <div class="flex items-center">
+                                        <i class="fas fa-id-card mr-2 opacity-60"></i>
+                                        <span x-text="selectedCustomerInfo.id"></span>
+                                    </div>
+                                    <div class="flex items-center border-l border-blue-200 pl-4">
+                                        <i class="fas fa-phone mr-2 opacity-60"></i>
+                                        <span x-text="selectedCustomerInfo.phone"></span>
+                                    </div>
+                                </div>
+                                <span class="text-[10px] font-bold bg-blue-200 text-blue-800 px-2 py-0.5 rounded-full uppercase">Verificado</span>
+                            </div>
+                        </template>
                     </div>
-                    @error('deposit') <p class="text-red-500 text-xs mt-1">{{ $message }}</p> @enderror
                 </div>
             </div>
 
-            <!-- Observaciones -->
-            <div>
-                <label for="notes" class="block text-sm font-semibold text-gray-700 mb-2">Observaciones</label>
-                <textarea name="notes" id="notes" rows="3" class="block w-full border-gray-300 rounded-xl text-sm focus:ring-emerald-500 focus:border-emerald-500" placeholder="Notas adicionales...">{{ old('notes') }}</textarea>
-                @error('notes') <p class="text-red-500 text-xs mt-1">{{ $message }}</p> @enderror
+            <!-- SECCIÓN 2: HABITACIÓN Y FECHAS -->
+            <div class="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+                <div class="p-5 border-b border-gray-50 bg-gray-50/50 flex items-center">
+                    <i class="fas fa-bed text-emerald-500 mr-2"></i>
+                    <h2 class="font-bold text-gray-800">Estancia y Habitación</h2>
+                </div>
+                <div class="p-6 space-y-6">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <!-- Habitación -->
+                        <div>
+                            <label class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Habitación</label>
+                            <select name="room_id" id="room_id" x-model="roomId" required class="w-full">
+                                <option value="">Seleccionar número...</option>
+                                @foreach($rooms as $room)
+                                    <option value="{{ $room->id }}">
+                                        Habitación {{ $room->room_number }} ({{ $room->room_type }})
+                                    </option>
+                                @endforeach
+                            </select>
+                            
+                            <!-- Status de Disponibilidad -->
+                            <div x-show="roomId" class="mt-3">
+                                <template x-if="isChecking">
+                                    <span class="text-xs text-gray-500 flex items-center">
+                                        <i class="fas fa-spinner fa-spin mr-2"></i> Verificando disponibilidad...
+                                    </span>
+                                </template>
+                                <template x-if="!isChecking && availability !== null">
+                                    <div :class="availability ? 'bg-emerald-50 text-emerald-700 border-emerald-100' : 'bg-red-50 text-red-700 border-red-100'" 
+                                         class="p-2.5 rounded-xl border text-xs font-bold flex items-center">
+                                        <i :class="availability ? 'fas fa-check-circle' : 'fas fa-times-circle'" class="mr-2"></i>
+                                        <span x-text="availability ? 'HABITACIÓN DISPONIBLE' : 'NO DISPONIBLE PARA ESTAS FECHAS'"></span>
+                                    </div>
+                                </template>
+                            </div>
+                        </div>
+
+                        <!-- Detalles Habitación -->
+                        <template x-if="selectedRoom">
+                            <div class="bg-gray-50 rounded-2xl p-4 border border-gray-100 flex flex-col justify-center space-y-3">
+                                <div class="flex justify-between items-center text-sm">
+                                    <span class="text-gray-500 font-medium italic">Precio por noche:</span>
+                                    <span class="font-bold text-gray-900" x-text="formatCurrency(selectedRoom.price)"></span>
+                                </div>
+                                <div class="flex justify-between items-center">
+                                    <span class="px-2 py-1 bg-white border border-gray-200 rounded-lg text-[10px] font-bold text-gray-600 uppercase" x-text="selectedRoom.type"></span>
+                                    <div class="flex items-center text-xs text-gray-600">
+                                        <i class="fas fa-users mr-1.5 opacity-60"></i>
+                                        <span x-text="'Capacidad: ' + selectedRoom.capacity + ' pers.'"></span>
+                                    </div>
+                                </div>
+                            </div>
+                        </template>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4 border-t border-gray-50">
+                        <!-- Fecha Entrada -->
+                        <div>
+                            <label class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Check-In</label>
+                            <div class="relative">
+                                <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400">
+                                    <i class="fas fa-calendar-alt text-sm"></i>
+                                </div>
+                                <input type="date" name="check_in_date" x-model="checkIn" required
+                                       class="block w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-xl text-sm focus:ring-emerald-500 focus:border-emerald-500">
+                            </div>
+                        </div>
+
+                        <!-- Fecha Salida -->
+                        <div>
+                            <label class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Check-Out</label>
+                            <div class="relative">
+                                <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400">
+                                    <i class="fas fa-door-open text-sm"></i>
+                                </div>
+                                <input type="date" name="check_out_date" x-model="checkOut" required
+                                       class="block w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-xl text-sm focus:ring-emerald-500 focus:border-emerald-500">
+                            </div>
+                            <template x-if="nights > 0">
+                                <div class="mt-2 text-[10px] font-black tracking-widest text-emerald-600 uppercase flex items-center">
+                                    <i class="fas fa-moon mr-1.5"></i>
+                                    <span x-text="nights + (nights === 1 ? ' NOCHE' : ' NOCHES')"></span>
+                                </div>
+                            </template>
+                            <template x-if="nights < 1 && checkIn && checkOut">
+                                <span class="mt-2 text-[10px] font-bold text-red-500 uppercase tracking-tighter">
+                                    <i class="fas fa-exclamation-triangle mr-1"></i> La fecha de salida debe ser posterior a la de entrada
+                                </span>
+                            </template>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SECCIÓN 3: NOTAS -->
+            <div class="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+                <div class="p-5 border-b border-gray-50 bg-gray-50/50 flex items-center">
+                    <i class="fas fa-sticky-note text-amber-500 mr-2"></i>
+                    <h2 class="font-bold text-gray-800">Observaciones y Requerimientos</h2>
+                </div>
+                <div class="p-6">
+                    <textarea name="notes" rows="3" class="w-full border-gray-300 rounded-xl text-sm focus:ring-emerald-500 focus:border-emerald-500"
+                              placeholder="Ej: Solicitud especial, alergias, llegada tarde, decoración para aniversario..."></textarea>
+                </div>
             </div>
         </div>
 
-        <!-- Botones -->
-        <div class="flex items-center justify-end space-x-4">
-            <a href="{{ route('reservations.index') }}" class="px-5 py-2.5 rounded-xl border border-gray-300 bg-white text-gray-700 text-sm font-semibold hover:bg-gray-50 transition-all">Cancelar</a>
-            <button type="submit" class="px-5 py-2.5 rounded-xl bg-emerald-600 text-white text-sm font-semibold hover:bg-emerald-700 transition-all shadow-sm">Crear Reserva</button>
+        <!-- Columna Lateral: Resumen Económico (1/3) -->
+        <div class="space-y-6">
+            <div class="bg-gray-800 rounded-2xl shadow-xl overflow-hidden sticky top-24 border border-gray-700">
+                <div class="p-5 border-b border-gray-700 bg-gray-900/50">
+                    <div class="flex items-center justify-between">
+                        <h2 class="text-lg font-bold text-white tracking-tight">Resumen de Cobro</h2>
+                        <i class="fas fa-wallet text-gray-400"></i>
+                    </div>
+                </div>
+                
+                <div class="p-6 space-y-6">
+                    <!-- Valor Total -->
+                    <div class="space-y-2">
+                        <label class="text-[10px] font-black text-gray-400 uppercase tracking-widest">Total Estancia</label>
+                        <div class="relative">
+                            <span class="absolute inset-y-0 left-0 pl-4 flex items-center text-gray-400 font-bold">$</span>
+                            <input type="number" name="total_amount" x-model="total" step="1" required
+                                   class="block w-full pl-8 pr-4 py-4 bg-gray-700 border-none rounded-xl text-xl font-black text-white focus:ring-2 focus:ring-emerald-500 transition-all">
+                        </div>
+                        <template x-if="autoCalculatedTotal > 0 && total != autoCalculatedTotal">
+                            <button type="button" @click="total = autoCalculatedTotal" class="text-[10px] font-bold text-emerald-400 hover:text-emerald-300 underline uppercase tracking-tighter">
+                                Restaurar total sugerido: <span x-text="formatCurrency(autoCalculatedTotal)"></span>
+                            </button>
+                        </template>
+                    </div>
+
+                    <!-- Abono / Depósito -->
+                    <div class="space-y-2">
+                        <label class="text-[10px] font-black text-gray-400 uppercase tracking-widest">Abono Inicial</label>
+                        <div class="relative">
+                            <span class="absolute inset-y-0 left-0 pl-4 flex items-center text-gray-400 font-bold">$</span>
+                            <input type="number" name="deposit" x-model="deposit" step="1" required
+                                   class="block w-full pl-8 pr-4 py-3 bg-gray-700 border-none rounded-xl text-lg font-bold text-white focus:ring-2 focus:ring-blue-500 transition-all">
+                        </div>
+                    </div>
+
+                    <!-- Saldo Pendiente -->
+                    <div class="pt-6 border-t border-gray-700 space-y-4">
+                        <div class="flex justify-between items-end">
+                            <div class="space-y-1">
+                                <span class="text-[10px] font-black text-gray-500 uppercase tracking-widest">Saldo Pendiente</span>
+                                <p class="text-3xl font-black text-white" :class="balance < 0 ? 'text-red-400' : 'text-white'" x-text="formatCurrency(balance)"></p>
+                            </div>
+                            <div class="mb-1">
+                                <template x-if="balance <= 0">
+                                    <span class="px-3 py-1 bg-emerald-500/20 text-emerald-400 rounded-full text-[10px] font-black uppercase tracking-widest border border-emerald-500/30">
+                                        Liquidado
+                                    </span>
+                                </template>
+                                <template x-if="balance > 0">
+                                    <span class="px-3 py-1 bg-amber-500/20 text-amber-400 rounded-full text-[10px] font-black uppercase tracking-widest border border-amber-500/30">
+                                        Pendiente
+                                    </span>
+                                </template>
+                            </div>
+                        </div>
+                        
+                        <!-- Alertas de Pago -->
+                        <template x-if="balance < 0">
+                            <div class="p-3 bg-red-500/20 border border-red-500/30 rounded-xl text-[10px] font-bold text-red-400 text-center animate-bounce uppercase tracking-tighter">
+                                <i class="fas fa-exclamation-triangle mr-1"></i> El abono supera el total de la reserva
+                            </div>
+                        </template>
+                    </div>
+                </div>
+
+                <!-- Footer del Resumen -->
+                <div class="px-6 py-4 bg-black/20 text-center">
+                    <input type="hidden" name="reservation_date" value="{{ date('Y-m-d') }}">
+                    <p class="text-[10px] text-gray-500 font-medium">Fecha de Registro: <span class="font-bold">{{ date('d/m/Y') }}</span></p>
+                </div>
+            </div>
+            
+            <!-- Widget de Ayuda -->
+            <div class="bg-blue-50 border border-blue-100 rounded-2xl p-5 shadow-sm">
+                <div class="flex items-start space-x-3">
+                    <div class="bg-blue-600 rounded-full p-2 text-white text-[10px]">
+                        <i class="fas fa-info"></i>
+                    </div>
+                    <div>
+                        <h4 class="text-sm font-bold text-blue-900 mb-1">Nota rápida</h4>
+                        <p class="text-xs text-blue-700 leading-relaxed">Asegúrate de confirmar la disponibilidad de la habitación antes de procesar el pago inicial.</p>
+                    </div>
+                </div>
+            </div>
         </div>
     </form>
 </div>
 
-@push('scripts')
-<script>
-    const roomSelect = document.getElementById('room_id');
-    const checkIn = document.getElementById('check_in_date');
-    const checkOut = document.getElementById('check_out_date');
-    const statusDiv = document.getElementById('availability-status');
+@push('styles')
+<link href="https://cdn.jsdelivr.net/npm/tom-select@2.3.1/dist/css/tom-select.css" rel="stylesheet">
+<style>
+    .ts-control { border-radius: 0.75rem !important; padding: 0.625rem 0.75rem !important; border: 1px solid #d1d5db !important; }
+    .ts-dropdown { border-radius: 0.75rem !important; margin-top: 0.5rem !important; box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1) !important; border: 1px solid #f3f4f6 !important; }
+    .animate-fadeIn { animation: fadeIn 0.3s ease-out forwards; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+</style>
+@endpush
 
-    function checkAvailability() {
-        if (roomSelect.value && checkIn.value && checkOut.value) {
-            fetch(`{{ route('api.check-availability') }}?room_id=${roomSelect.value}&check_in_date=${checkIn.value}&check_out_date=${checkOut.value}`)
-                .then(response => response.json())
-                .then(data => {
-                    statusDiv.classList.remove('hidden');
-                    if (data.available) {
-                        statusDiv.innerHTML = '<span class="text-emerald-600 font-bold"><i class="fas fa-check-circle mr-1"></i> Habitación disponible</span>';
-                    } else {
-                        statusDiv.innerHTML = '<span class="text-red-600 font-bold"><i class="fas fa-times-circle mr-1"></i> NO DISPONIBLE para estas fechas</span>';
-                    }
-                });
-        } else {
-            statusDiv.classList.add('hidden');
+@push('scripts')
+<script src="https://cdn.jsdelivr.net/npm/tom-select@2.3.1/dist/js/tom-select.complete.min.js"></script>
+<script>
+function reservationForm() {
+    return {
+        loading: false,
+        isChecking: false,
+        availability: null,
+        
+        customerId: '',
+        roomId: '',
+        checkIn: '',
+        checkOut: '',
+        total: 0,
+        deposit: 0,
+        
+        rooms: @json($roomsData),
+        customerSelect: null,
+        roomSelect: null,
+
+        init() {
+            this.initSelectors();
+            
+            // Re-calcular disponibilidad cuando cambien los datos clave
+            this.$watch('roomId', () => this.checkAvailability());
+            this.$watch('checkIn', () => {
+                this.checkAvailability();
+                this.recalculateTotal();
+            });
+            this.$watch('checkOut', () => {
+                this.checkAvailability();
+                this.recalculateTotal();
+            });
+        },
+
+        initSelectors() {
+            this.customerSelect = new TomSelect('#customer_id', {
+                create: false,
+                maxOptions: 100,
+                onChange: (val) => this.customerId = val
+            });
+
+            this.roomSelect = new TomSelect('#room_id', {
+                create: false,
+                onChange: (val) => this.roomId = val
+            });
+        },
+
+        get selectedRoom() {
+            return this.rooms.find(r => r.id == this.roomId) || null;
+        },
+
+        get selectedCustomerInfo() {
+            if (!this.customerId) return null;
+            const option = this.customerSelect.options[this.customerId];
+            if (!option) return null;
+            return {
+                id: option.dataset.id,
+                phone: option.dataset.phone
+            };
+        },
+
+        get nights() {
+            if (!this.checkIn || !this.checkOut) return 0;
+            const start = new Date(this.checkIn);
+            const end = new Date(this.checkOut);
+            const diff = Math.ceil((end - start) / (1000 * 60 * 60 * 24));
+            return diff > 0 ? diff : 0;
+        },
+
+        get autoCalculatedTotal() {
+            if (!this.selectedRoom || this.nights <= 0) return 0;
+            return this.selectedRoom.price * this.nights;
+        },
+
+        get balance() {
+            return this.total - this.deposit;
+        },
+
+        get isValid() {
+            return this.customerId && 
+                   this.roomId && 
+                   this.checkIn && 
+                   this.checkOut && 
+                   this.nights > 0 && 
+                   this.availability === true &&
+                   this.balance >= 0;
+        },
+
+        recalculateTotal() {
+            // Solo auto-asignar si el total actual es 0 o coincide con el cálculo anterior
+            // Esto permite al usuario editar el total manualmente si lo desea
+            if (this.autoCalculatedTotal > 0) {
+                this.total = this.autoCalculatedTotal;
+            }
+        },
+
+        async checkAvailability() {
+            if (!this.roomId || !this.checkIn || !this.checkOut || this.nights <= 0) {
+                this.availability = null;
+                return;
+            }
+
+            this.isChecking = true;
+            try {
+                const url = `{{ route('api.check-availability') }}?room_id=${this.roomId}&check_in_date=${this.checkIn}&check_out_date=${this.checkOut}`;
+                const response = await fetch(url);
+                const data = await response.json();
+                this.availability = data.available;
+            } catch (error) {
+                console.error('Error checking availability:', error);
+                this.availability = null;
+            } finally {
+                this.isChecking = false;
+            }
+        },
+
+        formatCurrency(val) {
+            return new Intl.NumberFormat('es-CO', {
+                style: 'currency',
+                currency: 'COP',
+                minimumFractionDigits: 0
+            }).format(val);
         }
     }
-
-    [roomSelect, checkIn, checkOut].forEach(el => el.addEventListener('change', checkAvailability));
+}
 </script>
 @endpush
 @endsection
-

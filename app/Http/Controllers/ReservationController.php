@@ -25,9 +25,22 @@ class ReservationController extends Controller
      */
     public function create()
     {
-        $customers = Customer::all();
+        $customers = Customer::active()->get();
         $rooms = Room::where('status', '!=', 'maintenance')->get();
-        return view('reservations.create', compact('customers', 'rooms'));
+        
+        // Preparar datos de habitaciones para Alpine.js
+        $roomsData = $rooms->map(function($room) {
+            return [
+                'id' => $room->id,
+                'number' => $room->room_number,
+                'type' => $room->room_type,
+                'price' => (float)$room->price_per_night,
+                'capacity' => 2, // Asumiendo capacidad por defecto si no existe en BD
+                'status' => $room->status
+            ];
+        });
+
+        return view('reservations.create', compact('customers', 'rooms', 'roomsData'));
     }
 
     /**
@@ -94,7 +107,19 @@ class ReservationController extends Controller
      */
     public function destroy(Reservation $reservation)
     {
+        $reservationId = $reservation->id;
+        $customerName = $reservation->customer->name;
+        
         $reservation->delete();
+
+        \App\Models\AuditLog::create([
+            'user_id' => auth()->id(),
+            'event' => 'reservation_deleted',
+            'description' => "Eliminó la reserva #{$reservationId} del cliente {$customerName}",
+            'ip_address' => request()->ip(),
+            'user_agent' => request()->userAgent(),
+        ]);
+
         return redirect()->route('reservations.index')->with('success', 'Reserva eliminada correctamente.');
     }
 

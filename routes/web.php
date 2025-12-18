@@ -159,6 +159,23 @@ Route::middleware('auth')->group(function () {
     Route::middleware(['role:Administrador'])->group(function () {
         Route::get('/roles', [App\Http\Controllers\RoleController::class, 'index'])->name('roles.index');
         Route::post('/usuarios/{user}/rol', [App\Http\Controllers\UserRoleController::class, 'update'])->name('usuarios.rol.update');
+        
+        // Hardening de Seguridad Avanzado
+        Route::get('/admin/security/permissions', [App\Http\Controllers\SecurityController::class, 'permissionsMatrix'])->name('admin.security.permissions');
+        Route::post('/admin/security/permissions', [App\Http\Controllers\SecurityController::class, 'updatePermissions'])->name('admin.security.permissions.update');
+        Route::get('/admin/security/audit', [App\Http\Controllers\SecurityController::class, 'auditLogs'])->name('admin.security.audit');
+        
+        // Impersonación
+        Route::post('/admin/security/impersonate/stop', [App\Http\Controllers\SecurityController::class, 'stopImpersonation'])
+            ->name('admin.security.impersonate.stop')
+            ->withoutMiddleware(['role:Administrador']); // Permitir que el usuario impersonado pueda volver
+
+        Route::post('/admin/security/impersonate/{user}', [App\Http\Controllers\SecurityController::class, 'startImpersonation'])
+            ->name('admin.security.impersonate.start')
+            ->where('user', '[0-9]+');
+        
+        // Verificación de PIN
+        Route::post('/api/admin/security/verify-pin', [App\Http\Controllers\SecurityController::class, 'verifyPin'])->name('api.admin.security.verify-pin');
     });
 
     // Tax profile API endpoints (used from Blade views with JavaScript)
