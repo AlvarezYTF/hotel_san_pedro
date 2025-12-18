@@ -157,6 +157,12 @@ Route::middleware('auth')->group(function () {
         Route::put('/company-tax-settings', [CompanyTaxSettingController::class, 'update'])->name('company-tax-settings.update');
     });
 
+    // Gestión de Roles y Usuarios (Solo Administrador)
+    Route::middleware(['role:Administrador'])->group(function () {
+        Route::get('/roles', [App\Http\Controllers\RoleController::class, 'index'])->name('roles.index');
+        Route::post('/usuarios/{user}/rol', [App\Http\Controllers\UserRoleController::class, 'update'])->name('usuarios.rol.update');
+    });
+
     // Tax profile API endpoints (used from Blade views with JavaScript)
     Route::middleware('permission:edit_customers')->group(function () {
         Route::get('/api/customers/{customer}/tax-profile', [CustomerController::class, 'getTaxProfile'])->name('api.customers.tax-profile.get');

@@ -97,6 +97,10 @@
                 <div class="px-4 mt-4 mb-2">
                     <p class="text-xs font-semibold text-gray-400 uppercase tracking-wider">Administración</p>
                 </div>
+                <a href="{{ route('roles.index') }}" @click="sidebarOpen = false" class="flex items-center px-4 py-3 text-gray-300 hover:bg-gray-700 hover:text-white transition-colors {{ request()->routeIs('roles.*') ? 'bg-gray-700 text-white' : '' }}">
+                    <i class="fas fa-user-shield w-5"></i>
+                    <span class="ml-3">Gestión de Roles</span>
+                </a>
                 <a href="{{ route('company-tax-settings.edit') }}" @click="sidebarOpen = false" class="flex items-center px-4 py-3 text-gray-300 hover:bg-gray-700 hover:text-white transition-colors {{ request()->routeIs('company-tax-settings.*') ? 'bg-gray-700 text-white' : '' }}">
                     <i class="fas fa-building w-5"></i>
                     <span class="ml-3">Configuración Fiscal</span>
