@@ -19,7 +19,7 @@ class RoomManager extends Component
     public $date;
     public $search = '';
     public $status = '';
-    
+
     // Selection and Modals
     public $selectedRoomId = null;
     public $detailData = null;
@@ -121,7 +121,7 @@ class RoomManager extends Component
             $checkOut = Carbon::parse($reservation->check_out_date);
             $daysTotal = max(1, $checkIn->diffInDays($checkOut));
             $dailyPrice = $total_hospedaje_completo / $daysTotal;
-            
+
             // Calcular hospedaje consumido hasta hoy (o la fecha seleccionada)
             $selectedDate = Carbon::parse($this->date);
             $daysConsumed = $checkIn->diffInDays($selectedDate) + 1;
@@ -171,7 +171,7 @@ class RoomManager extends Component
     {
         $reservation = Reservation::with('sales')->findOrFail($reservationId);
         $this->selectedRoomId = $reservation->room_id;
-        
+
         // 1. Marcar todos los consumos como pagados
         $reservation->sales()->where('is_paid', false)->update([
             'is_paid' => true,
@@ -206,7 +206,7 @@ class RoomManager extends Component
 
         $room = Room::find($this->selectedRoomId);
         $date = Carbon::parse($this->date);
-        
+
         $reservation = $room->reservations()
             ->where('check_in_date', '<=', $date)
             ->where('check_out_date', '>', $date)
@@ -241,7 +241,7 @@ class RoomManager extends Component
     public function paySale($saleId, $method)
     {
         $sale = ReservationSale::findOrFail($saleId);
-        
+
         if ($method === 'pendiente') {
             $sale->update(['is_paid' => false, 'payment_method' => 'pendiente']);
         } else {
@@ -256,7 +256,7 @@ class RoomManager extends Component
     {
         $reservation = Reservation::findOrFail($reservationId);
         $reservation->increment('deposit', $amount);
-        
+
         $this->loadRoomDetail();
         $this->dispatch('notify', type: 'success', message: 'Pago de noche registrado (' . ucfirst($method) . ').');
     }
@@ -266,7 +266,7 @@ class RoomManager extends Component
         $reservation = Reservation::findOrFail($reservationId);
         $newDeposit = max(0, $reservation->deposit - $amount);
         $reservation->update(['deposit' => $newDeposit]);
-        
+
         $this->loadRoomDetail();
         $this->dispatch('notify', type: 'success', message: 'Pago de noche anulado.');
     }
@@ -275,7 +275,7 @@ class RoomManager extends Component
     {
         $reservation = Reservation::findOrFail($reservationId);
         $reservation->update(['deposit' => $newAmount]);
-        
+
         $this->loadRoomDetail();
         $this->dispatch('notify', type: 'success', message: 'Abono actualizado.');
     }
@@ -346,7 +346,7 @@ class RoomManager extends Component
     {
         $room = Room::find($roomId);
         $prices = $room->getPricesForDate(Carbon::parse($this->date));
-        
+
         $this->rentForm = [
             'room_id' => $room->id,
             'room_number' => $room->room_number,
@@ -359,7 +359,7 @@ class RoomManager extends Component
             'payment_method' => 'efectivo',
             'customer_id' => ''
         ];
-        
+
         $this->quickRentModal = true;
         $this->dispatch('quickRentOpened');
     }
@@ -418,7 +418,7 @@ class RoomManager extends Component
         $date = Carbon::parse($this->date);
         $startOfMonth = $date->copy()->startOfMonth();
         $endOfMonth = $date->copy()->endOfMonth();
-        
+
         $daysInMonth = [];
         $tempDate = $startOfMonth->copy();
         while ($tempDate <= $endOfMonth) {
@@ -442,8 +442,8 @@ class RoomManager extends Component
                 $q->where('check_in_date', '<=', $endOfMonth)
                   ->where('check_out_date', '>=', $startOfMonth)
                   ->with('customer');
-            }, 
-            'reservations.sales', 
+            },
+            'reservations.sales',
             'rates'
         ])->orderBy('room_number')->paginate(30);
 
@@ -460,20 +460,20 @@ class RoomManager extends Component
                     return $occupiedYesterday || $occupiedToday;
                 });
             }
-            
+
             if ($reservation) {
                 $room->display_status = RoomStatus::OCUPADA;
                 $room->current_reservation = $reservation;
-                
+
                 $checkIn = Carbon::parse($reservation->check_in_date);
                 $checkOut = Carbon::parse($reservation->check_out_date);
                 $daysTotal = max(1, $checkIn->diffInDays($checkOut));
                 $dailyPrice = (float)$reservation->total_amount / $daysTotal;
-                
+
                 $daysUntilSelected = $checkIn->diffInDays($date);
                 $costUntilSelected = $dailyPrice * ($daysUntilSelected + 1);
                 $costUntilSelected = min((float)$reservation->total_amount, $costUntilSelected);
-                
+
                 $room->is_night_paid = ($reservation->deposit >= $costUntilSelected);
 
                 $stay_debt = (float)($costUntilSelected - $reservation->deposit);

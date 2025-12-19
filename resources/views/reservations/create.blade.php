@@ -6,28 +6,30 @@
 @section('content')
 <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8" x-data="reservationForm()">
     <!-- Header Contextual -->
-    <div class="mb-6 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-        <div class="flex items-center space-x-3">
-            <div class="p-3 rounded-2xl bg-emerald-100 text-emerald-600 shadow-sm">
-                <i class="fas fa-calendar-plus text-2xl"></i>
+    <div class="mb-6 bg-white rounded-2xl border border-gray-100 shadow-sm">
+        <div class="p-5 border-b border-gray-50 bg-gray-50/50 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+            <div class="flex items-center space-x-3">
+                <div class="p-3 rounded-2xl bg-emerald-100 text-emerald-600 shadow-sm">
+                    <i class="fas fa-calendar-plus text-2xl"></i>
+                </div>
+                <div>
+                    <h1 class="text-2xl font-bold text-gray-900 leading-tight">Nueva Reserva</h1>
+                    <p class="text-sm text-gray-500">Configura la estancia y pagos del huésped</p>
+                </div>
             </div>
-            <div>
-                <h1 class="text-2xl font-bold text-gray-900 leading-tight">Nueva Reserva</h1>
-                <p class="text-sm text-gray-500">Configura la estancia y pagos del huésped</p>
-            </div>
-        </div>
 
-        <div class="flex items-center space-x-3">
-            <a href="{{ route('reservations.index') }}" class="px-4 py-2 text-sm font-semibold text-gray-600 bg-white border border-gray-200 rounded-xl hover:bg-gray-50 transition-all">
-                Cancelar
-            </a>
-            <button type="submit" form="reservation-form"
-                    :disabled="!isValid || loading"
-                    class="px-6 py-2 text-sm font-bold text-white bg-emerald-600 rounded-xl hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm transition-all flex items-center">
-                <i class="fas fa-save mr-2" x-show="!loading"></i>
-                <i class="fas fa-spinner fa-spin mr-2" x-show="loading"></i>
-                Confirmar Reserva
-            </button>
+            <div class="flex items-center space-x-3">
+                <a href="{{ route('reservations.index') }}" class="px-4 py-2 text-sm font-semibold text-gray-600 bg-white border border-gray-200 rounded-xl hover:bg-gray-50 transition-all">
+                    Cancelar
+                </a>
+                <button type="submit" form="reservation-form"
+                        :disabled="!isValid || loading"
+                        class="px-6 py-2 text-sm font-bold text-white bg-emerald-600 rounded-xl hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm transition-all flex items-center">
+                    <i class="fas fa-save mr-2" x-show="!loading"></i>
+                    <i class="fas fa-spinner fa-spin mr-2" x-show="loading"></i>
+                    Confirmar Reserva
+                </button>
+            </div>
         </div>
     </div>
 
