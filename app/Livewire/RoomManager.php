@@ -152,12 +152,8 @@ class RoomManager extends Component
     public function payEverything($reservationId, $method)
     {
         $reservation = Reservation::with('sales')->findOrFail($reservationId);
-<<<<<<< HEAD
-        
-=======
         $this->selectedRoomId = $reservation->room_id;
 
->>>>>>> d34f8da926ed3f912c3e33b348ae3775c29eea89
         // 1. Marcar todos los consumos como pagados
         $reservation->sales()->where('is_paid', false)->update([
             'is_paid' => true,
@@ -450,11 +446,8 @@ class RoomManager extends Component
 
                 $daysUntilSelected = $checkIn->diffInDays($date);
                 $costUntilSelected = $dailyPrice * ($daysUntilSelected + 1);
-<<<<<<< HEAD
-=======
                 $costUntilSelected = min((float)$reservation->total_amount, $costUntilSelected);
 
->>>>>>> d34f8da926ed3f912c3e33b348ae3775c29eea89
                 $room->is_night_paid = ($reservation->deposit >= $costUntilSelected);
 
                 $stay_debt = (float)($reservation->total_amount - $reservation->deposit);
