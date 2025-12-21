@@ -20,150 +20,25 @@ class SaleController extends Controller
 {
     /**
      * Display a listing of the resource.
+     * Now handled by Livewire component SalesManager
      */
     public function index(Request $request): View
     {
-        $query = Sale::with(['user', 'room', 'items.product.category']);
-
-        // Filtros
-        // Por defecto, mostrar ventas del día actual si no se especifica fecha
-        $selectedDate = $request->filled('date') ? $request->date : now()->format('Y-m-d');
-        $currentDate = \Carbon\Carbon::parse($selectedDate);
-        
-        // Preparar días para la barra de calendario (mes actual de la fecha seleccionada)
-        $startOfMonth = $currentDate->copy()->startOfMonth();
-        $endOfMonth = $currentDate->copy()->endOfMonth();
-        $daysInMonth = [];
-        $tempDate = $startOfMonth->copy();
-        while ($tempDate <= $endOfMonth) {
-            $daysInMonth[] = $tempDate->copy();
-            $tempDate->addDay();
-        }
-        
-        $query->byDate($selectedDate);
-
-        if ($request->filled('receptionist_id')) {
-            $receptionist = \App\Models\User::with('roles')->find($request->receptionist_id);
-            if ($receptionist) {
-            $query->byReceptionist($request->receptionist_id);
-                
-                // Auto-filter by shift based on receptionist role
-                $roleName = $receptionist->roles->first()?->name;
-                if ($roleName === 'Recepcionista Día') {
-                    $query->byShift('dia');
-                } elseif ($roleName === 'Recepcionista Noche') {
-                    $query->byShift('noche');
-                }
-            }
-        } elseif ($request->filled('shift')) {
-            // Only apply shift filter if no receptionist is selected
-            $query->byShift($request->shift);
-        }
-
-        if ($request->filled('payment_method')) {
-            $query->byPaymentMethod($request->payment_method);
-        }
-
-        if ($request->filled('debt_status')) {
-            $query->where('debt_status', $request->debt_status);
-        }
-
-        if ($request->filled('room_id')) {
-            if ($request->room_id === 'normal') {
-                // Filter for sales without room (personas corrientes)
-                $query->whereNull('room_id');
-            } else {
-            $query->where('room_id', $request->room_id);
-            }
-        }
-
-        // Filter by category
-        if ($request->filled('category_id')) {
-            $query->whereHas('items.product', function($q) use ($request) {
-                $q->where('category_id', $request->category_id);
-            });
-        }
-
-        $sales = $query->orderBy('sale_date', 'desc')
-            ->orderBy('created_at', 'desc')
-            ->paginate(20);
-
-        // Calcular estadísticas del día actual (o fecha seleccionada)
-        $statsQuery = Sale::whereDate('sale_date', $selectedDate);
-        $totalSales = $statsQuery->count();
-        $paidSales = (clone $statsQuery)->where('debt_status', 'pagado')->count();
-        $pendingSales = (clone $statsQuery)->where('debt_status', 'pendiente')->count();
-        $totalCollected = (clone $statsQuery)->where('debt_status', 'pagado')->sum('total');
-
-        $receptionists = \App\Models\User::whereHas('roles', function($q) {
-            $q->whereIn('name', ['Administrador', 'Recepcionista Día', 'Recepcionista Noche']);
-        })->with('roles')->get();
-
-        $rooms = Room::all();
-        $categories = Category::whereIn('name', ['Bebidas', 'Mecato'])->get();
-        
-        // Obtener conteo de ventas por día para el mes actual (para indicadores en el calendario)
-        $salesByDay = Sale::whereBetween('sale_date', [$startOfMonth->format('Y-m-d'), $endOfMonth->format('Y-m-d')])
-            ->selectRaw('DATE(sale_date) as date, COUNT(*) as count')
-            ->groupBy('date')
-            ->pluck('count', 'date')
-            ->toArray();
-
-        return view('sales.index', compact('sales', 'receptionists', 'rooms', 'categories', 'totalSales', 'paidSales', 'pendingSales', 'totalCollected', 'selectedDate', 'currentDate', 'daysInMonth', 'salesByDay'));
+        return view('sales.index');
     }
 
     /**
      * Show the form for creating a new resource.
+     * Now handled by Livewire component CreateSale
      */
     public function create(): View
     {
-        $rooms = Room::where('status', 'ocupada')
-            ->with(['reservations' => function($q) {
-                $q->where('check_in_date', '<=', now())
-                  ->where('check_out_date', '>=', now())
-                  ->with('customer')
-                  ->latest();
-            }])
-            ->get()
-            ->map(function($room) {
-                // Obtener la reservación activa más reciente
-                $room->current_reservation = $room->reservations->first();
-                return $room;
-            });
-        
-        $categories = Category::where('is_active', true)->get();
-        
-        // Solo productos de categorías Bebidas y Mecato
-        $products = Product::where('status', 'active')
-            ->where('quantity', '>', 0)
-            ->whereHas('category', function($q) {
-                $q->whereIn('name', ['Bebidas', 'Mecato']);
-            })
-            ->with('category')
-            ->get();
-
-        // Determinar turno automáticamente basado en el rol del usuario
-        $user = Auth::user();
-        $userRole = $user->roles->first()?->name;
-        $autoShift = 'dia';
-        
-        if ($userRole === 'Recepcionista Día') {
-            $autoShift = 'dia';
-        } elseif ($userRole === 'Recepcionista Noche') {
-            $autoShift = 'noche';
-        } else {
-            // Si es Administrador o no tiene rol específico, determinar por hora
-        $currentHour = (int) Carbon::now()->format('H');
-            $autoShift = $currentHour < 14 ? 'dia' : 'noche';
-        }
-
-        $defaultShift = $autoShift;
-
-        return view('sales.create', compact('rooms', 'categories', 'products', 'defaultShift', 'autoShift'));
+        return view('sales.create');
     }
 
     /**
      * Store a newly created resource in storage.
+     * Handles business logic for creating sales.
      */
     public function store(StoreSaleRequest $request): RedirectResponse
     {
@@ -285,26 +160,25 @@ class SaleController extends Controller
 
     /**
      * Display the specified resource.
+     * Now handled by Livewire component ShowSale
      */
     public function show(Sale $sale): View
     {
-        $sale->load(['user', 'room.reservations.customer', 'items.product.category']);
-
         return view('sales.show', compact('sale'));
     }
 
     /**
      * Show the form for editing the specified resource.
+     * Now handled by Livewire component EditSale
      */
     public function edit(Sale $sale): View
     {
-        $sale->load(['user', 'room', 'items.product']);
-
         return view('sales.edit', compact('sale'));
     }
 
     /**
      * Update the specified resource in storage.
+     * Handles business logic for updating sales.
      */
     public function update(UpdateSaleRequest $request, Sale $sale): RedirectResponse
     {
@@ -394,104 +268,19 @@ class SaleController extends Controller
 
     /**
      * Show sales grouped by room and category.
+     * Now handled by Livewire component SalesByRoom
      */
     public function byRoom(Request $request): View
     {
-        $query = Sale::with(['user', 'room.reservations.customer', 'items.product.category'])
-            ->whereNotNull('room_id');
-
-        // Filters
-        if ($request->filled('date')) {
-            $query->byDate($request->date);
-        }
-
-        if ($request->filled('room_id')) {
-            $query->where('room_id', $request->room_id);
-        }
-
-        if ($request->filled('category_id')) {
-            $query->whereHas('items.product', function($q) use ($request) {
-                $q->where('category_id', $request->category_id);
-            });
-        }
-
-        if ($request->filled('shift')) {
-            $query->byShift($request->shift);
-        }
-
-        $sales = $query->orderBy('sale_date', 'desc')
-            ->orderBy('created_at', 'desc')
-            ->get();
-
-        // Group by room
-        $salesByRoom = $sales->groupBy('room_id');
-
-        // For each room, group by category
-        $roomsData = $salesByRoom->map(function($roomSales, $roomId) {
-            $room = $roomSales->first()->room;
-            $totalByCategory = $roomSales->flatMap->items->groupBy('product.category.name')
-                ->map(function($items) {
-                    return [
-                        'count' => $items->count(),
-                        'total' => $items->sum('total')
-                    ];
-                });
-
-            return [
-                'room' => $room,
-                'sales' => $roomSales,
-                'total' => $roomSales->sum('total'),
-                'byCategory' => $totalByCategory,
-                'customer' => $room->reservations->first()->customer ?? null,
-            ];
-        });
-
-        $rooms = Room::all();
-        $categories = Category::whereIn('name', ['Bebidas', 'Mecato'])->get();
-
-        return view('sales.by-room', compact('roomsData', 'rooms', 'categories'));
+        return view('sales.by-room');
     }
 
     /**
      * Show daily sales report.
+     * Now handled by Livewire component SalesReports
      */
     public function dailyReport(Request $request): View
     {
-        $date = $request->filled('date') 
-            ? Carbon::parse($request->date) 
-            : Carbon::today();
-
-        $sales = Sale::with(['user', 'room', 'items.product'])
-            ->byDate($date->format('Y-m-d'))
-            ->orderBy('shift')
-            ->orderBy('created_at')
-            ->get();
-
-        // Agrupar por recepcionista
-        $byReceptionist = $sales->groupBy('user_id');
-        
-        // Agrupar por turno
-        $byShift = $sales->groupBy('shift');
-
-        // Totales
-        $totalSales = $sales->sum('total');
-        $totalByPaymentMethod = $sales->groupBy('payment_method')
-            ->map(function($group) {
-                return $group->sum('total');
-            });
-
-        $totalByShift = $byShift->map(function($group) {
-            return $group->sum('total');
-        });
-
-        return view('sales.reports', compact(
-            'date',
-            'sales',
-            'byReceptionist',
-            'byShift',
-            'totalSales',
-            'totalByPaymentMethod',
-            'totalByShift'
-        ));
+        return view('sales.reports');
     }
 }
