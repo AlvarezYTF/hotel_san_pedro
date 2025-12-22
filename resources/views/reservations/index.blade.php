@@ -119,7 +119,12 @@
                             @php
                                 $status = 'free';
                                 $reservation = $room->reservations->first(function($res) use ($day) {
-                                    return $day->isBetween($res->check_in_date, $res->check_out_date->subDay());
+                                    if (!$res->check_in_date || !$res->check_out_date) {
+                                        return false;
+                                    }
+                                    $checkIn = \Carbon\Carbon::parse($res->check_in_date);
+                                    $checkOut = \Carbon\Carbon::parse($res->check_out_date);
+                                    return $day->isBetween($checkIn, $checkOut->copy()->subDay());
                                 });
 
                                 if ($reservation) {
@@ -141,14 +146,14 @@
                             @endphp
                             <td class="p-1 border-r border-b relative group w-[45px] min-w-[45px]">
                                 <div class="w-full h-10 rounded-lg {{ $colorClass }} cursor-pointer transition-all duration-200 flex items-center justify-center overflow-hidden shadow-sm"
-                                     @if($reservation) 
+                                     @if($reservation && $reservation->customer) 
                                      onclick="openReservationDetail({{ json_encode([
                                          'id' => $reservation->id,
-                                         'customer_name' => $reservation->customer->name,
+                                         'customer_name' => $reservation->customer ? $reservation->customer->name : 'Cliente eliminado',
                                          'room_number' => $room->room_number,
                                          'beds_count' => $room->beds_count . ($room->beds_count == 1 ? ' Cama' : ' Camas'),
-                                         'check_in' => $reservation->check_in_date->format('d/m/Y'),
-                                         'check_out' => $reservation->check_out_date->format('d/m/Y'),
+                                         'check_in' => $reservation->check_in_date ? $reservation->check_in_date->format('d/m/Y') : 'N/A',
+                                         'check_out' => $reservation->check_out_date ? $reservation->check_out_date->format('d/m/Y') : 'N/A',
                                          'total' => number_format($reservation->total_amount, 0, ',', '.'),
                                          'deposit' => number_format($reservation->deposit, 0, ',', '.'),
                                          'balance' => number_format($reservation->total_amount - $reservation->deposit, 0, ',', '.'),
@@ -191,20 +196,24 @@
                         <td class="px-6 py-4 whitespace-nowrap">
                             <div class="flex items-center">
                                 <div class="h-10 w-10 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center text-sm font-semibold">
-                                    {{ strtoupper(substr($reservation->customer->name, 0, 1)) }}
+                                    {{ $reservation->customer ? strtoupper(substr($reservation->customer->name, 0, 1)) : '?' }}
                                 </div>
                                 <div class="ml-3">
-                                    <div class="text-sm font-semibold text-gray-900">{{ $reservation->customer->name }}</div>
+                                    <div class="text-sm font-semibold text-gray-900">{{ $reservation->customer ? $reservation->customer->name : 'Cliente eliminado' }}</div>
                                 </div>
                             </div>
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
-                            <span class="font-semibold">{{ $reservation->room->room_number }}</span>
-                            <span class="text-xs text-gray-500 block">{{ $reservation->room->beds_count }} {{ $reservation->room->beds_count == 1 ? 'Cama' : 'Camas' }}</span>
+                            @if($reservation->room)
+                                <span class="font-semibold">{{ $reservation->room->room_number }}</span>
+                                <span class="text-xs text-gray-500 block">{{ $reservation->room->beds_count }} {{ $reservation->room->beds_count == 1 ? 'Cama' : 'Camas' }}</span>
+                            @else
+                                <span class="text-gray-400 italic">Habitación eliminada</span>
+                            @endif
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
-                            <div><i class="fas fa-sign-in-alt text-emerald-500 mr-2"></i>{{ $reservation->check_in_date->format('d/m/Y') }}</div>
-                            <div><i class="fas fa-sign-out-alt text-red-500 mr-2"></i>{{ $reservation->check_out_date->format('d/m/Y') }}</div>
+                            <div><i class="fas fa-sign-in-alt text-emerald-500 mr-2"></i>{{ $reservation->check_in_date ? $reservation->check_in_date->format('d/m/Y') : 'N/A' }}</div>
+                            <div><i class="fas fa-sign-out-alt text-red-500 mr-2"></i>{{ $reservation->check_out_date ? $reservation->check_out_date->format('d/m/Y') : 'N/A' }}</div>
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap text-sm">
                             <div class="flex flex-col space-y-1 min-w-[120px]">

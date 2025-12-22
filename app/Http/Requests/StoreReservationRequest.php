@@ -23,7 +23,12 @@ class StoreReservationRequest extends FormRequest
     {
         return [
             'customer_id'      => 'required|exists:customers,id',
-            'room_id'          => 'required|exists:rooms,id',
+            'room_id'          => 'required_without:room_ids|nullable|exists:rooms,id',
+            'room_ids'         => 'required_without:room_id|nullable|array|min:1',
+            'room_ids.*'       => 'required|integer|exists:rooms,id',
+            'room_guests'      => 'nullable|array',
+            'room_guests.*'    => 'nullable|array',
+            'room_guests.*.*'  => 'nullable|integer|exists:customers,id',
             'guests_count'     => 'required|integer|min:1',
             'total_amount'     => 'required|numeric|min:0',
             'deposit'          => 'required|numeric|min:0',
