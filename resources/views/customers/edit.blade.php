@@ -113,9 +113,16 @@
                                    id="phone"
                                    name="phone"
                                    x-model="formData.phone"
-                                   class="block w-full pl-10 sm:pl-11 pr-3 sm:pr-4 py-2.5 border border-gray-300 rounded-xl text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all @error('phone') border-red-300 focus:ring-red-500 @enderror"
+                                   @input="formData.phone = formData.phone.replace(/\D/g, ''); validatePhone()"
+                                   maxlength="10"
+                                   pattern="\d{10}"
+                                   class="block w-full pl-10 sm:pl-11 pr-3 sm:pr-4 py-2.5 border rounded-xl text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all @error('phone') border-red-300 focus:ring-red-500 @else border-gray-300 @enderror"
+                                   :class="errors.phone ? 'border-red-300 focus:ring-red-500' : ''"
                                    placeholder="Ej: 3001234567">
                         </div>
+                        <p x-show="errors.phone" x-text="errors.phone" class="mt-1.5 text-xs text-red-600 flex items-center" x-cloak>
+                            <i class="fas fa-exclamation-circle mr-1.5"></i>
+                        </p>
                         @error('phone')
                             <p class="mt-1.5 text-xs text-red-600 flex items-center">
                                 <i class="fas fa-exclamation-circle mr-1.5"></i>
@@ -594,6 +601,26 @@ function customerForm() {
                 this.identificationExists = false;
             }
         },
+
+        validatePhone() {
+            this.errors.phone = null;
+
+            const phone = this.formData.phone?.trim() || '';
+            const digitCount = phone.replace(/\D/g, '').length;
+
+            if (phone && digitCount !== 10) {
+                this.errors.phone = 'El número de teléfono debe tener exactamente 10 dígitos.';
+                return false;
+            }
+
+            // Only allow digits
+            if (phone && !/^\d+$/.test(phone)) {
+                this.errors.phone = 'El número de teléfono solo puede contener dígitos.';
+                return false;
+            }
+
+            return true;
+        },
         
         validateField(field) {
             this.errors[field] = null;
@@ -619,6 +646,7 @@ function customerForm() {
             this.errors = {};
             this.validateField('name');
             this.validateIdentification();
+            this.validatePhone();
 
             if (this.requiresElectronicInvoice) {
                 this.validateField('identification_document_id');

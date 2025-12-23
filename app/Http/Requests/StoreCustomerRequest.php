@@ -33,7 +33,11 @@ class StoreCustomerRequest extends FormRequest
                 'regex:/^\d{6,10}$/',
                 Rule::unique('customer_tax_profiles', 'identification'),
             ],
-            'phone' => ['required', 'string', 'max:20'],
+            'phone' => [
+                'required',
+                'string',
+                'regex:/^\d{10}$/',
+            ],
             'email' => ['nullable', 'email', 'max:255', Rule::unique('customers', 'email')],
             'address' => ['nullable', 'string', 'max:500'],
             'is_active' => ['sometimes', 'boolean'],
@@ -62,6 +66,7 @@ class StoreCustomerRequest extends FormRequest
     {
         return [
             'identification.regex' => 'El número de documento debe tener entre 6 y 10 dígitos.',
+            'phone.regex' => 'El número de teléfono debe tener exactamente 10 dígitos.',
         ];
     }
 }
