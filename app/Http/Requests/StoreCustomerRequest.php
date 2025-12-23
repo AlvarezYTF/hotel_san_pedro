@@ -30,7 +30,7 @@ class StoreCustomerRequest extends FormRequest
             'identification' => [
                 'required',
                 'string',
-                'max:20',
+                'regex:/^\d{6,10}$/',
                 Rule::unique('customer_tax_profiles', 'identification'),
             ],
             'phone' => ['required', 'string', 'max:20'],
@@ -55,6 +55,13 @@ class StoreCustomerRequest extends FormRequest
                 Rule::exists('dian_municipalities', 'factus_id'),
             ],
             'tribute_id' => ['nullable', 'exists:dian_customer_tributes,id'],
+        ];
+    }
+
+    public function messages(): array
+    {
+        return [
+            'identification.regex' => 'El número de documento debe tener entre 6 y 10 dígitos.',
         ];
     }
 }
