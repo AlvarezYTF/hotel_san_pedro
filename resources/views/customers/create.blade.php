@@ -129,45 +129,6 @@
                         @enderror
                     </div>
                 </div>
-
-                <!-- Campos opcionales ocultos o secundarios si se desea, pero el usuario pidió solo 3 visibles -->
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-5 md:gap-6">
-                    <!-- Email (opcional) -->
-                    <div>
-                        <label for="email" class="block text-xs sm:text-sm font-semibold text-gray-700 mb-2">
-                            Correo electrónico (opcional)
-                        </label>
-                        <div class="relative">
-                            <div class="absolute inset-y-0 left-0 pl-3 sm:pl-4 flex items-center pointer-events-none">
-                                <i class="fas fa-envelope text-gray-400 text-sm"></i>
-                            </div>
-                            <input type="email"
-                                   id="email"
-                                   name="email"
-                                   x-model="formData.email"
-                                   class="block w-full pl-10 sm:pl-11 pr-3 sm:pr-4 py-2.5 border border-gray-300 rounded-xl text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all @error('email') border-red-300 focus:ring-red-500 @enderror"
-                                   placeholder="juan.perez@email.com">
-                        </div>
-                    </div>
-
-                    <!-- Dirección (opcional) -->
-                    <div>
-                        <label for="address" class="block text-xs sm:text-sm font-semibold text-gray-700 mb-2">
-                            Dirección (opcional)
-                        </label>
-                        <div class="relative">
-                            <div class="absolute inset-y-0 left-0 pl-3 sm:pl-4 flex items-center pointer-events-none">
-                                <i class="fas fa-map-marker-alt text-gray-400 text-sm"></i>
-                            </div>
-                            <input type="text"
-                                   id="address"
-                                   name="address"
-                                   x-model="formData.address"
-                                   class="block w-full pl-10 sm:pl-11 pr-3 sm:pr-4 py-2.5 border border-gray-300 rounded-xl text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all @error('address') border-red-300 focus:ring-red-500 @enderror"
-                                   placeholder="Calle 123 #45-67">
-                        </div>
-                    </div>
-                </div>
             </div>
         </div>
 
