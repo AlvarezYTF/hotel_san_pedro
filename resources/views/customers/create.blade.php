@@ -101,7 +101,7 @@
                     <!-- Teléfono -->
                     <div>
                         <label for="phone" class="block text-xs sm:text-sm font-semibold text-gray-700 mb-2">
-                            Teléfono <span class="text-red-500">*</span>
+                            Teléfono (opcional)
                         </label>
                         <div class="relative">
                             <div class="absolute inset-y-0 left-0 pl-3 sm:pl-4 flex items-center pointer-events-none">
@@ -540,15 +540,21 @@ function customerForm() {
             this.errors.phone = null;
 
             const phone = this.formData.phone?.trim() || '';
+            
+            // If phone is empty, it's valid (optional field)
+            if (!phone) {
+                return true;
+            }
+
             const digitCount = phone.replace(/\D/g, '').length;
 
-            if (phone && digitCount !== 10) {
+            if (digitCount !== 10) {
                 this.errors.phone = 'El número de teléfono debe tener exactamente 10 dígitos.';
                 return false;
             }
 
             // Only allow digits
-            if (phone && !/^\d+$/.test(phone)) {
+            if (!/^\d+$/.test(phone)) {
                 this.errors.phone = 'El número de teléfono solo puede contener dígitos.';
                 return false;
             }

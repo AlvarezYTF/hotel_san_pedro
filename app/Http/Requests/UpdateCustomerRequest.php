@@ -38,7 +38,7 @@ class UpdateCustomerRequest extends FormRequest
                 Rule::unique('customer_tax_profiles', 'identification')->ignore($taxProfileId),
             ],
             'phone' => [
-                'required',
+                'nullable',
                 'string',
                 'regex:/^\d{10}$/',
             ],

@@ -34,7 +34,7 @@ class StoreCustomerRequest extends FormRequest
                 Rule::unique('customer_tax_profiles', 'identification'),
             ],
             'phone' => [
-                'required',
+                'nullable',
                 'string',
                 'regex:/^\d{10}$/',
             ],
