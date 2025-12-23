@@ -287,52 +287,53 @@ class RoomManager extends Component
     {
         $date = Carbon::parse($this->date)->startOfDay();
 
-        // Convert string to RoomStatus Enum
-        // Accepts both string values and Enum cases for type safety
-        $statusEnum = match(true) {
-            $targetStatus instanceof RoomStatus => $targetStatus,
-            $targetStatus === 'libre' || $targetStatus === RoomStatus::LIBRE->value => RoomStatus::LIBRE,
-            $targetStatus === 'sucia' || $targetStatus === RoomStatus::SUCIA->value => RoomStatus::SUCIA,
-            $targetStatus === 'limpieza' || $targetStatus === RoomStatus::LIMPIEZA->value => RoomStatus::SUCIA, // 'limpieza' maps to 'sucia'
-            default => RoomStatus::LIBRE,
-        };
+        // Determine action based on target status
+        // 'libre' -> release room and mark as clean (last_cleaned_at = now)
+        // 'pendiente_aseo' -> release room and mark as needing cleaning (last_cleaned_at = null)
+        // 'limpia' -> release room and mark as clean (last_cleaned_at = now), same as 'libre' but clearer intent
+        $shouldRelease = in_array($targetStatus, ['libre', 'pendiente_aseo', 'limpia']);
+        $shouldMarkClean = in_array($targetStatus, ['libre', 'limpia']);
 
-        // Execute all reservation modifications within a DB transaction
+        // Execute all modifications within a DB transaction
         // This ensures atomicity and allows us to refresh data consistently after changes
-        DB::transaction(function() use ($roomId, $date, $statusEnum) {
+        DB::transaction(function() use ($roomId, $date, $targetStatus, $shouldRelease, $shouldMarkClean) {
             $room = Room::findOrFail($roomId);
             $room->refresh();
 
-            // Find active reservation for the selected date
-            // We query directly from DB (not cached relations) to get fresh data
-            $reservation = $room->reservations()
-                ->where('check_in_date', '<=', $date)
-                ->where('check_out_date', '>', $date) // Changed to > to match isOccupied logic
-                ->orderBy('check_in_date', 'asc')
-                ->first();
+            // Always release reservation when in releaseRoom method
+            // All three options (libre, pendiente_aseo, limpia) should release the room
+            if ($shouldRelease) {
+                // Find active reservation for the selected date
+                // We query directly from DB (not cached relations) to get fresh data
+                $reservation = $room->reservations()
+                    ->where('check_in_date', '<=', $date)
+                    ->where('check_out_date', '>', $date)
+                    ->orderBy('check_in_date', 'asc')
+                    ->first();
 
-            if ($reservation) {
-                $start = Carbon::parse($reservation->check_in_date)->startOfDay();
-                $end = Carbon::parse($reservation->check_out_date)->startOfDay();
+                if ($reservation) {
+                    $start = Carbon::parse($reservation->check_in_date)->startOfDay();
+                    $end = Carbon::parse($reservation->check_out_date)->startOfDay();
 
-                // When releasing a room, we DELETE the active reservation completely
-                // This ensures the reservation disappears from the reservations module
-                // and the room shows as "Pendiente por Aseo" or "Libre" immediately
-                // Future reservations (starting after the selected date) are preserved automatically
-                
-                // If reservation has future days (after selected date), create new reservation for those days
-                // Then delete the current reservation
-                if ($end->gt($date)) {
-                    // Reservation extends beyond selected date -> Create new reservation for future days
-                    $newRes = $reservation->replicate();
-                    $newRes->check_in_date = $date->copy()->addDay()->toDateString();
-                    $newRes->check_out_date = $reservation->check_out_date;
-                    $newRes->save();
+                    // When releasing a room, we DELETE the active reservation completely
+                    // This ensures the reservation disappears from the reservations module
+                    // and the room shows as "Pendiente por Aseo" or "Libre" immediately
+                    // Future reservations (starting after the selected date) are preserved automatically
+                    
+                    // If reservation has future days (after selected date), create new reservation for those days
+                    // Then delete the current reservation
+                    if ($end->gt($date)) {
+                        // Reservation extends beyond selected date -> Create new reservation for future days
+                        $newRes = $reservation->replicate();
+                        $newRes->check_in_date = $date->copy()->addDay()->toDateString();
+                        $newRes->check_out_date = $reservation->check_out_date;
+                        $newRes->save();
+                    }
+                    
+                    // DELETE the active reservation completely
+                    // This makes the room available immediately and removes it from reservations module
+                    $reservation->delete();
                 }
-                
-                // DELETE the active reservation completely
-                // This makes the room available immediately and removes it from reservations module
-                $reservation->delete();
             }
 
             // After modifying reservations, refresh the room model to get updated state
@@ -343,28 +344,32 @@ class RoomManager extends Component
             // This is critical: without this, render() might use stale reservation data
             $room->unsetRelation('reservations');
 
-            // If room was released (no longer occupied), mark as needing cleaning immediately
-            // This ensures that when a room is used and then released, it becomes "Pendiente por Aseo"
-            // We set last_cleaned_at to NULL so cleaningStatus() returns 'pendiente' immediately
-            if (!$room->isOccupied($date)) {
-                // Room was used (had a reservation) and is now released
-                // Mark as needing cleaning by setting last_cleaned_at to NULL
-                // This makes it immediately "Pendiente por Aseo" without waiting 24 hours
-                $room->update(['last_cleaned_at' => null]);
+            // Update cleaning status based on selected option
+            $updateData = [];
+            
+            if ($shouldMarkClean) {
+                // Mark as clean (libre or limpia option)
+                $updateData['last_cleaned_at'] = now();
+            } elseif ($targetStatus === 'pendiente_aseo') {
+                // Mark as needing cleaning (pendiente_aseo option)
+                $updateData['last_cleaned_at'] = null;
             }
 
             // Update rooms.status ONLY if date is today and room is not occupied
             // Note: We don't update rooms.status for future dates because display_status
             // is calculated dynamically based on reservations, not stored status
-            // The goal is to ensure display_status reflects the correct state after release
             if ($date->isToday() && !$room->isOccupied($date)) {
-                // If releasing to LIBRE, don't update status (let display_status handle it)
-                // If releasing to SUCIA, update status to SUCIA
-                if ($statusEnum === RoomStatus::SUCIA) {
-                    $room->update(['status' => $statusEnum]);
+                // If releasing to LIBRE or LIMPIA, clear SUCIA status (let display_status handle it)
+                if (in_array($targetStatus, ['libre', 'limpia'])) {
+                    if ($room->status === RoomStatus::SUCIA) {
+                        $updateData['status'] = RoomStatus::LIBRE;
+                    }
                 }
-                // Note: When status is LIBRE and no reservation, getDisplayStatus() will show
-                // PENDIENTE_ASEO because last_cleaned_at is now NULL
+            }
+
+            // Apply all updates at once
+            if (!empty($updateData)) {
+                $room->update($updateData);
             }
         });
 
@@ -395,7 +400,15 @@ class RoomManager extends Component
         // Marcar que hubo una actualización por evento (evita que el polling ejecute innecesariamente)
         $this->lastEventUpdate = now()->timestamp;
         
-        $this->dispatch('notify', type: 'success', message: "Habitación #{$room->room_number} liberada.");
+        // Generate appropriate success message based on action
+        $message = match($targetStatus) {
+            'libre' => "Habitación #{$room->room_number} liberada y marcada como limpia.",
+            'pendiente_aseo' => "Habitación #{$room->room_number} liberada y marcada como pendiente por aseo.",
+            'limpia' => "Habitación #{$room->room_number} liberada y marcada como limpia.",
+            default => "Habitación #{$room->room_number} actualizada.",
+        };
+        
+        $this->dispatch('notify', type: 'success', message: $message);
     }
 
     public function continueStay($roomId)

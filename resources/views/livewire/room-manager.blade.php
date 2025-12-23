@@ -538,21 +538,15 @@
             });
         });
 
-        function confirmRelease(roomId, roomNumber) {
-            // Obtener los datos de la habitación directamente desde Livewire
-            const room = @this.rooms.data.find(r => r.id === roomId);
-            if (!room) {
-                console.error("No se encontró la habitación en los datos locales");
-                return;
-            }
+        function confirmRelease(roomId, roomNumber, totalDebt, reservationId) {
+            // Use parameters passed directly from the button click
+            const hasDebt = totalDebt && totalDebt > 0;
+            const validReservationId = reservationId && reservationId !== 'null' ? reservationId : null;
 
-            const hasDebt = room.total_debt > 0;
-            const reservationId = room.current_reservation ? room.current_reservation.id : null;
-
-            if (hasDebt && reservationId) {
+            if (hasDebt && validReservationId) {
                 Swal.fire({
                     title: '¡Habitación con Deuda!',
-                    html: `La habitación #${roomNumber} tiene una deuda pendiente de <b>${new Intl.NumberFormat('es-CO', {style:'currency', currency:'COP', minimumFractionDigits:0}).format(room.total_debt)}</b>.<br><br>¿Desea marcar todo como pagado antes de liberar?`,
+                    html: `La habitación #${roomNumber} tiene una deuda pendiente de <b>${new Intl.NumberFormat('es-CO', {style:'currency', currency:'COP', minimumFractionDigits:0}).format(totalDebt)}</b>.<br><br>¿Desea marcar todo como pagado antes de liberar?`,
                     icon: 'warning',
                     showDenyButton: true,
                     showCancelButton: true,
@@ -578,36 +572,51 @@
                         }).then((payResult) => {
                             if (payResult.isConfirmed || payResult.isDenied) {
                                 const method = payResult.isConfirmed ? 'efectivo' : 'transferencia';
-                                @this.payEverything(reservationId, method).then(() => {
-                                    this.showReleaseOptions(roomId, roomNumber);
+                                @this.payEverything(validReservationId, method).then(() => {
+                                    showReleaseOptions(roomId, roomNumber);
                                 });
                             }
                         });
                     } else if (result.isDenied) {
-                        this.showReleaseOptions(roomId, roomNumber);
+                        showReleaseOptions(roomId, roomNumber);
                     }
                 });
             } else {
-                this.showReleaseOptions(roomId, roomNumber);
+                showReleaseOptions(roomId, roomNumber);
             }
         }
 
         function showReleaseOptions(roomId, roomNumber) {
+            const livewireComponent = @this;
+            
             Swal.fire({
                 title: 'Liberar Habitación #' + roomNumber,
-                text: "¿En qué estado desea dejar la habitación?",
+                html: '<p class="text-gray-600 mb-6">¿En qué estado desea dejar la habitación?</p>' +
+                      '<div class="flex flex-col gap-3 mt-4" id="swal-release-buttons">' +
+                      '<button type="button" data-action="libre" class="swal-release-btn w-full py-3 px-6 bg-green-500 hover:bg-green-600 text-white font-bold rounded-xl transition-colors duration-200">Libre</button>' +
+                      '<button type="button" data-action="pendiente_aseo" class="swal-release-btn w-full py-3 px-6 bg-orange-500 hover:bg-orange-600 text-white font-bold rounded-xl transition-colors duration-200">Pendiente por Aseo</button>' +
+                      '<button type="button" data-action="limpia" class="swal-release-btn w-full py-3 px-6 bg-blue-500 hover:bg-blue-600 text-white font-bold rounded-xl transition-colors duration-200">Limpia</button>' +
+                      '</div>',
                 icon: 'question',
-                showDenyButton: true,
                 showCancelButton: true,
-                confirmButtonText: 'Libre',
-                denyButtonText: 'Sucia',
                 cancelButtonText: 'Cancelar',
-                confirmButtonColor: '#10b981',
-                denyButtonColor: '#f59e0b',
-                customClass: { popup: 'rounded-2xl', confirmButton: 'rounded-xl', denyButton: 'rounded-xl', cancelButton: 'rounded-xl' }
-            }).then((result) => {
-                if (result.isConfirmed || result.isDenied) {
-                    @this.releaseRoom(roomId, result.isConfirmed ? 'libre' : 'sucia');
+                cancelButtonColor: '#6b7280',
+                showConfirmButton: false,
+                customClass: { popup: 'rounded-2xl', cancelButton: 'rounded-xl' },
+                didOpen: () => {
+                    setTimeout(() => {
+                        const container = document.querySelector('#swal-release-buttons');
+                        if (container) {
+                            container.addEventListener('click', function(e) {
+                                const btn = e.target.closest('.swal-release-btn');
+                                if (btn) {
+                                    const action = btn.getAttribute('data-action');
+                                    Swal.close();
+                                    livewireComponent.call('releaseRoom', roomId, action);
+                                }
+                            });
+                        }
+                    }, 50);
                 }
             });
         }
