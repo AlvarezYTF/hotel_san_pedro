@@ -58,17 +58,28 @@
                 @php
                     $displayStatus = $room['display_status']; // RoomStatus Enum (Libre, Ocupada, etc.)
                     $cleaningStatus = $room['cleaning_status']; // Estado de limpieza (ya calculado, no necesita query adicional)
-                    // Use colors from Enum based on actual room status
-                    // If room is occupied and clean: blue (ocupada) + green (limpia)
-                    // If room is occupied and needs cleaning: blue (ocupada) + yellow (pendiente por aseo)
+                    // If cleaning status is pending, use yellow card background regardless of display status
+                    // Otherwise use display status color
+                    $cardBgColor = ($cleaningStatus['code'] === 'pendiente')
+                        ? 'bg-yellow-50 hover:bg-yellow-100'
+                        : $displayStatus->cardBgColor();
+                    $cardBorderColor = ($cleaningStatus['code'] === 'pendiente')
+                        ? 'border-yellow-400'
+                        : $displayStatus->borderColor();
+                    $iconBadgeColor = ($cleaningStatus['code'] === 'pendiente')
+                        ? 'bg-yellow-100 border-yellow-400 text-yellow-800'
+                        : $displayStatus->badgeColor();
+                    $iconColor = ($cleaningStatus['code'] === 'pendiente')
+                        ? 'bg-yellow-50 text-yellow-700'
+                        : $displayStatus->color();
                 @endphp
-                <div wire:key="room-{{ $room['id'] }}" class="room-card bg-white rounded-2xl shadow-lg border-3 {{ $displayStatus->borderColor() }} transition-all duration-300 hover:transform hover:-translate-y-1">
+                <div wire:key="room-{{ $room['id'] }}" class="room-card {{ $cardBgColor }} rounded-2xl shadow-lg border-3 {{ $cardBorderColor }} transition-all duration-300 hover:transform hover:-translate-y-1">
                     <div class="p-5 sm:p-6">
                         <!-- Room Number -->
                         <div class="flex items-center justify-between mb-4">
                             <div class="flex items-center space-x-3">
-                                <div class="p-3 rounded-xl {{ $displayStatus->badgeColor() }}">
-                                    <i class="fas {{ $displayStatus->icon() }} text-2xl {{ $displayStatus->color() }}"></i>
+                                <div class="p-3 rounded-xl {{ $iconBadgeColor }}">
+                                    <i class="fas {{ $displayStatus->icon() }} text-2xl {{ $iconColor }}"></i>
                                 </div>
                                 <h3 class="text-3xl sm:text-4xl font-black text-gray-900">#{{ $room['room_number'] }}</h3>
                             </div>
@@ -104,20 +115,30 @@
 
                         <!-- Action Button -->
                         @if($room['can_mark_clean'])
+                            @php
+                                $buttonGradient = ($cleaningStatus['code'] === 'pendiente')
+                                    ? 'from-yellow-500 to-yellow-600 hover:from-yellow-600 hover:to-yellow-700'
+                                    : 'from-green-600 to-green-700 hover:from-green-700 hover:to-green-800';
+                            @endphp
                             <button
                                 wire:key="btn-mark-clean-{{ $room['id'] }}"
                                 wire:click="markAsClean({{ $room['id'] }})"
                                 wire:loading.attr="disabled"
                                 wire:target="markAsClean({{ $room['id'] }})"
                                 type="button"
-                                class="w-full py-4 px-6 bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 disabled:from-gray-400 disabled:to-gray-500 text-white font-bold rounded-xl transition-all duration-200 flex items-center justify-center space-x-3 shadow-lg hover:shadow-xl disabled:cursor-not-allowed disabled:opacity-60 text-base">
+                                class="w-full py-4 px-6 bg-gradient-to-r {{ $buttonGradient }} disabled:from-gray-400 disabled:to-gray-500 text-white font-bold rounded-xl transition-all duration-200 flex items-center justify-center space-x-3 shadow-lg hover:shadow-xl disabled:cursor-not-allowed disabled:opacity-60 text-base">
                                 <i class="fas fa-check-circle" wire:loading.remove wire:target="markAsClean({{ $room['id'] }})"></i>
                                 <i class="fas fa-spinner fa-spin" wire:loading wire:target="markAsClean({{ $room['id'] }})"></i>
                                 <span wire:loading.remove wire:target="markAsClean({{ $room['id'] }})">Marcar como Limpia</span>
                                 <span wire:loading wire:target="markAsClean({{ $room['id'] }})">Procesando...</span>
                             </button>
                         @else
-                            <div class="w-full py-4 px-6 bg-emerald-100 border-2 border-emerald-300 text-emerald-800 font-bold rounded-xl text-center text-sm">
+                            @php
+                                $buttonColor = ($cleaningStatus['code'] === 'pendiente')
+                                    ? 'bg-yellow-100 border-yellow-300 text-yellow-800'
+                                    : $displayStatus->cleanButtonColor();
+                            @endphp
+                            <div class="w-full py-4 px-6 border-2 font-bold rounded-xl text-center text-sm {{ $buttonColor }}">
                                 <i class="fas fa-check-circle mr-2"></i>Habitación Limpia
                             </div>
                         @endif

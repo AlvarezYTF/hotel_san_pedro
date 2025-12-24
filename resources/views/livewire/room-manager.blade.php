@@ -130,9 +130,9 @@
                         <th class="px-6 py-4 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">Acciones</th>
                     </tr>
                 </thead>
-                <tbody class="divide-y divide-gray-100 bg-white">
+                <tbody class="divide-y divide-gray-200">
                     @forelse($rooms as $room)
-                    <tr class="hover:bg-gray-50 transition-colors duration-150 group">
+                    <tr class="{{ $room->display_status->cardBgColor() }} transition-colors duration-150 group">
                         <td class="px-6 py-4 whitespace-nowrap">
                             <div class="flex items-center">
                                 <div class="h-10 w-10 rounded-lg bg-gray-100 flex items-center justify-center mr-3 text-gray-400 group-hover:bg-blue-50 group-hover:text-blue-600 transition-colors">

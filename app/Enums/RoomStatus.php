@@ -91,5 +91,39 @@ enum RoomStatus: string
             self::PENDIENTE_ASEO => 'fa-broom',
         };
     }
+
+    /**
+     * Get card background color class for UI display
+     */
+    public function cardBgColor(): string
+    {
+        return match ($this) {
+            self::LIBRE => 'bg-emerald-50 hover:bg-emerald-100',
+            self::RESERVADA => 'bg-blue-50 hover:bg-blue-100',
+            self::OCUPADA => 'bg-blue-50 hover:bg-blue-100',
+            self::MANTENIMIENTO => 'bg-amber-50 hover:bg-amber-100',
+            self::LIMPIEZA => 'bg-orange-50 hover:bg-orange-100',
+            self::SUCIA => 'bg-red-50 hover:bg-red-100',
+            self::PENDIENTE_CHECKOUT => 'bg-purple-50 hover:bg-purple-100',
+            self::PENDIENTE_ASEO => 'bg-yellow-50 hover:bg-yellow-100',
+        };
+    }
+
+    /**
+     * Get clean button color class for UI display
+     */
+    public function cleanButtonColor(): string
+    {
+        return match ($this) {
+            self::LIBRE => 'bg-emerald-100 border-emerald-300 text-emerald-800',
+            self::RESERVADA => 'bg-blue-100 border-blue-300 text-blue-800',
+            self::OCUPADA => 'bg-blue-100 border-blue-300 text-blue-800',
+            self::MANTENIMIENTO => 'bg-amber-100 border-amber-300 text-amber-800',
+            self::LIMPIEZA => 'bg-orange-100 border-orange-300 text-orange-800',
+            self::SUCIA => 'bg-red-100 border-red-300 text-red-800',
+            self::PENDIENTE_CHECKOUT => 'bg-purple-100 border-purple-300 text-purple-800',
+            self::PENDIENTE_ASEO => 'bg-yellow-100 border-yellow-300 text-yellow-800',
+        };
+    }
 }
 

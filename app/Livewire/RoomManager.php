@@ -108,11 +108,10 @@ class RoomManager extends Component
                 'status_color' => $room->status->color()
             ];
         } else {
-            $total_hospedaje = (float) $reservation->total_amount;
+            $total_hospedaje_completo = (float) $reservation->total_amount;
             $abono = (float) $reservation->deposit;
             $consumos_pagados = (float) $reservation->sales->where('is_paid', true)->sum('total');
             $consumos_pendientes = (float) $reservation->sales->where('is_paid', false)->sum('total');
-            $total_debt = ($total_hospedaje - $abono) + $consumos_pendientes;
 
             $stay_history = [];
             $checkIn = Carbon::parse($reservation->check_in_date);
