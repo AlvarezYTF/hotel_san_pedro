@@ -67,6 +67,27 @@ class CleaningPanel extends Component
         $cleaningStatus = $room->cleaningStatus($date);
         $displayStatus = $room->getDisplayStatus($date);
         
+        // Get guests_count for towel information
+        // First try active reservation, if room is occupied
+        $activeReservation = $room->getActiveReservation($date);
+        $guestsCount = null;
+        
+        if ($activeReservation) {
+            // Room is occupied, use active reservation's guests_count
+            $guestsCount = $activeReservation->guests_count;
+        } elseif ($cleaningStatus['code'] === 'pendiente') {
+            // Room is free but needs cleaning, get most recent ended reservation
+            // This helps determine how many towels were needed
+            $recentReservation = $room->reservations()
+                ->where('check_out_date', '<=', $date->toDateString())
+                ->orderBy('check_out_date', 'desc')
+                ->first();
+            
+            if ($recentReservation) {
+                $guestsCount = $recentReservation->guests_count;
+            }
+        }
+        
         return [
             'id' => $room->id,
             'room_number' => $room->room_number,
@@ -78,6 +99,7 @@ class CleaningPanel extends Component
             'cleaning_status' => $cleaningStatus, // Store cleaning status to avoid recalculation in view
             'needs_cleaning' => $cleaningStatus['code'] === 'pendiente',
             'can_mark_clean' => $cleaningStatus['code'] === 'pendiente',
+            'guests_count' => $guestsCount, // Number of guests for towel calculation
         ];
     }
 

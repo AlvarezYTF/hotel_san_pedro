@@ -101,6 +101,21 @@
                             </span>
                         </div>
 
+                        <!-- Towel Information (only shown when cleaning status is pending) -->
+                        @if($cleaningStatus['code'] === 'pendiente')
+                            @php
+                                $towelCount = $room['guests_count'] ?? $room['max_capacity'] ?? 1;
+                            @endphp
+                            <div class="mb-5 p-4 bg-yellow-100 border-2 border-yellow-300 rounded-xl">
+                                <div class="flex items-center space-x-3">
+                                    <i class="fas fa-info-circle text-yellow-700 text-lg"></i>
+                                    <span class="text-sm font-bold text-yellow-800">
+                                        {{ $towelCount }} {{ $towelCount === 1 ? 'toalla' : 'toallas' }} requerida{{ $towelCount === 1 ? '' : 's' }}
+                                    </span>
+                                </div>
+                            </div>
+                        @endif
+
                         <!-- Room Info -->
                         <div class="space-y-3 mb-5">
                             <div class="flex items-center space-x-3 text-base font-semibold text-gray-700">

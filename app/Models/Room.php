@@ -111,30 +111,28 @@ class Room extends Model
     /**
      * Get the cleaning status of the room.
      * SINGLE SOURCE OF TRUTH for cleaning status.
-     * Derived from last_cleaned_at, NOT from time elapsed (no 24-hour rule).
      * 
      * Rules:
      * - If never cleaned (last_cleaned_at is NULL) → needs cleaning
-     * - If last_cleaned_at exists → clean (room was cleaned and hasn't been used since)
+     * - If room is OCCUPIED and 24+ hours have passed since last_cleaned_at → needs cleaning
+     * - If room is OCCUPIED and less than 24 hours have passed → clean
+     * - If room is FREE → clean (no 24-hour rule applies, stays clean indefinitely)
      * 
-     * IMPORTANT: We do NOT use a 24-hour rule because a free room that hasn't been used
-     * doesn't need cleaning just because time has passed. 
+     * IMPORTANT: The 24-hour rule ONLY applies when the room is occupied.
+     * A free room that hasn't been used stays clean indefinitely.
      * 
      * Cleaning status is managed explicitly:
      * - When a room is released as "libre" or "limpia" → last_cleaned_at = now() (clean)
      * - When a room is released as "pendiente_aseo" → last_cleaned_at = null (needs cleaning)
      * - When a stay is continued → last_cleaned_at = null (will need cleaning when released)
-     * 
-     * A room only needs cleaning if last_cleaned_at is NULL, which happens when:
-     * 1. Room was never cleaned, OR
-     * 2. Room was released/used and marked as needing cleaning, OR
-     * 3. Stay was continued (room will need cleaning when eventually released)
      *
      * @param \Carbon\Carbon|null $date Date to check. Defaults to today.
      * @return array{code: string, label: string, color: string, icon: string}
      */
     public function cleaningStatus(?\Carbon\Carbon $date = null): array
     {
+        $date = $date ?? \Carbon\Carbon::today();
+        
         // If never cleaned or explicitly marked as needing cleaning (last_cleaned_at is NULL)
         if (!$this->last_cleaned_at) {
             return [
@@ -145,9 +143,26 @@ class Room extends Model
             ];
         }
 
-        // Clean: room was cleaned (last_cleaned_at has a value)
-        // Note: A free room that hasn't been used stays clean indefinitely
-        // until it's actually used/occupied, at which point it will be marked as needing cleaning
+        // Check if room is currently occupied
+        $isOccupied = $this->isOccupied($date);
+        
+        // If room is OCCUPIED, apply 24-hour rule
+        // After 24 hours of occupation, room needs cleaning
+        if ($isOccupied) {
+            $hoursSinceLastCleaning = $this->last_cleaned_at->diffInHours(now());
+            if ($hoursSinceLastCleaning >= 24) {
+                return [
+                    'code' => 'pendiente',
+                    'label' => 'Pendiente por Aseo',
+                    'color' => 'bg-yellow-100 text-yellow-800',
+                    'icon' => 'fa-broom',
+                ];
+            }
+        }
+
+        // Clean: 
+        // - Room is FREE (no 24-hour rule, stays clean indefinitely), OR
+        // - Room is OCCUPIED but less than 24 hours have passed
         return [
             'code' => 'limpia',
             'label' => 'Limpia',
