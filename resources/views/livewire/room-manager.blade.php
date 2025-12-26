@@ -1,4 +1,13 @@
-<div class="space-y-6" x-data="{ 
+{{-- 
+    SINCRONIZACIÓN EN TIEMPO REAL:
+    - Mecanismo principal: Eventos Livewire (inmediatos cuando ambos componentes están montados)
+    - Mecanismo fallback: Polling cada 5s (garantiza sincronización ≤5s si el evento se pierde)
+    - NO se usan WebSockets para mantener simplicidad y evitar infraestructura adicional
+    - El polling es eficiente porque usa eager loading y no hace N+1 queries
+--}}
+<div class="space-y-6" 
+     wire:poll.5s="refreshRoomsPolling"
+     x-data="{ 
     quickRentModal: @entangle('quickRentModal'),
     roomDetailModal: @entangle('roomDetailModal')
 }">
@@ -115,14 +124,15 @@
                     <tr>
                         <th class="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Habitación</th>
                         <th class="px-6 py-4 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider">Estado</th>
+                        <th class="px-6 py-4 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider">Estado de Limpieza</th>
                         <th class="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Huésped Actual / Info</th>
                         <th class="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Cuenta</th>
                         <th class="px-6 py-4 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">Acciones</th>
                     </tr>
                 </thead>
-                <tbody class="divide-y divide-gray-100 bg-white">
+                <tbody class="divide-y divide-gray-200">
                     @forelse($rooms as $room)
-                    <tr class="hover:bg-gray-50 transition-colors duration-150 group">
+                    <tr class="{{ $room->display_status->cardBgColor() }} transition-colors duration-150 group">
                         <td class="px-6 py-4 whitespace-nowrap">
                             <div class="flex items-center">
                                 <div class="h-10 w-10 rounded-lg bg-gray-100 flex items-center justify-center mr-3 text-gray-400 group-hover:bg-blue-50 group-hover:text-blue-600 transition-colors">
@@ -141,6 +151,14 @@
                             <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold {{ $room->display_status->color() }}">
                                 <span class="w-1.5 h-1.5 rounded-full mr-2" style="background-color: currentColor"></span>
                                 {{ $room->display_status->label() }}
+                            </span>
+                        </td>
+
+                        <td class="px-6 py-4 whitespace-nowrap text-center">
+                            @php($cleaning = $room->cleaningStatus())
+                            <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold {{ $cleaning['color'] }}">
+                                <i class="fas {{ $cleaning['icon'] }} mr-1.5"></i>
+                                {{ $cleaning['label'] }}
                             </span>
                         </td>
 
@@ -191,30 +209,24 @@
 
                         <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                             <div class="flex items-center justify-end space-x-3">
-                                @if($room->display_status->value === 'libre' && (!Carbon\Carbon::parse($date)->isPast() || Carbon\Carbon::parse($date)->isToday()))
+                                @if($room->display_status === \App\Enums\RoomStatus::LIBRE && (!Carbon\Carbon::parse($date)->isPast() || Carbon\Carbon::parse($date)->isToday()))
                                     <button wire:click="openQuickRent({{ $room->id }})"
                                         class="text-blue-600 hover:text-blue-700 transition-colors" title="Arrendar">
                                         <i class="fas fa-key"></i>
                                     </button>
                                 @endif
 
-                                @if($room->display_status->value === 'ocupada' && isset($room->current_reservation) && $room->current_reservation)
-                                    @php
-                                        $checkOutDate = \Carbon\Carbon::parse($room->current_reservation->check_out_date);
-                                        $canContinue = $checkOutDate->isSameDay(Carbon\Carbon::parse($date));
-                                    @endphp
-                                    @if($canContinue)
+                                @if(isset($room->current_reservation) && $room->current_reservation && \Carbon\Carbon::parse($room->current_reservation->check_out_date)->startOfDay()->eq(\Carbon\Carbon::parse($date)->startOfDay()))
                                     <button wire:click="continueStay({{ $room->id }})" class="text-emerald-600 hover:text-emerald-700 transition-colors" title="Continúa">
                                         <i class="fas fa-redo-alt"></i>
                                     </button>
-                                    @endif
                                 @endif
 
                                 <a href="{{ route('rooms.edit', $room) }}" class="text-indigo-600 hover:text-indigo-700 transition-colors" title="Editar">
                                     <i class="fas fa-edit"></i>
                                 </a>
-                                @if($room->display_status->value !== 'libre')
-                                    <button @click="confirmRelease({{ $room->id }}, '{{ $room->room_number }}')" 
+                                @if($room->display_status !== \App\Enums\RoomStatus::LIBRE)
+                                    <button @click="confirmRelease({{ $room->id }}, '{{ $room->room_number }}', {{ $room->total_debt ?? 0 }}, {{ $room->current_reservation->id ?? 'null' }})" 
                                         class="text-red-600 hover:text-red-700 transition-colors" title="Liberar">
                                         <i class="fas fa-sign-out-alt"></i>
                                     </button>
@@ -425,7 +437,7 @@
                         <div class="grid grid-cols-2 gap-4">
                             <div class="space-y-1.5">
                                 <label class="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">PERSONAS</label>
-                                <input type="number" wire:model.live="rentForm.people" :max="rentForm.max_capacity" min="1" class="w-full bg-gray-50 border border-gray-200 rounded-lg px-4 py-2.5 text-sm font-bold">
+                                <input type="number" wire:model.live="rentForm.people" max="{{ $rentForm['max_capacity'] ?? 1 }}" min="1" class="w-full bg-gray-50 border border-gray-200 rounded-lg px-4 py-2.5 text-sm font-bold">
                             </div>
                             <div class="space-y-1.5">
                                 <label class="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">CHECK-OUT</label>
@@ -452,8 +464,15 @@
                         </div>
                     </div>
 
-                    <button wire:click="storeQuickRent" class="w-full bg-blue-600 text-white py-4 rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-blue-700 transition-all shadow-md">
-                        Confirmar Arrendamiento
+                    <button wire:click="storeQuickRent" 
+                            wire:loading.attr="disabled"
+                            wire:target="storeQuickRent"
+                            class="w-full bg-blue-600 text-white py-4 rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-blue-700 transition-all shadow-md disabled:opacity-50 disabled:cursor-not-allowed">
+                        <span wire:loading.remove wire:target="storeQuickRent">Confirmar Arrendamiento</span>
+                        <span wire:loading wire:target="storeQuickRent" class="flex items-center justify-center">
+                            <i class="fas fa-spinner fa-spin mr-2"></i>
+                            Procesando...
+                        </span>
                     </button>
                 </div>
             </div>
@@ -519,21 +538,15 @@
             });
         });
 
-        function confirmRelease(roomId, roomNumber) {
-            // Obtener los datos de la habitación directamente desde Livewire
-            const room = @this.rooms.data.find(r => r.id === roomId);
-            if (!room) {
-                console.error("No se encontró la habitación en los datos locales");
-                return;
-            }
+        function confirmRelease(roomId, roomNumber, totalDebt, reservationId) {
+            // Use parameters passed directly from the button click
+            const hasDebt = totalDebt && totalDebt > 0;
+            const validReservationId = reservationId && reservationId !== 'null' ? reservationId : null;
 
-            const hasDebt = room.total_debt > 0;
-            const reservationId = room.current_reservation ? room.current_reservation.id : null;
-
-            if (hasDebt && reservationId) {
+            if (hasDebt && validReservationId) {
                 Swal.fire({
                     title: '¡Habitación con Deuda!',
-                    html: `La habitación #${roomNumber} tiene una deuda pendiente de <b>${new Intl.NumberFormat('es-CO', {style:'currency', currency:'COP', minimumFractionDigits:0}).format(room.total_debt)}</b>.<br><br>¿Desea marcar todo como pagado antes de liberar?`,
+                    html: `La habitación #${roomNumber} tiene una deuda pendiente de <b>${new Intl.NumberFormat('es-CO', {style:'currency', currency:'COP', minimumFractionDigits:0}).format(totalDebt)}</b>.<br><br>¿Desea marcar todo como pagado antes de liberar?`,
                     icon: 'warning',
                     showDenyButton: true,
                     showCancelButton: true,
@@ -559,36 +572,51 @@
                         }).then((payResult) => {
                             if (payResult.isConfirmed || payResult.isDenied) {
                                 const method = payResult.isConfirmed ? 'efectivo' : 'transferencia';
-                                @this.payEverything(reservationId, method).then(() => {
-                                    this.showReleaseOptions(roomId, roomNumber);
+                                @this.payEverything(validReservationId, method).then(() => {
+                                    showReleaseOptions(roomId, roomNumber);
                                 });
                             }
                         });
                     } else if (result.isDenied) {
-                        this.showReleaseOptions(roomId, roomNumber);
+                        showReleaseOptions(roomId, roomNumber);
                     }
                 });
             } else {
-                this.showReleaseOptions(roomId, roomNumber);
+                showReleaseOptions(roomId, roomNumber);
             }
         }
 
         function showReleaseOptions(roomId, roomNumber) {
+            const livewireComponent = @this;
+            
             Swal.fire({
                 title: 'Liberar Habitación #' + roomNumber,
-                text: "¿En qué estado desea dejar la habitación?",
+                html: '<p class="text-gray-600 mb-6">¿En qué estado desea dejar la habitación?</p>' +
+                      '<div class="flex flex-col gap-3 mt-4" id="swal-release-buttons">' +
+                      '<button type="button" data-action="libre" class="swal-release-btn w-full py-3 px-6 bg-green-500 hover:bg-green-600 text-white font-bold rounded-xl transition-colors duration-200">Libre</button>' +
+                      '<button type="button" data-action="pendiente_aseo" class="swal-release-btn w-full py-3 px-6 bg-orange-500 hover:bg-orange-600 text-white font-bold rounded-xl transition-colors duration-200">Pendiente por Aseo</button>' +
+                      '<button type="button" data-action="limpia" class="swal-release-btn w-full py-3 px-6 bg-blue-500 hover:bg-blue-600 text-white font-bold rounded-xl transition-colors duration-200">Limpia</button>' +
+                      '</div>',
                 icon: 'question',
-                showDenyButton: true,
                 showCancelButton: true,
-                confirmButtonText: 'Libre',
-                denyButtonText: 'Sucia',
                 cancelButtonText: 'Cancelar',
-                confirmButtonColor: '#10b981',
-                denyButtonColor: '#f59e0b',
-                customClass: { popup: 'rounded-2xl', confirmButton: 'rounded-xl', denyButton: 'rounded-xl', cancelButton: 'rounded-xl' }
-            }).then((result) => {
-                if (result.isConfirmed || result.isDenied) {
-                    @this.releaseRoom(roomId, result.isConfirmed ? 'libre' : 'limpieza');
+                cancelButtonColor: '#6b7280',
+                showConfirmButton: false,
+                customClass: { popup: 'rounded-2xl', cancelButton: 'rounded-xl' },
+                didOpen: () => {
+                    setTimeout(() => {
+                        const container = document.querySelector('#swal-release-buttons');
+                        if (container) {
+                            container.addEventListener('click', function(e) {
+                                const btn = e.target.closest('.swal-release-btn');
+                                if (btn) {
+                                    const action = btn.getAttribute('data-action');
+                                    Swal.close();
+                                    livewireComponent.call('releaseRoom', roomId, action);
+                                }
+                            });
+                        }
+                    }, 50);
                 }
             });
         }

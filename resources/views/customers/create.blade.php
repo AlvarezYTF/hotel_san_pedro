@@ -73,11 +73,18 @@
                                    id="identification"
                                    name="identification"
                                    x-model="formData.identification"
+                                   @input="formData.identification = formData.identification.replace(/\D/g, ''); validateIdentification()"
                                    @blur="checkIdentification()"
-                                   class="block w-full pl-10 sm:pl-11 pr-3 sm:pr-4 py-2.5 border border-gray-300 rounded-xl text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all @error('identification') border-red-300 focus:ring-red-500 @enderror"
+                                   maxlength="10"
+                                   pattern="\d{6,10}"
+                                   class="block w-full pl-10 sm:pl-11 pr-3 sm:pr-4 py-2.5 border rounded-xl text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all @error('identification') border-red-300 focus:ring-red-500 @else border-gray-300 @enderror"
+                                   :class="errors.identification || (identificationMessage && identificationExists) ? 'border-red-300 focus:ring-red-500' : ''"
                                    placeholder="Ej: 12345678">
                         </div>
-                        <p x-show="identificationMessage" 
+                        <p x-show="errors.identification" x-text="errors.identification" class="mt-1.5 text-xs text-red-600 flex items-center" x-cloak>
+                            <i class="fas fa-exclamation-circle mr-1.5"></i>
+                        </p>
+                        <p x-show="identificationMessage && !errors.identification" 
                            :class="identificationExists ? 'text-red-600' : 'text-emerald-600'"
                            class="mt-1.5 text-xs flex items-center" x-cloak>
                             <i :class="identificationExists ? 'fas fa-exclamation-circle' : 'fas fa-check-circle'" class="mr-1.5"></i>
@@ -94,7 +101,7 @@
                     <!-- Teléfono -->
                     <div>
                         <label for="phone" class="block text-xs sm:text-sm font-semibold text-gray-700 mb-2">
-                            Teléfono <span class="text-red-500">*</span>
+                            Teléfono (opcional)
                         </label>
                         <div class="relative">
                             <div class="absolute inset-y-0 left-0 pl-3 sm:pl-4 flex items-center pointer-events-none">
@@ -104,54 +111,22 @@
                                    id="phone"
                                    name="phone"
                                    x-model="formData.phone"
-                                   class="block w-full pl-10 sm:pl-11 pr-3 sm:pr-4 py-2.5 border border-gray-300 rounded-xl text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all @error('phone') border-red-300 focus:ring-red-500 @enderror"
+                                   @input="formData.phone = formData.phone.replace(/\D/g, ''); validatePhone()"
+                                   maxlength="10"
+                                   pattern="\d{10}"
+                                   class="block w-full pl-10 sm:pl-11 pr-3 sm:pr-4 py-2.5 border rounded-xl text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all @error('phone') border-red-300 focus:ring-red-500 @else border-gray-300 @enderror"
+                                   :class="errors.phone ? 'border-red-300 focus:ring-red-500' : ''"
                                    placeholder="Ej: 3001234567">
                         </div>
+                        <p x-show="errors.phone" x-text="errors.phone" class="mt-1.5 text-xs text-red-600 flex items-center" x-cloak>
+                            <i class="fas fa-exclamation-circle mr-1.5"></i>
+                        </p>
                         @error('phone')
                             <p class="mt-1.5 text-xs text-red-600 flex items-center">
                                 <i class="fas fa-exclamation-circle mr-1.5"></i>
                                 {{ $message }}
                             </p>
                         @enderror
-                    </div>
-                </div>
-
-                <!-- Campos opcionales ocultos o secundarios si se desea, pero el usuario pidió solo 3 visibles -->
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-5 md:gap-6">
-                    <!-- Email (opcional) -->
-                    <div>
-                        <label for="email" class="block text-xs sm:text-sm font-semibold text-gray-700 mb-2">
-                            Correo electrónico (opcional)
-                        </label>
-                        <div class="relative">
-                            <div class="absolute inset-y-0 left-0 pl-3 sm:pl-4 flex items-center pointer-events-none">
-                                <i class="fas fa-envelope text-gray-400 text-sm"></i>
-                            </div>
-                            <input type="email"
-                                   id="email"
-                                   name="email"
-                                   x-model="formData.email"
-                                   class="block w-full pl-10 sm:pl-11 pr-3 sm:pr-4 py-2.5 border border-gray-300 rounded-xl text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all @error('email') border-red-300 focus:ring-red-500 @enderror"
-                                   placeholder="juan.perez@email.com">
-                        </div>
-                    </div>
-
-                    <!-- Dirección (opcional) -->
-                    <div>
-                        <label for="address" class="block text-xs sm:text-sm font-semibold text-gray-700 mb-2">
-                            Dirección (opcional)
-                        </label>
-                        <div class="relative">
-                            <div class="absolute inset-y-0 left-0 pl-3 sm:pl-4 flex items-center pointer-events-none">
-                                <i class="fas fa-map-marker-alt text-gray-400 text-sm"></i>
-                            </div>
-                            <input type="text"
-                                   id="address"
-                                   name="address"
-                                   x-model="formData.address"
-                                   class="block w-full pl-10 sm:pl-11 pr-3 sm:pr-4 py-2.5 border border-gray-300 rounded-xl text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all @error('address') border-red-300 focus:ring-red-500 @enderror"
-                                   placeholder="Calle 123 #45-67">
-                        </div>
                     </div>
                 </div>
             </div>
@@ -448,6 +423,7 @@ function customerForm() {
         identificationMessage: '',
         identificationExists: false,
         municipalitySelect: null,
+        errors: {},
 
         formData: {
             name: @json(old('name', '')),
@@ -533,18 +509,72 @@ function customerForm() {
             this.dv = remainder < 2 ? remainder : 11 - remainder;
         },
 
-        async checkIdentification() {
-            if (!this.formData.identification || this.formData.identification.length < 5) return;
+        validateIdentification() {
+            this.errors.identification = null;
+            this.identificationMessage = '';
+            this.identificationExists = false;
+
+            const identification = this.formData.identification?.trim() || '';
+            const digitCount = identification.replace(/\D/g, '').length;
+
+            if (identification && digitCount < 6) {
+                this.errors.identification = 'El número de documento debe tener mínimo 6 dígitos.';
+                return false;
+            }
+
+            if (identification && digitCount > 10) {
+                this.errors.identification = 'El número de documento debe tener máximo 10 dígitos.';
+                return false;
+            }
+
+            // Only allow digits
+            if (identification && !/^\d+$/.test(identification)) {
+                this.errors.identification = 'El número de documento solo puede contener dígitos.';
+                return false;
+            }
+
+            return true;
+        },
+
+        validatePhone() {
+            this.errors.phone = null;
+
+            const phone = this.formData.phone?.trim() || '';
             
+            // If phone is empty, it's valid (optional field)
+            if (!phone) {
+                return true;
+            }
+
+            const digitCount = phone.replace(/\D/g, '').length;
+
+            if (digitCount !== 10) {
+                this.errors.phone = 'El número de teléfono debe tener exactamente 10 dígitos.';
+                return false;
+            }
+
+            // Only allow digits
+            if (!/^\d+$/.test(phone)) {
+                this.errors.phone = 'El número de teléfono solo puede contener dígitos.';
+                return false;
+            }
+
+            return true;
+        },
+
+        async checkIdentification() {
+            if (!this.validateIdentification()) return;
+            if (!this.formData.identification || this.formData.identification.length < 6) return;
+
             this.identificationMessage = 'Verificando...';
             this.identificationExists = false;
-            
+
             try {
                 const response = await fetch(`{{ route('api.customers.check-identification') }}?identification=${this.formData.identification}`);
                 if (!response.ok) throw new Error('Error en la validación');
-                
+
                 const data = await response.json();
-                
+
                 if (data.exists) {
                     this.identificationExists = true;
                     this.identificationMessage = `Este cliente ya está registrado como: ${data.name}`;
@@ -582,6 +612,8 @@ function customerForm() {
         submitForm() {
             this.errors = {};
             this.validateField('name');
+            this.validateIdentification();
+            this.validatePhone();
 
             if (this.requiresElectronicInvoice) {
                 this.validateField('identification_document_id');
