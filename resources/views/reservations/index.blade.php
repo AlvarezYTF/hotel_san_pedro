@@ -32,6 +32,9 @@
         </div>
     </div>
 
+    <!-- Statistics Cards -->
+    @livewire('reservations.reservation-stats')
+
     <!-- View Switcher & Date Navigation -->
     <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4 bg-white p-3 rounded-xl border border-gray-100 shadow-sm">
         <div class="flex items-center p-1 bg-gray-50 rounded-xl border border-gray-100">

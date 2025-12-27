@@ -11,10 +11,8 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::table('customers', function (Blueprint $table) {
-            if (!Schema::hasColumn('customers', 'deleted_at')) {
-                $table->softDeletes();
-            }
+        Schema::table('reservations', function (Blueprint $table) {
+            $table->time('check_in_time')->nullable()->default('14:00:00')->after('check_out_date');
         });
     }
 
@@ -23,8 +21,8 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::table('customers', function (Blueprint $table) {
-            $table->dropSoftDeletes();
+        Schema::table('reservations', function (Blueprint $table) {
+            $table->dropColumn('check_in_time');
         });
     }
 };

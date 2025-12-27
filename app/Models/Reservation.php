@@ -16,6 +16,7 @@ class Reservation extends Model
         'reservation_date',
         'check_in_date',
         'check_out_date',
+        'check_in_time',
         'notes',
     ];
 
