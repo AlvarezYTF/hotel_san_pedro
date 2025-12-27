@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Enums\RoomStatus;
+use App\Enums\VentilationType;
 use Illuminate\Database\Eloquent\Model;
 
 class Room extends Model
@@ -11,6 +12,7 @@ class Room extends Model
         'room_number',
         'beds_count',
         'max_capacity',
+        'ventilation_type',
         'price_1_person',
         'price_2_persons',
         'price_additional_person',
@@ -27,6 +29,7 @@ class Room extends Model
         'price_additional_person' => 'decimal:2',
         'occupancy_prices' => 'array',
         'status' => RoomStatus::class,
+        'ventilation_type' => VentilationType::class,
         'beds_count' => 'integer',
         'max_capacity' => 'integer',
         'last_cleaned_at' => 'datetime',

@@ -125,6 +125,7 @@
                         <th class="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Habitación</th>
                         <th class="px-6 py-4 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider">Estado</th>
                         <th class="px-6 py-4 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider">Estado de Limpieza</th>
+                        <th class="px-6 py-4 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider">Ventilación</th>
                         <th class="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Huésped Actual / Info</th>
                         <th class="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Cuenta</th>
                         <th class="px-6 py-4 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">Acciones</th>
@@ -160,6 +161,17 @@
                                 <i class="fas {{ $cleaning['icon'] }} mr-1.5"></i>
                                 {{ $cleaning['label'] }}
                             </span>
+                        </td>
+
+                        <td class="px-6 py-4 whitespace-nowrap text-center">
+                            @if($room->ventilation_type)
+                                <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-blue-50 text-blue-700">
+                                    <i class="fas fa-wind mr-1.5"></i>
+                                    {{ $room->ventilation_type->label() }}
+                                </span>
+                            @else
+                                <span class="text-xs text-gray-400 italic">No asignado</span>
+                            @endif
                         </td>
 
                         <td class="px-6 py-4 whitespace-nowrap">
