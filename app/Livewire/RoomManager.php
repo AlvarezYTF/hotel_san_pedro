@@ -574,6 +574,9 @@ class RoomManager extends Component
             return;
         }
 
+        // Cerrar modal de inmediato tras validar para dar feedback rápido al usuario
+        $this->quickRentModal = false;
+
         // Create reservation within transaction for atomicity
         $reservation = DB::transaction(function() {
             return Reservation::create([
@@ -591,9 +594,6 @@ class RoomManager extends Component
             ]);
         });
 
-        // Close modal immediately for better UX
-        $this->quickRentModal = false;
-        
         // Dispatch notifications first (non-blocking)
         $this->dispatch('notify', type: 'success', message: 'Reserva creada exitosamente.');
         
