@@ -23,6 +23,23 @@
             </div>
 
             <div class="flex items-center space-x-3">
+                <form method="GET"
+                      action="{{ route('reservations.export.monthly') }}"
+                      class="flex items-center gap-2">
+                    <label for="monthly-report-month" class="sr-only">Mes del reporte</label>
+                    <input id="monthly-report-month"
+                           type="month"
+                           name="month"
+                           value="{{ $date->format('Y-m') }}"
+                           required
+                           class="h-[42px] px-3 rounded-xl border border-gray-200 bg-white text-sm font-semibold text-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500 shadow-sm" />
+                    <button type="submit"
+                            class="inline-flex items-center justify-center px-4 sm:px-5 py-2.5 rounded-xl border-2 border-red-600 bg-white text-red-600 text-sm font-semibold hover:bg-red-50 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 shadow-sm hover:shadow-md"
+                            title="Exportar reporte mensual en PDF">
+                        <i class="fas fa-file-pdf mr-2"></i>
+                        <span>Exportar PDF</span>
+                    </button>
+                </form>
                 <a href="{{ route('reservations.create') }}"
                    class="inline-flex items-center justify-center px-4 sm:px-5 py-2.5 rounded-xl border-2 border-emerald-600 bg-emerald-600 text-white text-sm font-semibold hover:bg-emerald-700 hover:border-emerald-700 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500 shadow-sm hover:shadow-md">
                     <i class="fas fa-plus mr-2"></i>

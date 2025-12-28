@@ -12,6 +12,7 @@ use App\Models\DianCustomerTribute;
 use App\Models\DianMunicipality;
 use App\Http\Requests\StoreReservationRequest;
 use App\Services\AuditService;
+use App\Services\ReservationReportService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Database\Eloquent\Collection;
@@ -22,7 +23,8 @@ use Throwable;
 class ReservationController extends Controller
 {
     public function __construct(
-        private AuditService $auditService
+        private AuditService $auditService,
+        private ReservationReportService $reportService
     ) {}
     /**
      * Livewire browser-events are not safe to dispatch from Controllers in all Livewire versions.
@@ -398,6 +400,27 @@ class ReservationController extends Controller
         $reservation->load(['customer', 'room']);
         $pdf = Pdf::loadView('reservations.pdf', compact('reservation'));
         return $pdf->download("Soporte_Reserva_{$reservation->id}.pdf");
+    }
+
+    /**
+     * Export monthly reservations report as PDF.
+     */
+    public function exportMonthlyReport(Request $request)
+    {
+        $month = $request->get('month', now()->format('Y-m'));
+
+        try {
+            Carbon::createFromFormat('Y-m', (string) $month);
+        } catch (\Exception $e) {
+            return back()->withErrors([
+                'month' => 'Formato de mes inválido. Use YYYY-MM.',
+            ]);
+        }
+
+        $reportData = $this->reportService->getMonthlyReservations((string) $month);
+        $pdf = Pdf::loadView('reservations.monthly-report-pdf', $reportData);
+
+        return $pdf->download("Reporte_Reservaciones_{$month}.pdf");
     }
 
     /**
