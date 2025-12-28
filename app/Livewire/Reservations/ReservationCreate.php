@@ -1436,15 +1436,31 @@ class ReservationCreate extends Component
             $targetRoomId = (int) $this->roomId;
         }
 
+        // Hide guests already assigned to ANY room in the current reservation draft.
+        // Business rule: one person can only be assigned to one room per reservation.
         $alreadyAssignedIds = [];
-        if ($targetRoomId !== null && $targetRoomId > 0) {
-            $alreadyAssignedIds = array_map(
-                'intval',
-                array_column($this->getRoomGuests($targetRoomId), 'id')
-            );
+        if (is_array($this->roomGuests) && !empty($this->roomGuests)) {
+            foreach ($this->roomGuests as $roomId => $guests) {
+                if (!is_array($guests) || empty($guests)) {
+                    continue;
+                }
+                foreach ($guests as $guest) {
+                    if (!is_array($guest)) {
+                        continue;
+                    }
+                    $guestId = $guest['id'] ?? null;
+                    if (!empty($guestId) && is_numeric($guestId)) {
+                        $alreadyAssignedIds[] = (int) $guestId;
+                    }
+                }
+            }
         }
 
-        $searchTerm = mb_strtolower(trim((string) $this->guestSearchTerm));
+        $alreadyAssignedIds = array_values(array_unique(array_map('intval', $alreadyAssignedIds)));
+
+        $searchTermRaw = (string) $this->guestSearchTerm;
+        $searchTerm = mb_strtolower(trim($searchTermRaw));
+        $searchTermAlnum = preg_replace('/[^[:alnum:]]+/u', '', $searchTerm) ?? '';
 
         $filtered = [];
 
@@ -1475,13 +1491,23 @@ class ReservationCreate extends Component
             }
 
             $name = mb_strtolower((string) ($customer['name'] ?? ''));
-            $identification = (string) ($customer['taxProfile']['identification'] ?? '');
+            $identification = mb_strtolower((string) ($customer['taxProfile']['identification'] ?? ''));
             $phone = mb_strtolower((string) ($customer['phone'] ?? ''));
+
+            // Normalized variants for robust matching (handles dots/spaces in IDs and phones)
+            $nameAlnum = preg_replace('/[^[:alnum:]]+/u', '', $name) ?? '';
+            $identificationAlnum = preg_replace('/[^[:alnum:]]+/u', '', $identification) ?? '';
+            $phoneAlnum = preg_replace('/[^[:alnum:]]+/u', '', $phone) ?? '';
 
             // Search in name, identification, or phone
             if (str_contains($name, $searchTerm) ||
-                str_contains(mb_strtolower($identification), $searchTerm) ||
-                str_contains($phone, $searchTerm)) {
+                str_contains($identification, $searchTerm) ||
+                str_contains($phone, $searchTerm) ||
+                ($searchTermAlnum !== '' && (
+                    str_contains($nameAlnum, $searchTermAlnum) ||
+                    str_contains($identificationAlnum, $searchTermAlnum) ||
+                    str_contains($phoneAlnum, $searchTermAlnum)
+                ))) {
                 $filtered[] = $customer;
             }
 
@@ -1593,6 +1619,26 @@ class ReservationCreate extends Component
         // Initialize room guests array if needed
         if (!isset($this->roomGuests[$targetRoomId]) || !is_array($this->roomGuests[$targetRoomId])) {
             $this->roomGuests[$targetRoomId] = [];
+        }
+
+        // Business rule: prevent assigning the same guest to multiple rooms in the same reservation draft.
+        if (is_array($this->roomGuests)) {
+            foreach ($this->roomGuests as $roomId => $guests) {
+                $roomIdInt = is_numeric($roomId) ? (int) $roomId : 0;
+                if ($roomIdInt <= 0) {
+                    continue;
+                }
+                if (!is_array($guests) || empty($guests)) {
+                    continue;
+                }
+                $existingIds = array_map('intval', array_column($guests, 'id'));
+                if (in_array($guestId, $existingIds, true) && $roomIdInt !== $targetRoomId) {
+                    $roomInfo = $this->getRoomById($roomIdInt);
+                    $roomNumber = $roomInfo['number'] ?? $roomInfo['room_number'] ?? (string) $roomIdInt;
+                    $this->addError('guestAssignment', "Este cliente ya está asignado a la habitación {$roomNumber}.");
+                    return;
+                }
+            }
         }
 
         // Check for duplicates - validate guest is not already assigned

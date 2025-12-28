@@ -1106,7 +1106,7 @@
                     </div>
 
                     <!-- Content -->
-                    <div class="px-6 py-6 flex-1 overflow-y-auto">
+                    <div class="px-6 py-6 flex-1 overflow-hidden flex flex-col">
                         <!-- Info de capacidad -->
                         @if($currentRoomForGuestAssignment !== null)
                             @php
@@ -1152,8 +1152,8 @@
 
                         <!-- Tab: Buscar -->
                         @if($guestModalTab === 'search')
-                            <div class="space-y-4">
-                                <div class="relative" id="guest-search-container">
+                            <div class="flex flex-col gap-4 flex-1 min-h-0">
+                                <div id="guest-search-container">
                                     <label class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">
                                         Buscar por nombre, documento o teléfono
                                     </label>
@@ -1170,58 +1170,60 @@
                                                class="block w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-xl text-sm focus:ring-purple-500 focus:border-purple-500"
                                                placeholder="Buscar por nombre, identificación o teléfono...">
                                     </div>
+                                </div>
 
-                                    <!-- Dropdown Results -->
-                                    @if($showGuestDropdown)
-                                        <div class="absolute z-50 w-full mt-1 bg-white border border-gray-300 rounded-xl shadow-lg max-h-[500px] overflow-y-auto">
+                                <!-- Results Panel (scrollable) -->
+                                <div class="border border-gray-300 rounded-xl shadow-sm bg-white flex-1 min-h-0 overflow-y-scroll">
+                                    @php
+                                        $filteredGuests = $this->filteredGuests;
+                                    @endphp
+
+                                    @if(count($filteredGuests) > 0)
+                                        <div class="px-4 py-2 text-[10px] font-bold text-gray-500 uppercase tracking-widest bg-gray-50 border-b border-gray-100 sticky top-0">
+                                            <i class="fas fa-hand-point-up mr-1"></i>
+                                            Desliza para ver más personas
+                                        </div>
+                                        @foreach($filteredGuests as $customer)
                                             @php
-                                                $filteredGuests = $this->filteredGuests;
+                                                $customerIdValue = $customer['id'] ?? null;
+                                                $customerName = $customer['name'] ?? '';
+                                                $identification = $customer['taxProfile']['identification'] ?? 'S/N';
+                                                $phone = $customer['phone'] ?? 'S/N';
                                             @endphp
-
-                                            @if(count($filteredGuests) > 0)
-                                                @foreach($filteredGuests as $customer)
-                                                    @php
-                                                        $customerIdValue = $customer['id'] ?? null;
-                                                        $customerName = $customer['name'] ?? '';
-                                                        $identification = $customer['taxProfile']['identification'] ?? 'S/N';
-                                                        $phone = $customer['phone'] ?? 'S/N';
-                                                    @endphp
-                                                    @if($customerIdValue)
-                                                        <button type="button"
-                                                                wire:click="selectGuestForAssignment({{ $customerIdValue }})"
-                                                                class="w-full text-left px-4 py-3 hover:bg-purple-50 transition-colors border-b border-gray-100 last:border-b-0">
-                                                            <div class="flex items-center justify-between">
-                                                                <div class="flex-1">
-                                                                    <div class="font-medium text-gray-900 text-sm">
-                                                                        {{ $customerName }}
-                                                                    </div>
-                                                                    <div class="text-xs text-gray-500 mt-0.5">
-                                                                        <span class="mr-2"><i class="fas fa-id-card mr-1"></i>{{ $identification }}</span>
-                                                                        @if($phone !== 'S/N')
-                                                                            <span><i class="fas fa-phone mr-1"></i>{{ $phone }}</span>
-                                                                        @endif
-                                                                    </div>
-                                                                </div>
-                                                                <i class="fas fa-check-circle text-purple-600"></i>
+                                            @if($customerIdValue)
+                                                <button type="button"
+                                                        wire:click="selectGuestForAssignment({{ $customerIdValue }})"
+                                                        class="w-full text-left px-4 py-3 hover:bg-purple-50 transition-colors border-b border-gray-100 last:border-b-0">
+                                                    <div class="flex items-center justify-between">
+                                                        <div class="flex-1">
+                                                            <div class="font-medium text-gray-900 text-sm">
+                                                                {{ $customerName }}
                                                             </div>
-                                                        </button>
-                                                    @endif
-                                                @endforeach
-
-                                                @if(empty($this->guestSearchTerm) && count($this->customers ?? []) > 5)
-                                                    <div class="px-4 py-2 text-xs text-gray-500 text-center border-t border-gray-100 bg-gray-50">
-                                                        <i class="fas fa-info-circle mr-1"></i>
-                                                        Mostrando los 5 clientes más recientes. Escribe para buscar más.
+                                                            <div class="text-xs text-gray-500 mt-0.5">
+                                                                <span class="mr-2"><i class="fas fa-id-card mr-1"></i>{{ $identification }}</span>
+                                                                @if($phone !== 'S/N')
+                                                                    <span><i class="fas fa-phone mr-1"></i>{{ $phone }}</span>
+                                                                @endif
+                                                            </div>
+                                                        </div>
+                                                        <i class="fas fa-check-circle text-purple-600"></i>
                                                     </div>
-                                                @endif
-                                            @else
-                                                <div class="px-4 py-6 text-center text-sm text-gray-500">
-                                                    <i class="fas fa-search text-2xl mb-2 opacity-50"></i>
-                                                    <p>No se encontraron clientes</p>
-                                                    @if(!empty($this->guestSearchTerm))
-                                                        <p class="text-xs mt-1">Intenta con otro término de búsqueda</p>
-                                                    @endif
-                                                </div>
+                                                </button>
+                                            @endif
+                                        @endforeach
+
+                                        @if(empty($this->guestSearchTerm) && count($this->customers ?? []) > 5)
+                                            <div class="px-4 py-2 text-xs text-gray-500 text-center border-t border-gray-100 bg-gray-50 sticky bottom-0">
+                                                <i class="fas fa-info-circle mr-1"></i>
+                                                Mostrando los 5 clientes más recientes. Escribe para buscar más.
+                                            </div>
+                                        @endif
+                                    @else
+                                        <div class="px-4 py-6 text-center text-sm text-gray-500">
+                                            <i class="fas fa-search text-2xl mb-2 opacity-50"></i>
+                                            <p>No se encontraron clientes</p>
+                                            @if(!empty($this->guestSearchTerm))
+                                                <p class="text-xs mt-1">Intenta con otro término de búsqueda</p>
                                             @endif
                                         </div>
                                     @endif

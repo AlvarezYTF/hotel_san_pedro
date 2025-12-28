@@ -41,7 +41,7 @@ class ReservationController extends Controller
     }
     /**
      * Display a listing of the resource.
-     */
+
     public function index(Request $request)
     {
         Carbon::setLocale('es');
@@ -64,7 +64,7 @@ class ReservationController extends Controller
                 $q->where('check_in_date', '<=', $endOfMonth)
                   ->where('check_out_date', '>=', $startOfMonth);
             });
-        }, 'reservations.customer'])->orderBy('room_number')->get();
+reservations.customer'])->orderBy('room_number')->get();
 
         // Asegurarse de que el status se maneje como string para la vista si es necesario,
         // aunque Blade puede manejar el enum.
@@ -117,7 +117,7 @@ class ReservationController extends Controller
                 ];
             })->toArray();
 
-            // Ensure customersArray is always an array
+// Ensure customersArray is always an array
             if (!is_array($customersArray)) {
                 $customersArray = [];
             }
@@ -175,7 +175,7 @@ class ReservationController extends Controller
 
             // Return view with empty arrays to prevent 500 errors
             return view('reservations.create', [
-                'customers' => [],
+    'customers' => [],
                 'rooms' => [],
                 'roomsData' => [],
                 'identificationDocuments' => [],
@@ -585,6 +585,7 @@ class ReservationController extends Controller
     private function validateGuestAssignment(array $roomGuests, Collection $rooms): array
     {
         $errors = [];
+        $guestRoomMap = [];
 
         foreach ($roomGuests as $roomId => $assignedGuestIds) {
             $room = $rooms->get($roomId);
@@ -598,11 +599,29 @@ class ReservationController extends Controller
             $validGuestIds = array_filter($assignedGuestIds, function ($id): bool {
                 return !empty($id) && is_numeric($id) && $id > 0;
             });
+            $validGuestIds = array_values(array_unique(array_map('intval', $validGuestIds)));
 
             $guestCount = count($validGuestIds);
 
             if ($guestCount > $room->max_capacity) {
                 $errors['room_guests'][] = "La habitación {$room->room_number} tiene una capacidad máxima de {$room->max_capacity} personas, pero se están intentando asignar {$guestCount}.";
+            }
+
+            // Business rule: prevent assigning the same guest to multiple rooms in the same reservation.
+            foreach ($validGuestIds as $guestId) {
+                if (!isset($guestRoomMap[$guestId])) {
+                    $guestRoomMap[$guestId] = (int) $roomId;
+                    continue;
+                }
+
+                $firstRoomId = (int) $guestRoomMap[$guestId];
+                if ($firstRoomId === (int) $roomId) {
+                    continue;
+                }
+
+                $firstRoom = $rooms->get($firstRoomId);
+                $firstRoomNumber = $firstRoom ? $firstRoom->room_number : (string) $firstRoomId;
+                $errors['room_guests'][] = "Un huésped no puede estar asignado a dos habitaciones en la misma reserva (Hab. {$firstRoomNumber} y Hab. {$room->room_number}).";
             }
         }
 
