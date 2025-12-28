@@ -170,8 +170,8 @@ class CleaningPanel extends Component
 
             // Validate: only rooms needing cleaning can be marked (using today's date)
             if ($room->cleaningStatus($today)['code'] !== 'pendiente') {
-                $this->dispatch('notify',
-                    type: 'error',
+                $this->dispatch('notify', 
+                    type: 'error', 
                     message: "La habitación #{$room->room_number} no requiere limpieza en este momento."
                 );
                 return;
@@ -206,7 +206,7 @@ class CleaningPanel extends Component
             
             // Mark as just updated to skip next listener query (1 second cache)
             Cache::put("room_updated_{$roomId}", true, 1);
-            
+
             // Dispatch evento global para sincronización en tiempo real con otros componentes
             // MECANISMO PRINCIPAL: Si RoomManager está montado, recibirá este evento inmediatamente (<1s)
             // FALLBACK: Si no está montado, el polling cada 5s capturará el cambio en ≤5s
@@ -267,13 +267,13 @@ class CleaningPanel extends Component
         
         if ($newHash !== $this->dataHash) {
             // Data changed, reload everything
-            $this->loadRooms();
+        $this->loadRooms();
         }
         
         // Always update time (minimal operation)
         $this->currentTime = now()->format('H:i');
     }
-    
+
     /**
      * Determine if polling should be active.
      * Single Responsibility: Only decides polling state.
@@ -331,15 +331,15 @@ class CleaningPanel extends Component
             
             if (!$justUpdated) {
                 // Reload only this room
-                $room = Room::with([
-                    'reservations' => function($query) use ($today) {
-                        $query->where('check_in_date', '<=', $today)
-                              ->where('check_out_date', '>=', $today);
-                    }
-                ])->find($roomId);
-                
-                if ($room) {
-                    $this->rooms[$roomIndex] = $this->transformRoomToArray($room, $today);
+            $room = Room::with([
+                'reservations' => function($query) use ($today) {
+                    $query->where('check_in_date', '<=', $today)
+                          ->where('check_out_date', '>=', $today);
+                }
+            ])->find($roomId);
+            
+            if ($room) {
+                $this->rooms[$roomIndex] = $this->transformRoomToArray($room, $today);
                 }
             }
         } else {

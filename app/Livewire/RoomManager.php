@@ -13,7 +13,6 @@ use App\Enums\VentilationType;
 use Carbon\Carbon;
 use Livewire\WithPagination;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Cache;
 
 class RoomManager extends Component
 {
@@ -307,36 +306,36 @@ class RoomManager extends Component
             // Always release reservation when in releaseRoom method
             // All three options (libre, pendiente_aseo, limpia) should release the room
             if ($shouldRelease) {
-                // Find active reservation for the selected date
-                // We query directly from DB (not cached relations) to get fresh data
-                $reservation = $room->reservations()
-                    ->where('check_in_date', '<=', $date)
+            // Find active reservation for the selected date
+            // We query directly from DB (not cached relations) to get fresh data
+            $reservation = $room->reservations()
+                ->where('check_in_date', '<=', $date)
                     ->where('check_out_date', '>', $date)
-                    ->orderBy('check_in_date', 'asc')
-                    ->first();
+                ->orderBy('check_in_date', 'asc')
+                ->first();
 
-                if ($reservation) {
-                    $start = Carbon::parse($reservation->check_in_date)->startOfDay();
-                    $end = Carbon::parse($reservation->check_out_date)->startOfDay();
+            if ($reservation) {
+                $start = Carbon::parse($reservation->check_in_date)->startOfDay();
+                $end = Carbon::parse($reservation->check_out_date)->startOfDay();
 
-                    // When releasing a room, we DELETE the active reservation completely
-                    // This ensures the reservation disappears from the reservations module
-                    // and the room shows as "Pendiente por Aseo" or "Libre" immediately
-                    // Future reservations (starting after the selected date) are preserved automatically
-                    
-                    // If reservation has future days (after selected date), create new reservation for those days
-                    // Then delete the current reservation
-                    if ($end->gt($date)) {
-                        // Reservation extends beyond selected date -> Create new reservation for future days
-                        $newRes = $reservation->replicate();
-                        $newRes->check_in_date = $date->copy()->addDay()->toDateString();
-                        $newRes->check_out_date = $reservation->check_out_date;
-                        $newRes->save();
-                    }
-                    
-                    // DELETE the active reservation completely
-                    // This makes the room available immediately and removes it from reservations module
-                    $reservation->delete();
+                // When releasing a room, we DELETE the active reservation completely
+                // This ensures the reservation disappears from the reservations module
+                // and the room shows as "Pendiente por Aseo" or "Libre" immediately
+                // Future reservations (starting after the selected date) are preserved automatically
+                
+                // If reservation has future days (after selected date), create new reservation for those days
+                // Then delete the current reservation
+                if ($end->gt($date)) {
+                    // Reservation extends beyond selected date -> Create new reservation for future days
+                    $newRes = $reservation->replicate();
+                    $newRes->check_in_date = $date->copy()->addDay()->toDateString();
+                    $newRes->check_out_date = $reservation->check_out_date;
+                    $newRes->save();
+                }
+                
+                // DELETE the active reservation completely
+                // This makes the room available immediately and removes it from reservations module
+                $reservation->delete();
                 }
             }
 
@@ -396,9 +395,6 @@ class RoomManager extends Component
         // This ensures the component updates even if pagination didn't change
         $this->refreshTrigger = now()->timestamp;
 
-        // Mark as just updated to skip next listener query (1 second cache)
-        Cache::put("room_updated_{$room->id}", true, 1);
-        
         // Dispatch evento global para sincronización en tiempo real con otros componentes
         // MECANISMO PRINCIPAL: Si CleaningPanel está montado, recibirá este evento inmediatamente (<1s)
         // FALLBACK: Si no está montado, el polling cada 5s capturará el cambio en ≤5s
@@ -454,9 +450,6 @@ class RoomManager extends Component
 
         // Force immediate refresh of room list to reflect changes
         $this->refreshRooms();
-
-        // Mark as just updated to skip next listener query (1 second cache)
-        Cache::put("room_updated_{$room->id}", true, 1);
         
         // Dispatch evento global para sincronización en tiempo real con otros componentes
         $this->dispatch('room-status-updated', roomId: $room->id);
@@ -480,14 +473,14 @@ class RoomManager extends Component
         
         // If not found, find active reservation or reservation ending today
         if (!$reservation) {
-            $reservation = $room->reservations()
-                ->where('check_in_date', '<=', $date)
-                ->where(function($query) use ($date) {
-                    $query->where('check_out_date', '>', $date)
-                          ->orWhere('check_out_date', '=', $date->toDateString());
-                })
-                ->orderBy('check_out_date', 'desc')
-                ->first();
+        $reservation = $room->reservations()
+            ->where('check_in_date', '<=', $date)
+            ->where(function($query) use ($date) {
+                $query->where('check_out_date', '>', $date)
+                      ->orWhere('check_out_date', '=', $date->toDateString());
+            })
+            ->orderBy('check_out_date', 'desc')
+            ->first();
         }
 
         if (!$reservation) return;
@@ -517,9 +510,6 @@ class RoomManager extends Component
         // Force immediate refresh of room list to reflect changes
         $this->refreshRooms();
 
-        // Mark as just updated to skip next listener query (1 second cache)
-        Cache::put("room_updated_{$room->id}", true, 1);
-        
         // Dispatch evento global para sincronización en tiempo real con otros componentes
         // MECANISMO PRINCIPAL: Si CleaningPanel está montado, recibirá este evento inmediatamente (<1s)
         // FALLBACK: Si no está montado, el polling cada 5s capturará el cambio en ≤5s
@@ -606,9 +596,6 @@ class RoomManager extends Component
         
         // Dispatch notifications first (non-blocking)
         $this->dispatch('notify', type: 'success', message: 'Reserva creada exitosamente.');
-        
-        // Mark as just updated to skip next listener query (1 second cache)
-        Cache::put("room_updated_{$this->rentForm['room_id']}", true, 1);
         
         // Dispatch evento global para sincronización en tiempo real con otros componentes
         // MECANISMO PRINCIPAL: Si CleaningPanel está montado, recibirá este evento inmediatamente (<1s)
@@ -722,20 +709,14 @@ class RoomManager extends Component
     #[On('room-status-updated')]
     public function onRoomStatusUpdated(int $roomId): void
     {
-        // Use cache to avoid query if we just updated it
-        $cacheKey = "room_updated_{$roomId}";
-        $justUpdated = Cache::get($cacheKey, false);
+        // Actualizar trigger para forzar re-render mínimo (no ejecutar refreshRooms completo)
+        // El render() siguiente verá los datos actualizados vía eager loading
+        // Esto reduce latencia de ~500ms a ~200ms
+        $this->refreshTrigger = now()->timestamp;
         
-        if (!$justUpdated) {
-            // Actualizar trigger para forzar re-render mínimo (no ejecutar refreshRooms completo)
-            // El render() siguiente verá los datos actualizados vía eager loading
-            // Esto reduce latencia de ~500ms a ~200ms
-            $this->refreshTrigger = now()->timestamp;
-            
-            // If the updated room detail is open, reload it
-            if ($this->selectedRoomId == $roomId) {
-                $this->loadRoomDetail();
-            }
+        // If the updated room detail is open, reload it
+        if ($this->selectedRoomId == $roomId) {
+            $this->loadRoomDetail();
         }
         
         // Marcar que hubo actualización por evento (evita que el polling ejecute inmediatamente)
