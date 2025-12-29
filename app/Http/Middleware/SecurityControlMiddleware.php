@@ -31,15 +31,15 @@ class SecurityControlMiddleware
             return $next($request);
         }
 
-        // 2. Control de Turnos Activos (Nueva Restricción)
-        // Si hay otro recepcionista con un turno ACTIVO, este usuario no puede entrar
+        // 2. Control de Turnos Activos (Estricto)
+        // Si hay OTRO recepcionista con un turno ACTIVO, este usuario tiene el acceso bloqueado
         $activeShift = \App\Models\ShiftHandover::where('status', \App\Enums\ShiftHandoverStatus::ACTIVE)
             ->where('entregado_por', '!=', $user->id)
             ->first();
 
         if ($activeShift) {
             Auth::logout();
-            return redirect()->route('login')->with('error', 'Acceso denegado: El usuario ' . $activeShift->entregadoPor->name . ' tiene un turno activo en este momento.');
+            return redirect()->route('login')->with('error', 'Acceso denegado: El usuario ' . $activeShift->entregadoPor->name . ' tiene un turno activo. Debe entregarlo para que usted pueda ingresar.');
         }
 
         // 3. IP Restriction
@@ -48,24 +48,10 @@ class SecurityControlMiddleware
             return redirect()->route('login')->with('error', 'Acceso denegado: IP no autorizada.');
         }
 
-        // 4. Schedule Restriction (Restaurada y mejorada)
-        if ($user->working_hours) {
-            $now = now();
-            $startTime = \Carbon\Carbon::createFromTimeString($user->working_hours['start']);
-            $endTime = \Carbon\Carbon::createFromTimeString($user->working_hours['end']);
+        // 4. Schedule Restriction - ELIMINADA por solicitud del usuario
+        // Se permite el acceso en cualquier horario, siempre y cuando no haya un turno activo de otro usuario.
 
-            // Handle overnight shifts (e.g., 22:00 to 06:00)
-            if ($endTime->lessThan($startTime)) {
-                $isWorkTime = $now->greaterThanOrEqualTo($startTime) || $now->lessThanOrEqualTo($endTime);
-            } else {
-                $isWorkTime = $now->between($startTime, $endTime);
-            }
-
-            if (!$isWorkTime) {
-                Auth::logout();
-                return redirect()->route('login')->with('error', 'Acceso denegado: Fuera de su horario laboral (' . $user->working_hours['start'] . ' - ' . $user->working_hours['end'] . ').');
-            }
-        }
+        return $next($request);
 
         return $next($request);
 

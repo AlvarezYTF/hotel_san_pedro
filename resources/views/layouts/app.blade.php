@@ -171,6 +171,11 @@
                             <span class="ml-3">Retiros de Caja (Turno)</span>
                         </a>
                     @endcan
+
+                    <a href="{{ route('shift-product-outs.index') }}" @click="sidebarOpen = false" class="flex items-center px-4 py-3 text-gray-300 hover:bg-gray-700 hover:text-white transition-colors {{ request()->routeIs('shift-product-outs.*') ? 'bg-gray-700 text-white' : '' }}">
+                        <i class="fas fa-box-open w-5"></i>
+                        <span class="ml-3">Salidas Productos (No Venta)</span>
+                    </a>
                 @endif
 
                 @can('manage_roles')

@@ -121,6 +121,32 @@
         </div>
     @endif
 
+    @if(($handover->productOuts ?? collect())->count() > 0)
+        <div class="card">
+            <div class="k">Salidas de Productos (Mermas / Consumo)</div>
+            <table class="data">
+                <thead>
+                    <tr>
+                        <th>Producto</th>
+                        <th>Motivo</th>
+                        <th class="center">Cantidad</th>
+                        <th class="center">Fecha</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach($handover->productOuts as $po)
+                        <tr>
+                            <td>{{ $po->product->name }}</td>
+                            <td>{{ $po->reason->label() }}</td>
+                            <td class="center">{{ number_format($po->quantity, 0, ',', '.') }}</td>
+                            <td class="center">{{ optional($po->created_at)->format('d/m/Y H:i') }}</td>
+                        </tr>
+                    @endforeach
+                </tbody>
+            </table>
+        </div>
+    @endif
+
     <div class="footer">
         Generado: {{ now()->format('d/m/Y H:i') }}
     </div>

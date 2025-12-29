@@ -19,6 +19,19 @@
                         <p class="text-[10px] text-gray-400 font-bold uppercase tracking-widest">
                             Turno #{{ $cashbox['shift_id'] }} · {{ strtoupper($cashbox['shift_type'] ?? '') }} · {{ $cashbox['receptionist'] ?? 'N/A' }}
                         </p>
+                    @elseif(isset($cashbox['cash_available']) && $cashbox['cash_available'] > 0)
+                        <p class="text-2xl sm:text-3xl font-black text-amber-600 mb-1">
+                            ${{ number_format((float) $cashbox['cash_available'], 0, ',', '.') }}
+                        </p>
+                        <p class="text-[10px] text-gray-400 font-bold uppercase tracking-widest">
+                            Último Cierre ({{ $cashbox['last_shift_date'] ?? 'N/A' }})
+                        </p>
+                    @else
+                        <p class="text-lg font-black text-amber-700 mb-1">Sin dinero en caja</p>
+                        <p class="text-xs text-gray-500">Inicie un turno para ver el flujo de dinero.</p>
+                    @endif
+
+                    @if(($cashbox['has_active_shift'] ?? false) === true)
                         <div class="mt-3 flex gap-2 flex-wrap">
                             <a href="{{ route('cash-outflows.index') }}" class="inline-flex items-center px-3 py-1.5 rounded-lg bg-rose-50 text-rose-700 text-xs font-black hover:bg-rose-100 transition-colors">
                                 <i class="fas fa-receipt mr-2"></i> Gastos (Caja)
@@ -27,9 +40,6 @@
                                 <i class="fas fa-wallet mr-2"></i> Retiros (Turno)
                             </a>
                         </div>
-                    @else
-                        <p class="text-lg font-black text-amber-700 mb-1">Sin turno activo</p>
-                        <p class="text-xs text-gray-500">Para validar gastos/retiros, debe existir un turno activo de recepción.</p>
                     @endif
                 </div>
                 <div class="p-2 sm:p-3 rounded-xl bg-emerald-50 text-emerald-600 group-hover:bg-emerald-100 transition-colors duration-300">
@@ -86,6 +96,24 @@
                 </div>
                 <div class="p-2 sm:p-3 rounded-xl bg-red-50 text-red-600 group-hover:bg-red-100 transition-colors duration-300">
                     <i class="fas fa-exclamation-triangle text-lg sm:text-xl"></i>
+                </div>
+            </div>
+        </div>
+
+        <!-- Ingresos Totales (Histórico) -->
+        <div class="bg-white rounded-xl border border-gray-100 p-4 sm:p-6 hover:shadow-md transition-all duration-300 group">
+            <div class="flex items-start justify-between">
+                <div class="flex-1">
+                    <p class="text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">Ingresos Totales</p>
+                    <p class="text-2xl sm:text-3xl font-black text-emerald-700 mb-1">
+                        ${{ number_format($stats['total_revenue'], 0, ',', '.') }}
+                    </p>
+                    <p class="text-[10px] text-gray-400 font-bold uppercase tracking-widest">
+                        Acumulado Histórico
+                    </p>
+                </div>
+                <div class="p-2 sm:p-3 rounded-xl bg-emerald-50 text-emerald-600 group-hover:bg-emerald-100 transition-colors duration-300">
+                    <i class="fas fa-chart-line text-lg sm:text-xl"></i>
                 </div>
             </div>
         </div>

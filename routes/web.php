@@ -82,6 +82,14 @@ Route::middleware('auth')->group(function () {
         Route::delete('/shift-cash-outs/{id}', [\App\Http\Controllers\ReceptionistDashboardController::class, 'destroyCashOut'])->name('shift-cash-outs.destroy');
     });
 
+    // Salidas de Productos (No Ventas)
+    Route::middleware('permission:create_shift_cash_outs')->group(function () {
+        Route::get('/shift-product-outs', [\App\Http\Controllers\ShiftProductOutController::class, 'index'])->name('shift-product-outs.index');
+        Route::get('/shift-product-outs/create', [\App\Http\Controllers\ShiftProductOutController::class, 'create'])->name('shift-product-outs.create');
+        Route::post('/shift-product-outs', [\App\Http\Controllers\ShiftProductOutController::class, 'store'])->name('shift-product-outs.store');
+        Route::delete('/shift-product-outs/{id}', [\App\Http\Controllers\ShiftProductOutController::class, 'destroy'])->name('shift-product-outs.destroy');
+    });
+
     // Logout
     Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
 

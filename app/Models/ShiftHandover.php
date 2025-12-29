@@ -76,6 +76,11 @@ class ShiftHandover extends Model
         return $this->hasMany(Sale::class);
     }
 
+    public function productOuts(): HasMany
+    {
+        return $this->hasMany(ShiftProductOut::class);
+    }
+
     // Business Logic Methods
     public function calcularBaseEsperada(): float
     {

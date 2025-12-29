@@ -77,6 +77,32 @@
                     </div>
                 </div>
             </div>
+
+            @if($handover->productOuts->count() > 0)
+            <div class="bg-white rounded-xl border border-gray-100 p-6 shadow-sm">
+                <h3 class="font-bold text-gray-900 mb-4 uppercase text-xs tracking-wider border-b pb-2">Salidas de Productos (Mermas / Consumo)</h3>
+                <div class="overflow-x-auto">
+                    <table class="min-w-full divide-y divide-gray-100">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th class="px-4 py-2 text-left text-[10px] font-black text-gray-500 uppercase">Producto</th>
+                                <th class="px-4 py-2 text-left text-[10px] font-black text-gray-500 uppercase">Motivo</th>
+                                <th class="px-4 py-2 text-center text-[10px] font-black text-gray-500 uppercase">Cant.</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-gray-100">
+                            @foreach($handover->productOuts as $out)
+                            <tr>
+                                <td class="px-4 py-3 text-sm text-gray-700">{{ $out->product->name }}</td>
+                                <td class="px-4 py-3 text-sm text-gray-600">{{ $out->reason->label() }}</td>
+                                <td class="px-4 py-3 text-sm text-center font-bold text-gray-900">{{ number_format($out->quantity, 0) }}</td>
+                            </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            @endif
         </div>
 
         <!-- Sidebar Detalles -->
