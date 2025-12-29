@@ -234,7 +234,14 @@ class RoomManager extends Component
             'is_paid' => $this->newSale['payment_method'] !== 'pendiente',
         ]);
 
-        $product->decrement('quantity', $this->newSale['quantity']);
+        // Descontar del inventario y registrar movimiento histórico
+        $product->recordMovement(
+            -$this->newSale['quantity'], 
+            'room_consumption', 
+            "Consumo Habitación #{$room->room_number}", 
+            $room->id
+        );
+
         $this->newSale = ['product_id' => '', 'quantity' => 1, 'payment_method' => 'pendiente'];
         $this->loadRoomDetail();
         $this->dispatch('notify', type: 'success', message: 'Consumo cargado.');
