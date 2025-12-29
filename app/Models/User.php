@@ -58,4 +58,28 @@ class User extends Authenticatable
         ];
     }
 
+    /**
+     * Get the shift handovers delivered by the user.
+     */
+    public function turnosEntregados(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(ShiftHandover::class, 'entregado_por');
+    }
+
+    /**
+     * Get the shift handovers received by the user.
+     */
+    public function turnosRecibidos(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(ShiftHandover::class, 'recibido_por');
+    }
+
+    /**
+     * Get the current active shift handover for the user.
+     */
+    public function turnoActivo(): \Illuminate\Database\Eloquent\Relations\HasOne
+    {
+        return $this->hasOne(ShiftHandover::class, 'entregado_por')
+            ->where('status', \App\Enums\ShiftHandoverStatus::ACTIVE);
+    }
 }
