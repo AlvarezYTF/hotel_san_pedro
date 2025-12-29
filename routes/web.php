@@ -13,8 +13,6 @@ use App\Http\Controllers\ElectronicInvoiceController;
 use App\Http\Controllers\CompanyTaxSettingController;
 use App\Http\Controllers\SaleController;
 use App\Http\Middleware\VerifyCsrfToken;
-use App\Http\Controllers\Auth\PasswordResetLinkController;
-use App\Http\Controllers\Auth\NewPasswordController;
 
 /*
 |--------------------------------------------------------------------------
@@ -35,19 +33,54 @@ Route::get('/', function () {
 Route::middleware('guest')->group(function () {
     Route::get('/login', [AuthController::class, 'showLoginForm'])->name('login');
     Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:5,1');
-    Route::get('/register', [AuthController::class, 'showRegistrationForm'])->name('register');
-    Route::post('/register', [AuthController::class, 'register'])->middleware('throttle:3,1');
-
-    // Password reset routes
-    Route::get('/forgot-password', [PasswordResetLinkController::class, 'create'])->name('password.request');
-    Route::post('/forgot-password', [PasswordResetLinkController::class, 'store'])->name('password.email');
-    Route::get('/reset-password/{token}', [NewPasswordController::class, 'create'])->name('password.reset');
-    Route::post('/reset-password', [NewPasswordController::class, 'store'])->name('password.store');
 });
 
 Route::middleware('auth')->group(function () {
     // Dashboard
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
+
+    // Dashboard Recepcionistas
+    Route::middleware('permission:manage_shift_handovers|view_shift_handovers')->group(function () {
+        // Español (actual)
+    Route::get('/dashboard/recepcion/dia', [\App\Http\Controllers\ReceptionistDashboardController::class, 'day'])->name('dashboard.receptionist.day');
+    Route::get('/dashboard/recepcion/noche', [\App\Http\Controllers\ReceptionistDashboardController::class, 'night'])->name('dashboard.receptionist.night');
+
+        // Inglés (checklist)
+        Route::get('/dashboard/receptionist-day', [\App\Http\Controllers\ReceptionistDashboardController::class, 'day'])->name('dashboard.receptionist.day.en');
+        Route::get('/dashboard/receptionist-night', [\App\Http\Controllers\ReceptionistDashboardController::class, 'night'])->name('dashboard.receptionist.night.en');
+    });
+    
+    // Gestión de Turnos (Shifts)
+    // - Ver (listado / detalle / pantalla de recibir)
+    Route::middleware('permission:view_shift_handovers|manage_shift_handovers')->group(function () {
+        Route::get('/shift-handovers', [\App\Http\Controllers\ReceptionistDashboardController::class, 'index'])->name('shift-handovers.index');
+        Route::get('/shift-handovers/receive', [\App\Http\Controllers\ReceptionistDashboardController::class, 'receiveShift'])->name('shift-handovers.receive');
+        Route::get('/shift-handovers/{id}/pdf', [\App\Http\Controllers\ReceptionistDashboardController::class, 'downloadHandoverPdf'])->name('shift-handovers.pdf');
+        Route::get('/shift-handovers/{id}', [\App\Http\Controllers\ReceptionistDashboardController::class, 'show'])->name('shift-handovers.show');
+    });
+
+    // - Acciones (iniciar / entregar / crear acta / recibir)
+    Route::middleware('permission:manage_shift_handovers')->group(function () {
+        Route::post('/shifts/start', [\App\Http\Controllers\ReceptionistDashboardController::class, 'startShift'])->name('shift.start');
+        Route::post('/shifts/end', [\App\Http\Controllers\ReceptionistDashboardController::class, 'endShift'])->name('shift.end');
+        
+        Route::get('/shift-handovers/create', [\App\Http\Controllers\ReceptionistDashboardController::class, 'createHandover'])->name('shift-handovers.create');
+        Route::post('/shift-handovers', [\App\Http\Controllers\ReceptionistDashboardController::class, 'storeHandover'])->name('shift-handovers.store');
+        Route::post('/shift-handovers/receive', [\App\Http\Controllers\ReceptionistDashboardController::class, 'storeReception'])->name('shift-handovers.store-reception');
+    });
+
+    // Salidas de Efectivo de Turno (Shift Cash Outs)
+    // - Ver
+    Route::middleware('permission:view_shift_cash_outs|create_shift_cash_outs')->group(function () {
+        Route::get('/shift-cash-outs', [\App\Http\Controllers\ReceptionistDashboardController::class, 'cashOutsIndex'])->name('shift-cash-outs.index');
+    });
+
+    // - Acciones
+    Route::middleware('permission:create_shift_cash_outs')->group(function () {
+        Route::get('/shift-cash-outs/create', [\App\Http\Controllers\ReceptionistDashboardController::class, 'createCashOut'])->name('shift-cash-outs.create');
+        Route::post('/shift-cash-outs', [\App\Http\Controllers\ReceptionistDashboardController::class, 'storeCashOut'])->name('shift-cash-outs.store');
+        Route::delete('/shift-cash-outs/{id}', [\App\Http\Controllers\ReceptionistDashboardController::class, 'destroyCashOut'])->name('shift-cash-outs.destroy');
+    });
 
     // Logout
     Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
@@ -67,6 +100,8 @@ Route::middleware('auth')->group(function () {
 
     // Productos (Inventario) - Resource route with rate limiting
     Route::get('/api/products/search', [\App\Http\Controllers\ProductController::class, 'search'])->name('api.products.search');
+    Route::get('/products/history', \App\Livewire\InventoryHistory::class)->name('products.history');
+    Route::get('/products/adjustments', \App\Livewire\InventoryAdjustment::class)->name('products.adjustments');
     Route::resource('products', ProductController::class)->middleware('throttle:60,1');
 
     // Ventas - Rutas específicas primero para evitar conflictos con parámetros
@@ -176,8 +211,15 @@ Route::middleware('auth')->group(function () {
     });
 
     // Reportes
-    Route::get('reports', [ReportController::class, 'index'])->name('reports.index');
-    Route::post('reports/pdf', [ReportController::class, 'generatePDF'])->name('reports.pdf');
+    Route::middleware('permission:view_reports')->group(function () {
+        Route::get('reports', [ReportController::class, 'index'])->name('reports.index');
+        Route::get('reports/filter-data', [ReportController::class, 'getFilterData'])->name('reports.filter-data');
+        Route::post('reports/pdf', [ReportController::class, 'generatePDF'])->name('reports.pdf');
+        Route::get('reports/single-pdf/{type}/{id}', [ReportController::class, 'generateSinglePDF'])->name('reports.single.pdf');
+    });
+
+    // Salidas de Dinero
+    Route::get('/cash-outflows', \App\Livewire\CashOutflowManager::class)->name('cash-outflows.index');
 
     // Facturas electrónicas
     Route::middleware('permission:generate_invoices')->group(function () {
@@ -205,7 +247,7 @@ Route::middleware('auth')->group(function () {
         // Hardening de Seguridad Avanzado
         Route::get('/admin/security/permissions', [App\Http\Controllers\SecurityController::class, 'permissionsMatrix'])->name('admin.security.permissions');
         Route::post('/admin/security/permissions', [App\Http\Controllers\SecurityController::class, 'updatePermissions'])->name('admin.security.permissions.update');
-        Route::get('/admin/security/audit', [App\Http\Controllers\SecurityController::class, 'auditLogs'])->name('admin.security.audit');
+        Route::get('/admin/security/audit', \App\Livewire\AuditLogManager::class)->name('admin.security.audit');
         
         // Impersonación
         Route::post('/admin/security/impersonate/stop', [App\Http\Controllers\SecurityController::class, 'stopImpersonation'])
