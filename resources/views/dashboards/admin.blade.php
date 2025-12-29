@@ -7,6 +7,37 @@
 <div class="space-y-5 sm:space-y-8">
     <!-- Estadísticas principales -->
     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
+        <!-- Caja Disponible (Turno activo) -->
+        <div class="bg-white rounded-xl border border-gray-100 p-4 sm:p-6 hover:shadow-md transition-all duration-300 group">
+            <div class="flex items-start justify-between">
+                <div class="flex-1">
+                    <p class="text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">Caja Disponible (Turno)</p>
+                    @if(($cashbox['has_active_shift'] ?? false) === true)
+                        <p class="text-2xl sm:text-3xl font-black text-gray-900 mb-1">
+                            ${{ number_format((float) ($cashbox['cash_available'] ?? 0), 0, ',', '.') }}
+                        </p>
+                        <p class="text-[10px] text-gray-400 font-bold uppercase tracking-widest">
+                            Turno #{{ $cashbox['shift_id'] }} · {{ strtoupper($cashbox['shift_type'] ?? '') }} · {{ $cashbox['receptionist'] ?? 'N/A' }}
+                        </p>
+                        <div class="mt-3 flex gap-2 flex-wrap">
+                            <a href="{{ route('cash-outflows.index') }}" class="inline-flex items-center px-3 py-1.5 rounded-lg bg-rose-50 text-rose-700 text-xs font-black hover:bg-rose-100 transition-colors">
+                                <i class="fas fa-receipt mr-2"></i> Gastos (Caja)
+                            </a>
+                            <a href="{{ route('shift-cash-outs.index') }}" class="inline-flex items-center px-3 py-1.5 rounded-lg bg-indigo-50 text-indigo-700 text-xs font-black hover:bg-indigo-100 transition-colors">
+                                <i class="fas fa-wallet mr-2"></i> Retiros (Turno)
+                            </a>
+                        </div>
+                    @else
+                        <p class="text-lg font-black text-amber-700 mb-1">Sin turno activo</p>
+                        <p class="text-xs text-gray-500">Para validar gastos/retiros, debe existir un turno activo de recepción.</p>
+                    @endif
+                </div>
+                <div class="p-2 sm:p-3 rounded-xl bg-emerald-50 text-emerald-600 group-hover:bg-emerald-100 transition-colors duration-300">
+                    <i class="fas fa-cash-register text-lg sm:text-xl"></i>
+                </div>
+            </div>
+        </div>
+
         <!-- Total Productos -->
         <div class="bg-white rounded-xl border border-gray-100 p-4 sm:p-6 hover:shadow-md transition-all duration-300 group">
             <div class="flex items-start justify-between">
