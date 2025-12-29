@@ -66,12 +66,32 @@ class EditSale extends Component
                 $this->debt_status = 'pagado';
             }
         } elseif ($this->payment_method === 'ambos') {
-            // Keep current values or set defaults
-            if (!$this->cash_amount && !$this->transfer_amount) {
-                $this->cash_amount = $this->sale->total / 2;
-                $this->transfer_amount = $this->sale->total / 2;
-            }
+            // Para "Ambos", dejamos que el usuario ingrese los montos manualmente
+            $this->cash_amount = null;
+            $this->transfer_amount = null;
         }
+    }
+
+    public function updatedCashAmount()
+    {
+        $this->cash_amount = $this->sanitizeNumber($this->cash_amount);
+    }
+
+    public function updatedTransferAmount()
+    {
+        $this->transfer_amount = $this->sanitizeNumber($this->transfer_amount);
+    }
+
+    private function sanitizeNumber($value)
+    {
+        if (empty($value)) return 0;
+        
+        if (is_int($value) || is_float($value)) return (float)$value;
+
+        $clean = str_replace('.', '', (string)$value);
+        $clean = str_replace(',', '.', $clean);
+        
+        return is_numeric($clean) ? (float)$clean : 0;
     }
 
     public function validateBeforeSubmit()
@@ -86,14 +106,28 @@ class EditSale extends Component
                 'transfer_amount.required' => 'El monto por transferencia es obligatorio cuando el método de pago es "Ambos".',
             ]);
 
-            $sum = $this->cash_amount + $this->transfer_amount;
-            if (abs($sum - $this->sale->total) > 0.01) {
+            $cash = (float) $this->sanitizeNumber($this->cash_amount);
+            $transfer = (float) $this->sanitizeNumber($this->transfer_amount);
+            $sum = $cash + $transfer;
+            if (abs($sum - (float)$this->sale->total) > 0.01) {
                 $this->addError('payment_method', "La suma de efectivo y transferencia debe ser igual al total: $" . number_format($this->sale->total, 2, ',', '.'));
                 return false;
             }
         }
 
         return true;
+    }
+
+    public function getSumaPagosProperty()
+    {
+        $cash = (float) $this->sanitizeNumber($this->cash_amount);
+        $transfer = (float) $this->sanitizeNumber($this->transfer_amount);
+        return $cash + $transfer;
+    }
+
+    public function getDiferenciaPagosProperty()
+    {
+        return $this->suma_pagos - (float)$this->sale->total;
     }
 
     public function render()

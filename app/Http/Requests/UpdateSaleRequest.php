@@ -12,12 +12,31 @@ class UpdateSaleRequest extends FormRequest
         return $this->user()->can('edit_sales');
     }
 
+    protected function prepareForValidation()
+    {
+        if ($this->has('cash_amount') && $this->cash_amount !== null) {
+            $value = (string) $this->cash_amount;
+            $value = preg_replace('/[^0-9.,]/', '', $value);
+            $clean = str_replace('.', '', $value);
+            $clean = str_replace(',', '.', $clean);
+            $this->merge(['cash_amount' => $clean]);
+        }
+
+        if ($this->has('transfer_amount') && $this->transfer_amount !== null) {
+            $value = (string) $this->transfer_amount;
+            $value = preg_replace('/[^0-9.,]/', '', $value);
+            $clean = str_replace('.', '', $value);
+            $clean = str_replace(',', '.', $clean);
+            $this->merge(['transfer_amount' => $clean]);
+        }
+    }
+
     public function rules(): array
     {
         return [
             'payment_method' => ['required', 'string', Rule::in(['efectivo', 'transferencia', 'ambos', 'pendiente'])],
-            'cash_amount' => ['nullable', 'numeric', 'min:0', 'required_if:payment_method,efectivo,ambos'],
-            'transfer_amount' => ['nullable', 'numeric', 'min:0', 'required_if:payment_method,transferencia,ambos'],
+            'cash_amount' => ['nullable', 'numeric', 'min:0', 'required_if:payment_method,ambos'],
+            'transfer_amount' => ['nullable', 'numeric', 'min:0', 'required_if:payment_method,ambos'],
             'debt_status' => ['nullable', 'string', Rule::in(['pagado', 'pendiente'])],
             'notes' => ['nullable', 'string', 'max:1000'],
         ];
@@ -28,10 +47,10 @@ class UpdateSaleRequest extends FormRequest
         return [
             'payment_method.required' => 'El método de pago es obligatorio.',
             'payment_method.in' => 'El método de pago debe ser efectivo, transferencia, ambos o pendiente.',
-            'cash_amount.required_if' => 'El monto en efectivo es obligatorio cuando el método de pago es efectivo o ambos.',
+            'cash_amount.required_if' => 'El monto en efectivo es obligatorio cuando el método de pago es "Ambos".',
             'cash_amount.numeric' => 'El monto en efectivo debe ser un número válido.',
             'cash_amount.min' => 'El monto en efectivo no puede ser negativo.',
-            'transfer_amount.required_if' => 'El monto por transferencia es obligatorio cuando el método de pago es transferencia o ambos.',
+            'transfer_amount.required_if' => 'El monto por transferencia es obligatorio cuando el método de pago es "Ambos".',
             'transfer_amount.numeric' => 'El monto por transferencia debe ser un número válido.',
             'transfer_amount.min' => 'El monto por transferencia no puede ser negativo.',
             'debt_status.in' => 'El estado de deuda debe ser pagado o pendiente.',

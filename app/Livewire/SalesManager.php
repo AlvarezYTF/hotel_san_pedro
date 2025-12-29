@@ -20,7 +20,6 @@ class SalesManager extends Component
     public $search = '';
     public $debt_status = '';
     public $receptionist_id = '';
-    public $shift = '';
     public $payment_method = '';
     public $category_id = '';
     public $room_id = '';
@@ -34,7 +33,6 @@ class SalesManager extends Component
         'search' => ['except' => ''],
         'debt_status' => ['except' => ''],
         'receptionist_id' => ['except' => ''],
-        'shift' => ['except' => ''],
         'payment_method' => ['except' => ''],
         'category_id' => ['except' => ''],
         'room_id' => ['except' => ''],
@@ -59,9 +57,6 @@ class SalesManager extends Component
         if (request()->filled('receptionist_id')) {
             $this->receptionist_id = request('receptionist_id');
         }
-        if (request()->filled('shift')) {
-            $this->shift = request('shift');
-        }
         if (request()->filled('payment_method')) {
             $this->payment_method = request('payment_method');
         }
@@ -74,11 +69,6 @@ class SalesManager extends Component
 
         // Abrir filtros si hay algún filtro activo
         $this->filtersOpen = $this->hasActiveFilters();
-        
-        // Auto-establecer turno si hay recepcionista
-        if ($this->receptionist_id) {
-            $this->autoSetShift();
-        }
     }
 
     public function updatedSearch()
@@ -94,15 +84,9 @@ class SalesManager extends Component
     public function updatedReceptionistId()
     {
         $this->resetPage();
-        $this->autoSetShift();
     }
 
     public function updatedDate()
-    {
-        $this->resetPage();
-    }
-
-    public function updatedShift()
     {
         $this->resetPage();
     }
@@ -133,7 +117,6 @@ class SalesManager extends Component
         $this->search = '';
         $this->debt_status = '';
         $this->receptionist_id = '';
-        $this->shift = '';
         $this->payment_method = '';
         $this->category_id = '';
         $this->room_id = '';
@@ -141,38 +124,11 @@ class SalesManager extends Component
         $this->resetPage();
     }
 
-    private function autoSetShift()
-    {
-        if (!$this->receptionist_id) {
-            return;
-        }
-
-        $receptionist = User::with('roles')->find($this->receptionist_id);
-        if (!$receptionist) {
-            return;
-        }
-
-        $roleName = $receptionist->roles->first()?->name;
-        $isAdmin = Auth::user()->hasRole('Administrador');
-
-        // Solo auto-establecer si no es admin
-        if (!$isAdmin) {
-            if ($roleName === 'Recepcionista Día') {
-                $this->shift = 'dia';
-            } elseif ($roleName === 'Recepcionista Noche') {
-                $this->shift = 'noche';
-            } else {
-                $this->shift = '';
-            }
-        }
-    }
-
     private function hasActiveFilters(): bool
     {
         return !empty($this->search) ||
                !empty($this->debt_status) ||
                !empty($this->receptionist_id) ||
-               !empty($this->shift) ||
                !empty($this->payment_method) ||
                !empty($this->category_id) ||
                !empty($this->room_id);
@@ -211,40 +167,7 @@ class SalesManager extends Component
 
         // Filtro por recepcionista
         if ($this->receptionist_id) {
-            $receptionist = User::with('roles')->find($this->receptionist_id);
-            if ($receptionist) {
                 $query->byReceptionist($this->receptionist_id);
-                
-                // Auto-filter by shift based on receptionist role (solo si no es admin y no hay turno seleccionado manualmente)
-                $isAdmin = Auth::user()->hasRole('Administrador');
-                if (!$isAdmin) {
-                    $roleName = $receptionist->roles->first()?->name;
-                    if ($roleName === 'Recepcionista Día') {
-                        if (!$this->shift || $this->shift === '') {
-                            $this->shift = 'dia';
-                        }
-                        $query->byShift($this->shift);
-                    } elseif ($roleName === 'Recepcionista Noche') {
-                        if (!$this->shift || $this->shift === '') {
-                            $this->shift = 'noche';
-                        }
-                        $query->byShift($this->shift);
-                    } else {
-                        // Si el recepcionista no tiene turno específico, aplicar el filtro de turno si existe
-                        if ($this->shift) {
-                            $query->byShift($this->shift);
-                        }
-                    }
-                } else {
-                    // Si es admin, aplicar el filtro de turno si existe
-                    if ($this->shift) {
-                        $query->byShift($this->shift);
-                    }
-                }
-            }
-        } elseif ($this->shift) {
-            // Solo aplicar filtro de turno si no hay recepcionista seleccionado
-            $query->byShift($this->shift);
         }
 
         // Filtro por método de pago
@@ -299,22 +222,9 @@ class SalesManager extends Component
             ->pluck('count', 'date')
             ->toArray();
 
-        // Preparar datos de recepcionistas con turnos automáticos
-        $receptionistsWithShifts = $receptionists->mapWithKeys(function($receptionist) {
-            $roleName = $receptionist->roles->first()?->name;
-            $autoShift = null;
-            if ($roleName === 'Recepcionista Día') {
-                $autoShift = 'dia';
-            } elseif ($roleName === 'Recepcionista Noche') {
-                $autoShift = 'noche';
-            }
-            return [$receptionist->id => $autoShift];
-        })->filter();
-
         return view('livewire.sales-manager', [
             'sales' => $sales,
             'receptionists' => $receptionists,
-            'receptionistsWithShifts' => $receptionistsWithShifts,
             'rooms' => $rooms,
             'categories' => $categories,
             'totalSales' => $totalSales,

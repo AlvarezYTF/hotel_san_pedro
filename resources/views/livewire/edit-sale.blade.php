@@ -123,14 +123,13 @@
                                     <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                                         <span class="text-gray-500 text-sm">$</span>
                                     </div>
-                                    <input type="number" 
+                                    <input type="text" 
                                            id="cash_amount"
                                            name="cash_amount"
-                                           wire:model.live="cash_amount"
-                                           step="0.01"
-                                           min="0"
+                                           wire:model.live.debounce.500ms="cash_amount"
+                                           oninput="maskCurrency(event)"
                                            class="block w-full pl-8 pr-3 py-2.5 border border-gray-300 rounded-xl text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent @error('cash_amount') border-red-300 focus:ring-red-500 @enderror"
-                                           placeholder="0.00">
+                                           placeholder="0">
                                 </div>
                                 @error('cash_amount')
                                     <p class="mt-1.5 text-xs text-red-600 flex items-center">
@@ -148,14 +147,13 @@
                                     <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                                         <span class="text-gray-500 text-sm">$</span>
                                     </div>
-                                    <input type="number" 
+                                    <input type="text" 
                                            id="transfer_amount"
                                            name="transfer_amount"
-                                           wire:model.live="transfer_amount"
-                                           step="0.01"
-                                           min="0"
+                                           wire:model.live.debounce.500ms="transfer_amount"
+                                           oninput="maskCurrency(event)"
                                            class="block w-full pl-8 pr-3 py-2.5 border border-gray-300 rounded-xl text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent @error('transfer_amount') border-red-300 focus:ring-red-500 @enderror"
-                                           placeholder="0.00">
+                                           placeholder="0">
                                 </div>
                                 @error('transfer_amount')
                                     <p class="mt-1.5 text-xs text-red-600 flex items-center">
@@ -166,15 +164,31 @@
                             </div>
                             
                             <div class="sm:col-span-2">
-                                <p class="text-xs text-gray-500">
-                                    <span class="font-semibold">Total:</span> 
-                                    ${{ number_format(($cash_amount ?? 0) + ($transfer_amount ?? 0), 2, ',', '.') }}
-                                    @if(abs((($cash_amount ?? 0) + ($transfer_amount ?? 0)) - $sale->total) > 0.01)
-                                        <span class="text-red-600">
-                                            (Debe ser igual al total de la venta: ${{ number_format($sale->total, 2, ',', '.') }})
+                                <div class="p-3 rounded-xl bg-gray-50 border border-gray-100 space-y-2">
+                                    <div class="flex justify-between items-center text-xs">
+                                        <span class="text-gray-500 font-medium">Suma ingresada:</span>
+                                        <span class="font-bold text-gray-900">${{ number_format($this->suma_pagos, 0, ',', '.') }}</span>
+                                    </div>
+                                    <div class="flex justify-between items-center text-xs">
+                                        <span class="text-gray-500 font-medium">Total de la venta:</span>
+                                        <span class="font-bold text-gray-900">${{ number_format($sale->total, 0, ',', '.') }}</span>
+                                    </div>
+                                    
+                                    <div class="pt-2 border-t border-gray-200 flex justify-between items-center">
+                                        <span class="text-xs font-bold uppercase tracking-wider text-gray-600">
+                                            {{ $this->diferencia_pagos < 0 ? 'Faltante:' : ($this->diferencia_pagos > 0 ? 'Sobrante:' : 'Estado:') }}
                                         </span>
-                                    @endif
-                                </p>
+                                        @if(abs($this->diferencia_pagos) < 0.01)
+                                            <span class="text-xs font-bold text-emerald-600 flex items-center">
+                                                <i class="fas fa-check-circle mr-1"></i> Cuadrado
+                                            </span>
+                                        @else
+                                            <span class="text-sm font-black {{ $this->diferencia_pagos < 0 ? 'text-red-600' : 'text-amber-600' }}">
+                                                ${{ number_format(abs($this->diferencia_pagos), 0, ',', '.') }}
+                                            </span>
+                                        @endif
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     @endif

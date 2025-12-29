@@ -16,6 +16,7 @@
                 <form wire:submit.prevent="loadData" class="flex gap-2">
                     <input type="date" 
                            wire:model.live="date"
+                           max="{{ date('Y-m-d') }}"
                            class="px-3 py-2.5 border border-gray-300 rounded-xl text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500">
                 </form>
                 <a href="{{ route('sales.index') }}" 

@@ -15,6 +15,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\View\View;
 use Carbon\Carbon;
+use App\Models\AuditLog;
 
 class SaleController extends Controller
 {
@@ -46,19 +47,11 @@ class SaleController extends Controller
 
         try {
             $user = Auth::user();
-            $saleDate = Carbon::parse($request->sale_date);
-            $currentHour = (int) $saleDate->format('H');
-            
-            // Determinar turno automáticamente basado en el rol del usuario
-            $userRole = $user->roles->first()?->name;
-            if ($userRole === 'Recepcionista Día') {
-                $shift = 'dia';
-            } elseif ($userRole === 'Recepcionista Noche') {
-                $shift = 'noche';
-            } else {
-                // Si es Administrador o no tiene rol específico, usar el turno del request o determinar por hora
-            $shift = $request->shift ?? ($currentHour < 14 ? 'dia' : 'noche');
-            }
+            $saleDate = now();
+
+            // Los valores ya vienen sanitizados por StoreSaleRequest@prepareForValidation
+            $cashAmount = (float) $request->cash_amount;
+            $transferAmount = (float) $request->transfer_amount;
 
             // Validar stock de todos los productos
             $items = $request->items;
@@ -77,47 +70,42 @@ class SaleController extends Controller
                 $total += $itemTotal;
             }
 
-            // Validar y calcular montos de pago
-            $cashAmount = null;
-            $transferAmount = null;
-            
+            // Validar y calcular montos de pago según el método
             if ($request->payment_method === 'efectivo') {
                 $cashAmount = $total;
+                $transferAmount = null;
             } elseif ($request->payment_method === 'transferencia') {
+                $cashAmount = null;
                 $transferAmount = $total;
             } elseif ($request->payment_method === 'ambos') {
-                $cashAmount = $request->cash_amount ?? 0;
-                $transferAmount = $request->transfer_amount ?? 0;
-                
-                // Validar que la suma sea igual al total
-                if (($cashAmount + $transferAmount) != $total) {
+                // Ya vienen del request sanitizados
+                if (abs(($cashAmount + $transferAmount) - $total) > 0.01) {
                     return back()
                         ->withInput()
-                        ->withErrors(['payment_method' => "La suma de efectivo y transferencia debe ser igual al total: $" . number_format($total, 2, ',', '.')]);
+                        ->withErrors(['payment_method' => "La suma de efectivo ($" . number_format($cashAmount, 0, ',', '.') . ") y transferencia ($" . number_format($transferAmount, 0, ',', '.') . ") debe ser igual al total: $" . number_format($total, 0, ',', '.')]);
                 }
             } elseif ($request->payment_method === 'pendiente') {
-                // Si es pendiente, no hay montos de pago
                 $cashAmount = null;
                 $transferAmount = null;
             }
 
             // Determinar estado de deuda
-            // Si el método de pago es 'pendiente', el estado debe ser 'pendiente'
-            // Si hay habitación, usar el valor del request (puede ser pendiente)
-            // Si no hay habitación, siempre debe ser pagado
             if ($request->payment_method === 'pendiente') {
                 $debtStatus = 'pendiente';
             } elseif ($request->room_id) {
                 $debtStatus = $request->debt_status ?? 'pagado';
             } else {
-                $debtStatus = 'pagado'; // Venta normal siempre pagada
+                $debtStatus = 'pagado';
             }
+
+            // Obtener el turno activo del usuario
+            $activeShift = $user->turnoActivo()->first();
 
             // Crear la venta
             $sale = Sale::create([
                 'user_id' => $user->id,
-                'room_id' => $request->room_id,
-                'shift' => $shift,
+                'room_id' => $request->room_id ?: null,
+                'shift_handover_id' => $activeShift ? $activeShift->id : null,
                 'payment_method' => $request->payment_method,
                 'cash_amount' => $cashAmount,
                 'transfer_amount' => $transferAmount,
@@ -140,21 +128,33 @@ class SaleController extends Controller
                     'total' => $itemTotal,
                 ]);
 
-                // Descontar del inventario
-                $product->decrement('quantity', $item['quantity']);
+                // Descontar del inventario y registrar movimiento histórico
+                $product->recordMovement(-$item['quantity'], 'sale', "Venta #{$sale->id}", $sale->room_id);
             }
+
+            // Actualizar totales del turno si existe
+            if ($activeShift) {
+                $activeShift->updateTotals();
+            }
+
+            $this->auditLog('sale_create', "Venta #{$sale->id} registrada por {$total}. Método: {$sale->payment_method}", ['sale_id' => $sale->id]);
 
             DB::commit();
 
             return redirect()
                 ->route('sales.index')
                 ->with('success', 'Venta registrada exitosamente.');
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
             DB::rollBack();
+            \Log::error('Error registrando venta: ' . $e->getMessage(), [
+                'exception' => $e,
+                'request' => $request->all(),
+                'user' => Auth::id()
+            ]);
             
             return back()
                 ->withInput()
-                ->withErrors(['error' => 'Error al registrar la venta: ' . $e->getMessage()]);
+                ->withErrors(['error' => 'Error al registrar la venta: ' . $e->getMessage() . ' en ' . $e->getFile() . ':' . $e->getLine()]);
         }
     }
 
@@ -182,59 +182,77 @@ class SaleController extends Controller
      */
     public function update(UpdateSaleRequest $request, Sale $sale): RedirectResponse
     {
-        // Validar y calcular montos de pago
-        $cashAmount = null;
-        $transferAmount = null;
-        $total = $sale->total;
-        
-        if ($request->payment_method === 'efectivo') {
-            $cashAmount = $total;
-        } elseif ($request->payment_method === 'transferencia') {
-            $transferAmount = $total;
-        } elseif ($request->payment_method === 'ambos') {
-            $cashAmount = $request->cash_amount ?? 0;
-            $transferAmount = $request->transfer_amount ?? 0;
+        DB::beginTransaction();
+
+        try {
+            // Los valores ya vienen sanitizados por UpdateSaleRequest@prepareForValidation
+            $cashAmount = (float) $request->cash_amount;
+            $transferAmount = (float) $request->transfer_amount;
+            $total = (float) $sale->total;
             
-            // Validar que la suma sea igual al total
-            if (($cashAmount + $transferAmount) != $total) {
-                return back()
-                    ->withInput()
-                    ->withErrors(['payment_method' => "La suma de efectivo y transferencia debe ser igual al total: $" . number_format($total, 2, ',', '.')]);
+            if ($request->payment_method === 'efectivo') {
+                $cashAmount = $total;
+                $transferAmount = null;
+            } elseif ($request->payment_method === 'transferencia') {
+                $cashAmount = null;
+                $transferAmount = $total;
+            } elseif ($request->payment_method === 'ambos') {
+                // Ya vienen del request sanitizados
+                if (abs(($cashAmount + $transferAmount) - $total) > 0.01) {
+                    return back()
+                        ->withInput()
+                        ->withErrors(['payment_method' => "La suma de efectivo ($" . number_format($cashAmount, 0, ',', '.') . ") y transferencia ($" . number_format($transferAmount, 0, ',', '.') . ") debe ser igual al total: $" . number_format($total, 0, ',', '.')]);
+                }
+            } elseif ($request->payment_method === 'pendiente') {
+                $cashAmount = null;
+                $transferAmount = null;
             }
-        } elseif ($request->payment_method === 'pendiente') {
-            // Si es pendiente, no hay montos de pago
-            $cashAmount = null;
-            $transferAmount = null;
+
+            // Actualizar data
+            $updateData = [
+                'payment_method' => $request->payment_method,
+                'cash_amount' => $cashAmount,
+                'transfer_amount' => $transferAmount,
+                'notes' => $request->notes,
+            ];
+            
+            // Determinar estado de deuda
+            if ($request->payment_method === 'pendiente') {
+                $updateData['debt_status'] = 'pendiente';
+            } elseif ($sale->room_id && $request->filled('debt_status')) {
+                $updateData['debt_status'] = $request->debt_status;
+            } elseif ($sale->debt_status === 'pendiente' && $request->payment_method !== 'pendiente') {
+                $updateData['debt_status'] = 'pagado';
+            } else {
+                $updateData['debt_status'] = 'pagado';
+            }
+
+            $sale->update($updateData);
+
+            // Si la venta tiene un turno asociado, actualizar totales del turno
+            if ($sale->shiftHandover) {
+                $sale->shiftHandover->updateTotals();
+            }
+
+            $this->auditLog('sale_update', "Venta #{$sale->id} actualizada. Nuevo total: {$sale->total}. Método: {$sale->payment_method}", ['sale_id' => $sale->id]);
+
+            DB::commit();
+
+            return redirect()
+                ->route('sales.show', $sale)
+                ->with('success', 'Venta actualizada exitosamente.');
+        } catch (\Throwable $e) {
+            DB::rollBack();
+            \Log::error('Error actualizando venta: ' . $e->getMessage(), [
+                'exception' => $e,
+                'request' => $request->all(),
+                'sale_id' => $sale->id
+            ]);
+            
+            return back()
+                ->withInput()
+                ->withErrors(['error' => 'Error al actualizar la venta: ' . $e->getMessage() . ' en ' . $e->getFile() . ':' . $e->getLine()]);
         }
-
-        // Actualizar estado de deuda solo si hay habitación
-        $updateData = [
-            'payment_method' => $request->payment_method,
-            'cash_amount' => $cashAmount,
-            'transfer_amount' => $transferAmount,
-            'notes' => $request->notes,
-        ];
-        
-        // Determinar estado de deuda basado en el método de pago
-        if ($request->payment_method === 'pendiente') {
-            // Si el método de pago es pendiente, el estado debe ser pendiente
-            $updateData['debt_status'] = 'pendiente';
-        } elseif ($sale->room_id && $request->filled('debt_status')) {
-            // Si hay habitación y se especifica un estado, usar ese
-            $updateData['debt_status'] = $request->debt_status;
-        } elseif ($sale->debt_status === 'pendiente' && $request->payment_method !== 'pendiente') {
-            // Si estaba pendiente y se cambia a un método de pago, significa que se está pagando
-            $updateData['debt_status'] = 'pagado';
-        } else {
-            // Si no hay habitación, siempre debe ser pagado
-            $updateData['debt_status'] = 'pagado';
-        }
-
-        $sale->update($updateData);
-
-        return redirect()
-            ->route('sales.show', $sale)
-            ->with('success', 'Venta actualizada exitosamente.');
     }
 
     /**
@@ -245,13 +263,20 @@ class SaleController extends Controller
         DB::beginTransaction();
 
         try {
-            // Restaurar stock de productos
+            // Restaurar stock de productos y registrar ajuste histórico
             foreach ($sale->items as $item) {
                 $product = $item->product;
-                $product->increment('quantity', $item->quantity);
+                $product->recordMovement($item['quantity'], 'adjustment', "Venta #{$sale->id} eliminada (restauración)");
             }
 
+            $shift = $sale->shiftHandover;
             $sale->delete();
+
+            if ($shift) {
+                $shift->updateTotals();
+            }
+
+            $this->auditLog('sale_delete', "Venta #{$sale->id} eliminada. Total era: {$sale->total}", ['sale_id' => $sale->id]);
 
             DB::commit();
 
@@ -282,5 +307,17 @@ class SaleController extends Controller
     public function dailyReport(Request $request): View
     {
         return view('sales.reports');
+    }
+
+    private function auditLog($event, $description, $metadata = [])
+    {
+        AuditLog::create([
+            'user_id' => Auth::id(),
+            'event' => $event,
+            'description' => $description,
+            'ip_address' => request()->ip(),
+            'user_agent' => request()->userAgent(),
+            'metadata' => $metadata
+        ]);
     }
 }

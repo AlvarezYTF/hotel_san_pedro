@@ -1,4 +1,4 @@
-<div class="max-w-4xl mx-auto space-y-4 sm:space-y-6">
+<div class="max-w-4xl mx-auto space-y-4 sm:space-y-6" x-data="{ confirmingDelete: false }">
     <!-- Header -->
     <div class="bg-white rounded-xl border border-gray-100 p-4 sm:p-6">
         <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -49,14 +49,6 @@
             <div>
                 <label class="block text-xs font-semibold text-gray-500 mb-1">Recepcionista</label>
                 <p class="text-sm font-medium text-gray-900">{{ $sale->user->name }}</p>
-            </div>
-            
-            <div>
-                <label class="block text-xs font-semibold text-gray-500 mb-1">Turno</label>
-                <span class="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-medium {{ $sale->shift === 'dia' ? 'bg-yellow-50 text-yellow-700 border border-yellow-100' : 'bg-indigo-50 text-indigo-700 border border-indigo-100' }}">
-                    <i class="fas fa-{{ $sale->shift === 'dia' ? 'sun' : 'moon' }} mr-1.5 text-xs"></i>
-                    {{ ucfirst($sale->shift) }}
-                </span>
             </div>
             
             @if($sale->room)
@@ -243,17 +235,69 @@
                 <h3 class="text-sm font-semibold text-gray-900 mb-1">Zona de Peligro</h3>
                 <p class="text-xs text-gray-500">Eliminar esta venta restaurará el stock de los productos.</p>
             </div>
-            <form action="{{ route('sales.destroy', $sale) }}" method="POST" 
-                  onsubmit="return confirm('¿Está seguro de eliminar esta venta? El stock será restaurado.');">
-                @csrf
-                @method('DELETE')
-                <button type="submit" 
+            <button type="button" 
+                    @click="confirmingDelete = true"
                         class="inline-flex items-center justify-center px-4 py-2.5 rounded-xl border border-red-300 text-sm font-semibold text-red-700 bg-white hover:bg-red-50 transition-colors">
                     <i class="fas fa-trash mr-2"></i>
                     Eliminar Venta
                 </button>
-            </form>
         </div>
     </div>
     @endcan
+
+    <!-- Modal de Confirmación Estilizado -->
+    <div x-show="confirmingDelete" 
+         class="fixed inset-0 z-[100] overflow-y-auto" 
+         x-transition:enter="transition ease-out duration-300"
+         x-transition:enter-start="opacity-0"
+         x-transition:enter-end="opacity-100"
+         x-transition:leave="transition ease-in duration-200"
+         x-transition:leave-start="opacity-100"
+         x-transition:leave-end="opacity-0"
+         x-cloak>
+        <!-- Fondo desenfocado -->
+        <div class="fixed inset-0 bg-gray-900/60 backdrop-blur-sm transition-opacity"></div>
+
+        <div class="flex min-h-full items-end justify-center p-4 text-center sm:items-center sm:p-0">
+            <div class="relative transform overflow-hidden rounded-2xl bg-white text-left shadow-2xl transition-all sm:my-8 sm:w-full sm:max-w-lg border border-gray-100"
+                 @click.away="confirmingDelete = false"
+                 x-transition:enter="transition ease-out duration-300"
+                 x-transition:enter-start="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95"
+                 x-transition:enter-end="opacity-100 translate-y-0 sm:scale-100"
+                 x-transition:leave="transition ease-in duration-200"
+                 x-transition:leave-start="opacity-100 translate-y-0 sm:scale-100"
+                 x-transition:leave-end="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95">
+                <div class="bg-white px-4 pb-4 pt-5 sm:p-6 sm:pb-4">
+                    <div class="sm:flex sm:items-start">
+                        <div class="mx-auto flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-full bg-red-50 sm:mx-0 sm:h-10 sm:w-10">
+                            <i class="fas fa-exclamation-triangle text-red-600"></i>
+                        </div>
+                        <div class="mt-3 text-center sm:ml-4 sm:mt-0 sm:text-left">
+                            <h3 class="text-lg font-bold leading-6 text-gray-900">¿Eliminar Venta?</h3>
+                            <div class="mt-2">
+                                <p class="text-sm text-gray-500">
+                                    Esta acción no se puede deshacer. Los productos vendidos se **restaurarán automáticamente** al inventario.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="bg-gray-50 px-4 py-3 sm:flex sm:flex-row-reverse sm:px-6 gap-2">
+                    <form action="{{ route('sales.destroy', $sale) }}" method="POST" x-ref="deleteForm">
+                        @csrf
+                        @method('DELETE')
+                        <button type="submit" 
+                                class="inline-flex w-full justify-center rounded-xl bg-red-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-red-700 sm:ml-3 sm:w-auto transition-all">
+                            Confirmar Eliminación
+                        </button>
+                    </form>
+                    <button type="button" 
+                            @click="confirmingDelete = false"
+                            class="mt-3 inline-flex w-full justify-center rounded-xl bg-white px-4 py-2.5 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50 sm:mt-0 sm:w-auto transition-all">
+                        Cancelar
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
 </div>

@@ -1,48 +1,10 @@
-<div class="space-y-6" x-data="{ 
+<div class="space-y-6" wire:poll.5s x-data="{ 
     filtersOpen: @entangle('filtersOpen'),
     receptionistId: @entangle('receptionist_id'),
-    shift: @entangle('shift'),
     isAdmin: {{ Auth::user()->hasRole('Administrador') ? 'true' : 'false' }},
-    receptionists: @json($receptionistsWithShifts),
-    isShiftLocked: false,
-    enforceShift() {
-        if (!this.isAdmin && this.receptionistId && this.receptionists[this.receptionistId]) {
-            const correctShift = this.receptionists[this.receptionistId];
-            if (this.shift !== correctShift) {
-                this.shift = correctShift;
-            }
-        }
-    },
-    updateShiftLocked() {
-        this.isShiftLocked = !this.isAdmin && this.receptionistId && this.receptionists[this.receptionistId];
-    }
-}" x-init="
-    updateShiftLocked();
-    enforceShift();
-    $watch('receptionistId', (newVal) => {
-        updateShiftLocked();
-        if (!isAdmin && newVal && receptionists[newVal]) {
-            shift = receptionists[newVal];
-        } else if (!newVal) {
-            if (!isAdmin) {
-                shift = '';
-            }
-        }
-    });
-    $watch('isAdmin', () => {
-        updateShiftLocked();
-    });
-    $watch('shift', (newVal) => {
-        if (isShiftLocked) {
-            const correctShift = receptionists[receptionistId];
-            if (newVal !== correctShift) {
-                setTimeout(() => {
-                    shift = correctShift;
-                }, 0);
-            }
-        }
-    });
-">
+    confirmingDelete: false,
+    deleteFormAction: ''
+}">
     <!-- 1. BLOQUE HEADER -->
     <div class="bg-white rounded-xl border border-gray-100 p-4 sm:p-6">
         <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -109,25 +71,15 @@
                 </div>
                 
                 <!-- Recepcionista -->
-                <div>
+                <div class="lg:col-span-2">
                     <label class="block text-xs font-semibold text-gray-700 uppercase tracking-wider mb-2">Recepcionista</label>
                     <div class="relative">
                         <select wire:model.live="receptionist_id"
-                                x-model="receptionistId"
                                 class="block w-full pl-3 pr-10 py-2.5 border border-gray-300 rounded-xl text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent appearance-none bg-white">
                             <option value="">Todos</option>
                             @foreach($receptionists as $receptionist)
-                                @php
-                                    $roleName = $receptionist->roles->first()?->name;
-                                    $displayName = $receptionist->name;
-                                    if ($roleName === 'Recepcionista Día') {
-                                        $displayName = $receptionist->name . ' (Día)';
-                                    } elseif ($roleName === 'Recepcionista Noche') {
-                                        $displayName = $receptionist->name . ' (Noche)';
-                                    }
-                                @endphp
                                 <option value="{{ $receptionist->id }}">
-                                    {{ $displayName }}
+                                    {{ $receptionist->name }}
                                 </option>
                             @endforeach
                         </select>
@@ -135,30 +87,6 @@
                             <i class="fas fa-chevron-down text-gray-400 text-xs"></i>
                         </div>
                     </div>
-                </div>
-                
-                <!-- Turno -->
-                <div>
-                    <label class="block text-xs font-semibold text-gray-700 uppercase tracking-wider mb-2">Turno</label>
-                    <div class="relative">
-                        <select wire:model.live="shift"
-                                x-model="shift"
-                                x-bind:disabled="isShiftLocked"
-                                x-bind:readonly="isShiftLocked"
-                                class="block w-full pl-3 pr-10 py-2.5 border border-gray-300 rounded-xl text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent appearance-none bg-white disabled:bg-gray-100 disabled:cursor-not-allowed disabled:text-gray-500 transition-all"
-                                :class="isShiftLocked ? 'cursor-not-allowed opacity-75' : ''">
-                            <option value="">Todos</option>
-                            <option value="dia">Día</option>
-                            <option value="noche">Noche</option>
-                        </select>
-                        <div class="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
-                            <i class="fas fa-chevron-down text-gray-400 text-xs"></i>
-                        </div>
-                    </div>
-                    <p class="text-xs text-amber-600 flex items-center mt-1" x-show="isShiftLocked" x-cloak>
-                        <i class="fas fa-lock mr-1"></i>
-                        Bloqueado automáticamente según recepcionista
-                    </p>
                 </div>
             </div>
 
@@ -174,9 +102,13 @@
                                 <i class="fas fa-chevron-left text-xs"></i>
                             </button>
                             <span class="flex-1 text-center text-xs font-bold text-gray-700 uppercase tracking-tighter">{{ $currentDate->translatedFormat('F Y') }}</span>
+                            @php
+                                $isFutureMonth = $currentDate->copy()->startOfMonth()->addMonth()->isFuture();
+                            @endphp
                             <button type="button" 
-                                    wire:click="changeDate('{{ $currentDate->copy()->addMonth()->format('Y-m-d') }}')"
-                                    class="p-2 hover:bg-white hover:shadow-sm rounded-lg transition-all text-gray-400">
+                                    @if(!$isFutureMonth) wire:click="changeDate('{{ $currentDate->copy()->addMonth()->format('Y-m-d') }}')" @endif
+                                    @disabled($isFutureMonth)
+                                    class="p-2 {{ $isFutureMonth ? 'text-gray-200 cursor-not-allowed' : 'hover:bg-white hover:shadow-sm text-gray-400' }} rounded-lg transition-all">
                                 <i class="fas fa-chevron-right text-xs"></i>
                             </button>
                         </div>
@@ -190,13 +122,17 @@
                                     @php 
                                         $isCurrent = $day->isSameDay($currentDate);
                                         $isToday = $day->isToday();
+                                        $isFuture = $day->isFuture();
                                         $dayKey = $day->format('Y-m-d');
                                         $daySalesCount = $salesByDay[$dayKey] ?? 0;
                                     @endphp
                                     <button type="button" 
-                                            wire:click="changeDate('{{ $dayKey }}')"
+                                            @if(!$isFuture) wire:click="changeDate('{{ $dayKey }}')" @endif
+                                            @disabled($isFuture)
                                             class="flex flex-col items-center justify-center min-w-[42px] h-14 rounded-xl transition-all border
-                                            {{ $isCurrent ? 'bg-green-600 border-green-600 text-white shadow-md' : 'bg-gray-50 border-gray-100 text-gray-400 hover:border-green-200 hover:text-green-600' }}">
+                                            {{ $isCurrent ? 'bg-green-600 border-green-600 text-white shadow-md' : '' }}
+                                            {{ !$isCurrent && !$isFuture ? 'bg-gray-50 border-gray-100 text-gray-400 hover:border-green-200 hover:text-green-600' : '' }}
+                                            {{ $isFuture ? 'bg-gray-50 border-gray-50 text-gray-200 cursor-not-allowed opacity-50' : '' }}">
                                         <span class="text-[8px] font-bold uppercase tracking-tighter">{{ substr($day->translatedFormat('D'), 0, 1) }}</span>
                                         <span class="text-sm font-bold mt-0.5">{{ $day->day }}</span>
                                         @if($isToday && !$isCurrent)
@@ -343,12 +279,6 @@
                             </th>
                             <th class="px-4 py-3.5 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
                                 <div class="flex items-center">
-                                    <i class="fas fa-clock text-gray-400 mr-2 text-xs"></i>
-                                    Turno
-                                </div>
-                            </th>
-                            <th class="px-4 py-3.5 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                                <div class="flex items-center">
                                     <i class="fas fa-box text-gray-400 mr-2 text-xs"></i>
                                     Productos
                                 </div>
@@ -362,7 +292,7 @@
                             <th class="px-4 py-3.5 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
                                 <div class="flex items-center">
                                     <i class="fas fa-money-bill-wave text-gray-400 mr-2 text-xs"></i>
-                                    Pago
+                                    Método de Pago
                                 </div>
                             </th>
                             <th class="px-4 py-3.5 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
@@ -402,22 +332,15 @@
                                         </span>
                                     @endif
                                 </td>
-                                <td class="px-4 py-4 whitespace-nowrap">
-                                    <span class="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-medium {{ $sale->shift === 'dia' ? 'bg-yellow-50 text-yellow-700 border border-yellow-100' : 'bg-indigo-50 text-indigo-700 border border-indigo-100' }}">
-                                        <i class="fas fa-{{ $sale->shift === 'dia' ? 'sun' : 'moon' }} mr-1.5 text-xs"></i>
-                                        {{ ucfirst($sale->shift) }}
-                                    </span>
-                                </td>
                                 <td class="px-4 py-4">
                                     <div class="space-y-1.5">
                                         <div class="text-xs font-medium text-gray-700">
                                             {{ $sale->items->count() }} producto(s)
                                         </div>
                                         <div class="flex flex-wrap gap-1">
-                                            @foreach($sale->items->groupBy('product.category.name') as $categoryName => $items)
-                                                <span class="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium 
-                                                    {{ $categoryName === 'Bebidas' ? 'bg-blue-100 text-blue-700' : 'bg-amber-100 text-amber-700' }}">
-                                                    {{ $categoryName ?? 'Sin categoría' }} ({{ $items->sum('quantity') }})
+                                            @foreach($sale->items as $item)
+                                                <span class="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-medium bg-gray-100 text-gray-600 border border-gray-200">
+                                                    {{ $item->product->name }} ({{ $item->quantity }})
                                                 </span>
                                             @endforeach
                                         </div>
@@ -484,16 +407,12 @@
                                         </a>
                                         @endcan
                                         @can('delete_sales')
-                                        <form action="{{ route('sales.destroy', $sale) }}" method="POST" class="inline" 
-                                              onsubmit="return confirm('¿Está seguro de eliminar esta venta? El stock será restaurado.');">
-                                            @csrf
-                                            @method('DELETE')
-                                            <button type="submit" 
-                                                    class="p-2 text-red-600 hover:text-red-700 hover:bg-red-50 rounded-lg transition-all duration-200" 
-                                                    title="Eliminar">
-                                                <i class="fas fa-trash text-sm"></i>
-                                            </button>
-                                        </form>
+                                        <button type="button" 
+                                                @click="confirmingDelete = true; deleteFormAction = '{{ route('sales.destroy', $sale) }}'"
+                                                class="p-2 text-red-600 hover:text-red-700 hover:bg-red-50 rounded-lg transition-all duration-200" 
+                                                title="Eliminar">
+                                            <i class="fas fa-trash text-sm"></i>
+                                        </button>
                                         @endcan
                                     </div>
                                 </td>
@@ -521,6 +440,62 @@
                 </a>
             </div>
         @endif
+    </div>
+
+    <!-- Modal de Confirmación Estilizado -->
+    <div x-show="confirmingDelete" 
+         class="fixed inset-0 z-[100] overflow-y-auto" 
+         x-transition:enter="transition ease-out duration-300"
+         x-transition:enter-start="opacity-0"
+         x-transition:enter-end="opacity-100"
+         x-transition:leave="transition ease-in duration-200"
+         x-transition:leave-start="opacity-100"
+         x-transition:leave-end="opacity-0"
+         x-cloak>
+        <!-- Fondo desenfocado -->
+        <div class="fixed inset-0 bg-gray-900/60 backdrop-blur-sm transition-opacity"></div>
+
+        <div class="flex min-h-full items-end justify-center p-4 text-center sm:items-center sm:p-0">
+            <div class="relative transform overflow-hidden rounded-2xl bg-white text-left shadow-2xl transition-all sm:my-8 sm:w-full sm:max-w-lg border border-gray-100"
+                 @click.away="confirmingDelete = false"
+                 x-transition:enter="transition ease-out duration-300"
+                 x-transition:enter-start="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95"
+                 x-transition:enter-end="opacity-100 translate-y-0 sm:scale-100"
+                 x-transition:leave="transition ease-in duration-200"
+                 x-transition:leave-start="opacity-100 translate-y-0 sm:scale-100"
+                 x-transition:leave-end="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95">
+                <div class="bg-white px-4 pb-4 pt-5 sm:p-6 sm:pb-4">
+                    <div class="sm:flex sm:items-start">
+                        <div class="mx-auto flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-full bg-red-50 sm:mx-0 sm:h-10 sm:w-10">
+                            <i class="fas fa-exclamation-triangle text-red-600"></i>
+                        </div>
+                        <div class="mt-3 text-center sm:ml-4 sm:mt-0 sm:text-left">
+                            <h3 class="text-lg font-bold leading-6 text-gray-900">¿Eliminar Venta?</h3>
+                            <div class="mt-2">
+                                <p class="text-sm text-gray-500">
+                                    Esta acción no se puede deshacer. Los productos vendidos se **restaurarán automáticamente** al inventario.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="bg-gray-50 px-4 py-3 sm:flex sm:flex-row-reverse sm:px-6 gap-2">
+                    <form :action="deleteFormAction" method="POST" x-ref="deleteForm">
+                        @csrf
+                        @method('DELETE')
+                        <button type="submit" 
+                                class="inline-flex w-full justify-center rounded-xl bg-red-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-red-700 sm:ml-3 sm:w-auto transition-all">
+                            Confirmar Eliminación
+                        </button>
+                    </form>
+                    <button type="button" 
+                            @click="confirmingDelete = false"
+                            class="mt-3 inline-flex w-full justify-center rounded-xl bg-white px-4 py-2.5 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50 sm:mt-0 sm:w-auto transition-all">
+                        Cancelar
+                    </button>
+                </div>
+            </div>
+        </div>
     </div>
 </div>
 

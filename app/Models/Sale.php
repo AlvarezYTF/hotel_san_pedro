@@ -12,7 +12,7 @@ class Sale extends Model
     protected $fillable = [
         'user_id',
         'room_id',
-        'shift',
+        'shift_handover_id',
         'payment_method',
         'cash_amount',
         'transfer_amount',
@@ -70,14 +70,6 @@ class Sale extends Model
     }
 
     /**
-     * Scope a query to filter by shift.
-     */
-    public function scopeByShift(Builder $query, string $shift): Builder
-    {
-        return $query->where('shift', $shift);
-    }
-
-    /**
      * Scope a query to filter by debt status.
      */
     public function scopeWithDebt(Builder $query): Builder
@@ -91,6 +83,30 @@ class Sale extends Model
     public function scopeByPaymentMethod(Builder $query, string $method): Builder
     {
         return $query->where('payment_method', $method);
+    }
+
+    /**
+     * Scope a query to filter by shift handover.
+     */
+    public function scopePorTurno(Builder $query, int $shiftHandoverId): Builder
+    {
+        return $query->where('shift_handover_id', $shiftHandoverId);
+    }
+
+    /**
+     * Get the electronic invoice associated with the sale.
+     */
+    public function electronicInvoice(): \Illuminate\Database\Eloquent\Relations\HasOne
+    {
+        return $this->hasOne(ElectronicInvoice::class);
+    }
+
+    /**
+     * Get the shift handover associated with the sale.
+     */
+    public function shiftHandover(): BelongsTo
+    {
+        return $this->belongsTo(ShiftHandover::class);
     }
 
     /**

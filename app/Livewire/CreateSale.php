@@ -17,13 +17,11 @@ class CreateSale extends Component
     // Form data
     public $sale_date;
     public $room_id = '';
-    public $shift = 'dia';
     public $payment_method = 'efectivo';
     public $cash_amount = null;
     public $transfer_amount = null;
     public $debt_status = 'pagado';
     public $notes = '';
-    public $productCategoryFilter = '';
     
     // Items
     public $items = [];
@@ -31,27 +29,30 @@ class CreateSale extends Component
     // Computed properties
     public $rooms = [];
     public $products = [];
-    public $categories = [];
     public $selectedProduct = null;
     public $selectedQuantity = 1;
-    public $autoShift = 'dia';
     
     public function getTotalProperty()
     {
         $total = 0;
         foreach ($this->items as $item) {
-            $product = Product::find($item['product_id']);
-            if ($product) {
-                $total += $product->price * $item['quantity'];
+            $total += $item['product_price'] * $item['quantity'];
+        }
+        
+        // Sumar también el producto que está seleccionado actualmente en el buscador pero no agregado
+        if ($this->selectedProduct) {
+            $prod = collect($this->products)->firstWhere('id', $this->selectedProduct);
+            if ($prod) {
+                $total += $prod->price * ($this->selectedQuantity ?: 0);
             }
         }
+        
         return $total;
     }
 
     protected $rules = [
         'sale_date' => 'required|date',
         'room_id' => 'nullable|exists:rooms,id',
-        'shift' => 'required|string|in:dia,noche',
         'payment_method' => 'required|string|in:efectivo,transferencia,ambos,pendiente',
         'cash_amount' => 'nullable|numeric|min:0',
         'transfer_amount' => 'nullable|numeric|min:0',
@@ -65,8 +66,6 @@ class CreateSale extends Component
     protected $messages = [
         'sale_date.required' => 'La fecha de venta es obligatoria.',
         'sale_date.date' => 'La fecha de venta debe ser una fecha válida.',
-        'shift.required' => 'El turno es obligatorio.',
-        'shift.in' => 'El turno debe ser día o noche.',
         'payment_method.required' => 'El método de pago es obligatorio.',
         'payment_method.in' => 'El método de pago debe ser efectivo, transferencia, ambos o pendiente.',
         'items.required' => 'Debe agregar al menos un producto.',
@@ -81,7 +80,7 @@ class CreateSale extends Component
     {
         $this->sale_date = now()->format('Y-m-d');
         
-        // Load rooms with active reservations
+        // Load only rooms with active reservations (Status: 'ocupada')
         $this->rooms = Room::where('status', 'ocupada')
             ->with(['reservations' => function($q) {
                 $q->where('check_in_date', '<=', now())
@@ -93,71 +92,64 @@ class CreateSale extends Component
             ->map(function($room) {
                 $room->current_reservation = $room->reservations->first();
                 return $room;
+            })
+            ->filter(function($room) {
+                return $room->current_reservation !== null;
             });
 
-        // Load products (only Bebidas and Mecato)
+        // Load only active products with stock that ARE NOT cleaning products
         $this->products = Product::where('status', 'active')
             ->where('quantity', '>', 0)
             ->whereHas('category', function($q) {
-                $q->whereIn('name', ['Bebidas', 'Mecato']);
+                $aseoKeywords = ['aseo', 'limpieza', 'amenities', 'insumo', 'papel', 'jabon', 'cloro', 'mantenimiento'];
+                foreach ($aseoKeywords as $keyword) {
+                    $q->where('name', 'not like', '%' . $keyword . '%');
+                }
             })
             ->with('category')
             ->get();
-
-        // Load categories
-        $this->categories = Category::whereIn('name', ['Bebidas', 'Mecato'])->get();
-
-        // Determine auto shift based on user role
-        $user = Auth::user();
-        $userRole = $user->roles->first()?->name;
-        
-        if ($userRole === 'Recepcionista Día') {
-            $this->autoShift = 'dia';
-            $this->shift = 'dia';
-        } elseif ($userRole === 'Recepcionista Noche') {
-            $this->autoShift = 'noche';
-            $this->shift = 'noche';
-        } else {
-            $currentHour = (int) Carbon::now()->format('H');
-            $this->autoShift = $currentHour < 14 ? 'dia' : 'noche';
-            $this->shift = $this->autoShift;
-        }
     }
 
     public function updatedPaymentMethod()
     {
-        if ($this->payment_method !== 'pendiente' && $this->room_id) {
-            $this->debt_status = 'pagado';
-        }
-        
         if ($this->payment_method === 'pendiente') {
+            $this->debt_status = 'pendiente';
             $this->cash_amount = null;
             $this->transfer_amount = null;
-            if ($this->room_id) {
-                $this->debt_status = 'pendiente';
-            }
-        } elseif ($this->payment_method === 'efectivo') {
-            $this->cash_amount = $this->total;
-            $this->transfer_amount = null;
-        } elseif ($this->payment_method === 'transferencia') {
-            $this->cash_amount = null;
-            $this->transfer_amount = $this->total;
-        } elseif ($this->payment_method === 'ambos') {
-            // Keep current values or set defaults
-            if (!$this->cash_amount && !$this->transfer_amount) {
-                $this->cash_amount = $this->total / 2;
-                $this->transfer_amount = $this->total / 2;
+        } else {
+            $this->debt_status = 'pagado';
+            
+            if ($this->payment_method === 'efectivo') {
+                $this->cash_amount = $this->total;
+                $this->transfer_amount = null;
+            } elseif ($this->payment_method === 'transferencia') {
+                $this->cash_amount = null;
+                $this->transfer_amount = $this->total;
+            } elseif ($this->payment_method === 'ambos') {
+                // Para "Ambos", dejamos que el usuario ingrese los montos manualmente
+                $this->cash_amount = null;
+                $this->transfer_amount = null;
             }
         }
     }
 
     public function updatedRoomId()
     {
-        if (!$this->room_id) {
-            $this->debt_status = 'pagado';
-        } elseif ($this->payment_method !== 'pendiente') {
-            $this->debt_status = 'pagado';
+        // Si se quita la habitación y el método era pendiente, resetear a efectivo
+        if (!$this->room_id && $this->payment_method === 'pendiente') {
+            $this->payment_method = 'efectivo';
+            $this->updatedPaymentMethod();
         }
+    }
+
+    public function updatedSelectedProduct()
+    {
+        $this->updatePaymentFields();
+    }
+
+    public function updatedSelectedQuantity()
+    {
+        $this->updatePaymentFields();
     }
 
     public function addItem()
@@ -167,14 +159,19 @@ class CreateSale extends Component
             return;
         }
 
-        if ($this->selectedQuantity < 1) {
-            $this->addError('selectedQuantity', 'La cantidad debe ser mayor a 0.');
-            return;
-        }
-
         $product = Product::find($this->selectedProduct);
         if (!$product) {
             $this->addError('selectedProduct', 'El producto seleccionado no existe.');
+            return;
+        }
+
+        if ($this->selectedQuantity < 1) {
+            $this->addError('selectedQuantity', 'La cantidad debe ser al menos 1.');
+            return;
+        }
+
+        if ($this->selectedQuantity > $product->quantity) {
+            $this->addError('selectedQuantity', "Stock insuficiente. Máximo disponible: {$product->quantity}");
             return;
         }
 
@@ -184,8 +181,15 @@ class CreateSale extends Component
         });
 
         if ($existingIndex !== false) {
+            $newQuantity = $this->items[$existingIndex]['quantity'] + $this->selectedQuantity;
+            
+            if ($newQuantity > $product->quantity) {
+                $this->addError('selectedQuantity', "No se puede agregar más. El total en la lista ({$newQuantity}) superaría el stock ({$product->quantity}).");
+                return;
+            }
+
             // Update quantity
-            $this->items[$existingIndex]['quantity'] += $this->selectedQuantity;
+            $this->items[$existingIndex]['quantity'] = $newQuantity;
         } else {
             // Add new item
             $this->items[] = [
@@ -194,6 +198,7 @@ class CreateSale extends Component
                 'product_name' => $product->name,
                 'product_price' => $product->price,
                 'product_category' => $product->category->name ?? 'Sin categoría',
+                'stock_available' => $product->quantity, // Store stock for validation in list
             ];
         }
 
@@ -209,6 +214,58 @@ class CreateSale extends Component
         $this->updatePaymentFields();
     }
 
+    public function updatedCashAmount()
+    {
+        $this->cash_amount = $this->sanitizeNumber($this->cash_amount);
+        if ($this->payment_method !== 'ambos') {
+            $this->updatePaymentFields();
+        }
+    }
+
+    public function updatedTransferAmount()
+    {
+        $this->transfer_amount = $this->sanitizeNumber($this->transfer_amount);
+        if ($this->payment_method !== 'ambos') {
+            $this->updatePaymentFields();
+        }
+    }
+
+    private function sanitizeNumber($value)
+    {
+        if (empty($value)) return 0;
+        
+        // Si ya es un número (int o float), lo devolvemos tal cual
+        if (is_int($value) || is_float($value)) return (float)$value;
+
+        // Si es un string, quitamos puntos de miles y cambiamos coma por punto decimal
+        // Esto es necesario porque PHP interpreta "3.000" como 3.0
+        $clean = str_replace('.', '', (string)$value);
+        $clean = str_replace(',', '.', $clean);
+        
+        return is_numeric($clean) ? (float)$clean : 0;
+    }
+
+    public function calculateTotal()
+    {
+        // Validate each item in the list against its stock
+        foreach ($this->items as $index => $item) {
+            $product = Product::find($item['product_id']);
+            if ($product) {
+                // Ensure quantity is at least 1
+                if ($item['quantity'] < 1) {
+                    $this->items[$index]['quantity'] = 1;
+                }
+                // Ensure quantity doesn't exceed stock
+                if ($item['quantity'] > $product->quantity) {
+                    $this->items[$index]['quantity'] = $product->quantity;
+                    $this->addError("items.{$index}.quantity", "Cantidad ajustada al máximo disponible ({$product->quantity})");
+                }
+            }
+        }
+        
+        $this->updatePaymentFields();
+    }
+
     public function updatedItems()
     {
         $this->updatePaymentFields();
@@ -216,6 +273,11 @@ class CreateSale extends Component
 
     public function updatePaymentFields()
     {
+        // Solo automatizar si NO es el método "Ambos"
+        if ($this->payment_method === 'ambos') {
+            return;
+        }
+
         $total = $this->total;
         
         if ($this->payment_method === 'efectivo') {
@@ -224,29 +286,19 @@ class CreateSale extends Component
         } elseif ($this->payment_method === 'transferencia') {
             $this->cash_amount = null;
             $this->transfer_amount = $total;
-        } elseif ($this->payment_method === 'ambos') {
-            // Validate that sum equals total
-            if ($this->cash_amount && $this->transfer_amount) {
-                $sum = $this->cash_amount + $this->transfer_amount;
-                if (abs($sum - $total) > 0.01 && $total > 0) {
-                    // Sum doesn't match, adjust proportionally
-                    $ratio = $total / $sum;
-                    $this->cash_amount = round($this->cash_amount * $ratio, 2);
-                    $this->transfer_amount = round($this->transfer_amount * $ratio, 2);
-                }
-            } elseif ($total > 0) {
-                // Set defaults if not set
-                $this->cash_amount = round($total / 2, 2);
-                $this->transfer_amount = round($total / 2, 2);
-            }
         }
     }
 
     public function validateBeforeSubmit()
     {
+        // Si la lista está vacía pero hay un producto seleccionado en el desplegable, agregarlo automáticamente
+        if (empty($this->items) && $this->selectedProduct) {
+            $this->addItem();
+        }
+
         // Basic validation in Livewire (UI level)
         if (empty($this->items)) {
-            $this->addError('items', 'Debe agregar al menos un producto.');
+            $this->addError('items', 'Debe agregar al menos un producto a la lista.');
             return false;
         }
 
@@ -260,37 +312,37 @@ class CreateSale extends Component
                 'transfer_amount.required' => 'El monto por transferencia es obligatorio cuando el método de pago es "Ambos".',
             ]);
 
-            $sum = $this->cash_amount + $this->transfer_amount;
-            if (abs($sum - $this->total) > 0.01) {
+            $cash = (float) $this->sanitizeNumber($this->cash_amount);
+            $transfer = (float) $this->sanitizeNumber($this->transfer_amount);
+            $sum = $cash + $transfer;
+            if (abs($sum - (float)$this->total) > 0.01) {
                 $this->addError('payment_method', "La suma de efectivo y transferencia debe ser igual al total: $" . number_format($this->total, 2, ',', '.'));
                 return false;
             }
         }
 
-        // Validate debt_status if room is selected
-        if ($this->room_id && !$this->debt_status) {
-            $this->addError('debt_status', 'El estado de deuda es obligatorio cuando se selecciona una habitación.');
-            return false;
+        // Asegurar un estado de deuda por defecto si no hay uno
+        if (!$this->debt_status) {
+            $this->debt_status = ($this->payment_method === 'pendiente') ? 'pendiente' : 'pagado';
         }
 
         return true;
     }
 
-    public function getFilteredProductsProperty()
+    public function getSumaPagosProperty()
     {
-        if (!$this->productCategoryFilter) {
-            return $this->products;
-        }
+        $cash = (float) $this->sanitizeNumber($this->cash_amount);
+        $transfer = (float) $this->sanitizeNumber($this->transfer_amount);
+        return $cash + $transfer;
+    }
 
-        return $this->products->filter(function($product) {
-            return $product->category && $product->category->name === $this->productCategoryFilter;
-        });
+    public function getDiferenciaPagosProperty()
+    {
+        return $this->suma_pagos - (float)$this->total;
     }
 
     public function render()
     {
-        return view('livewire.create-sale', [
-            'filteredProducts' => $this->filteredProducts,
-        ]);
+        return view('livewire.create-sale');
     }
 }
