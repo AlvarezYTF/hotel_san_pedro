@@ -170,8 +170,8 @@ class CleaningPanel extends Component
 
             // Validate: only rooms needing cleaning can be marked (using today's date)
             if ($room->cleaningStatus($today)['code'] !== 'pendiente') {
-                $this->dispatch('notify',
-                    type: 'error',
+                $this->dispatch('notify', 
+                    type: 'error', 
                     message: "La habitación #{$room->room_number} no requiere limpieza en este momento."
                 );
                 return;
@@ -206,7 +206,7 @@ class CleaningPanel extends Component
             
             // Mark as just updated to skip next listener query (1 second cache)
             Cache::put("room_updated_{$roomId}", true, 1);
-            
+
             // Dispatch evento global para sincronización en tiempo real con otros componentes
             // MECANISMO PRINCIPAL: Si RoomManager está montado, recibirá este evento inmediatamente (<1s)
             // FALLBACK: Si no está montado, el polling cada 5s capturará el cambio en ≤5s
@@ -267,13 +267,13 @@ class CleaningPanel extends Component
         
         if ($newHash !== $this->dataHash) {
             // Data changed, reload everything
-            $this->loadRooms();
+        $this->loadRooms();
         }
         
         // Always update time (minimal operation)
         $this->currentTime = now()->format('H:i');
     }
-    
+
     /**
      * Determine if polling should be active.
      * Single Responsibility: Only decides polling state.
@@ -320,34 +320,10 @@ class CleaningPanel extends Component
     #[On('room-status-updated')]
     public function onRoomStatusUpdated(int $roomId): void
     {
-        $today = Carbon::today();
-        $roomIndex = array_search($roomId, array_column($this->rooms, 'id'));
-        
-        if ($roomIndex !== false) {
-            // Room is in memory - check if we really need to reload
-            // Use cache to avoid query if we just updated it
-            $cacheKey = "room_updated_{$roomId}";
-            $justUpdated = Cache::get($cacheKey, false);
-            
-            if (!$justUpdated) {
-                // Reload only this room
-                $room = Room::with([
-                    'reservations' => function($query) use ($today) {
-                        $query->where('check_in_date', '<=', $today)
-                              ->where('check_out_date', '>=', $today);
-                    }
-                ])->find($roomId);
-                
-                if ($room) {
-                    $this->rooms[$roomIndex] = $this->transformRoomToArray($room, $today);
-                }
-            }
-        } else {
-            // Room not in memory - full reload (rare case)
-            $this->loadRooms();
-        }
-        
-        // Update hash and cooldown
+        // Cargar siempre para asegurar sincronización completa (evitamos estados obsoletos)
+        $this->loadRooms();
+
+        // Actualizar hash y cooldown (el polling se saltará durante el cooldown)
         $this->dataHash = $this->calculateDataHash();
         $this->lastEventUpdate = now()->timestamp;
     }
