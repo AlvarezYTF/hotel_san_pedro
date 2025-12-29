@@ -41,6 +41,11 @@ class ElectronicInvoice extends Model
         return $this->belongsTo(Customer::class)->withTrashed();
     }
 
+    public function sale()
+    {
+        return $this->belongsTo(Sale::class);
+    }
+
     public function numberingRange()
     {
         return $this->belongsTo(FactusNumberingRange::class, 'factus_numbering_range_id', 'factus_id');
