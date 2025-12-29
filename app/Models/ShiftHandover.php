@@ -66,11 +66,6 @@ class ShiftHandover extends Model
         return $this->hasMany(ShiftCashOut::class);
     }
 
-    public function productOuts(): HasMany
-    {
-        return $this->hasMany(ShiftProductOut::class);
-    }
-
     public function cashOutflows(): HasMany
     {
         return $this->hasMany(CashOutflow::class);

@@ -108,6 +108,19 @@
                                 <input type="number" name="max_capacity" x-model="capacity" @input="updateCapacity()" :readonly="autoCalculate" required class="block w-full px-4 py-4 bg-gray-50 border border-gray-200 rounded-2xl font-bold" :class="autoCalculate ? 'opacity-60 grayscale' : ''">
                             </div>
                         </div>
+
+                        <div class="space-y-2">
+                            <label class="block text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Tipo de Ventilación</label>
+                            <select name="ventilation_type" required
+                                class="block w-full px-4 py-4 bg-gray-50 border border-gray-200 rounded-2xl font-bold appearance-none">
+                                <option value="">Seleccione...</option>
+                                @foreach(\App\Enums\VentilationType::cases() as $ventilationType)
+                                    <option value="{{ $ventilationType->value }}" {{ old('ventilation_type', $room->ventilation_type?->value ?? '') === $ventilationType->value ? 'selected' : '' }}>
+                                        {{ $ventilationType->label() }}
+                                    </option>
+                                @endforeach
+                            </select>
+                        </div>
                     </div>
 
                     <div class="space-y-6">

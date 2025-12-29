@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
@@ -89,7 +90,7 @@ class Customer extends Model
     /**
      * Get the reservations for the customer.
      */
-    public function reservations(): \Illuminate\Database\Eloquent\Relations\HasMany
+    public function reservations(): HasMany
     {
         return $this->hasMany(Reservation::class);
     }
@@ -149,12 +150,12 @@ class Customer extends Model
         $missing = [];
 
         if (!$this->requires_electronic_invoice) {
-            return ['Facturación electrónica no está activada'];
+            return ['FacturaciÃ³n electrÃ³nica no estÃ¡ activada'];
         }
 
         $profile = $this->taxProfile;
         if (!$profile) {
-            return ['Perfil fiscal no está configurado. Por favor, complete los datos fiscales del cliente.'];
+            return ['Perfil fiscal no estÃ¡ configurado. Por favor, complete los datos fiscales del cliente.'];
         }
 
         // Load necessary relationships
@@ -162,7 +163,7 @@ class Customer extends Model
 
         $required = [
             'identification_document_id' => 'Tipo de documento',
-            'identification' => 'Número de identificación',
+            'identification' => 'NÃºmero de identificaciÃ³n',
             'municipality_id' => 'Municipio',
         ];
 
@@ -173,11 +174,11 @@ class Customer extends Model
         }
 
         if ($profile->requiresDV() && empty($profile->dv)) {
-            $missing[] = 'Dígito verificador (DV)';
+            $missing[] = 'DÃ­gito verificador (DV)';
         }
 
         if ($profile->isJuridicalPerson() && empty($profile->company)) {
-            $missing[] = 'Razón social / Empresa';
+            $missing[] = 'RazÃ³n social / Empresa';
         }
 
         return $missing;

@@ -323,7 +323,7 @@
                                 <i class="fas fa-exclamation-triangle text-yellow-600 mt-0.5 mr-3"></i>
                                 <div class="text-sm text-yellow-800">
                                     <p class="font-semibold mb-1">No hay municipios disponibles</p>
-                                    <p class="text-xs">Ejecuta el comando <code class="bg-yellow-100 px-1 rounded">php artisan factus:sync-municipalities</code> para sincronizar los municipios desde Factus.</p>
+                                    <p class="text-xs">Por favor, contacte al administrador del sistema para configurar los municipios necesarios para la facturación electrónica.</p>
                                 </div>
                             </div>
                         </div>
@@ -578,16 +578,16 @@ function customerForm() {
         async checkIdentification() {
             if (!this.validateIdentification()) return;
             if (!this.formData.identification || this.formData.identification.length < 6) return;
-
+            
             this.identificationMessage = 'Verificando...';
             this.identificationExists = false;
-
+            
             try {
                 const response = await fetch(`{{ route('api.customers.check-identification') }}?identification=${this.formData.identification}&exclude_id=${this.formData.id}`);
                 if (!response.ok) throw new Error('Error en la validación');
-
+                
                 const data = await response.json();
-
+                
                 if (data.exists) {
                     this.identificationExists = true;
                     this.identificationMessage = `Este cliente ya está registrado como: ${data.name}`;
@@ -653,7 +653,7 @@ function customerForm() {
             this.validateField('name');
             this.validateIdentification();
             this.validatePhone();
-
+            
             if (this.requiresElectronicInvoice) {
                 this.validateField('identification_document_id');
                 this.validateField('municipality_id');
@@ -661,9 +661,9 @@ function customerForm() {
                     this.validateField('company');
                 }
             }
-
+            
             const hasErrors = Object.values(this.errors).some(error => error !== null);
-
+            
             if (hasErrors || this.identificationExists) {
                 if (this.identificationExists) {
                     Swal.fire({
@@ -675,7 +675,7 @@ function customerForm() {
                 }
                 return;
             }
-
+            
             this.loading = true;
             this.$el.submit();
         }

@@ -76,11 +76,6 @@ class Product extends Model
         return $this->hasMany(InventoryMovement::class);
     }
 
-    public function shiftOuts()
-    {
-        return $this->hasMany(ShiftProductOut::class);
-    }
-
     /**
      * Record a new movement for this product.
      */

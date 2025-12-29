@@ -153,24 +153,24 @@
                 @endcan
 
                 @if(auth()->user()->can('view_shift_handovers') || auth()->user()->can('manage_shift_handovers') || auth()->user()->can('view_shift_cash_outs') || auth()->user()->can('create_shift_cash_outs'))
-                <div class="px-4 mt-4 mb-2">
-                    <p class="text-xs font-semibold text-gray-400 uppercase tracking-wider">Gestión de Turnos</p>
-                </div>
+                    <div class="px-4 mt-4 mb-2">
+                        <p class="text-xs font-semibold text-gray-400 uppercase tracking-wider">Gestión de Turnos</p>
+                    </div>
 
                     {{-- Historial: solo Administrador (aunque recepcionistas puedan entregar/recibir desde sus dashboards) --}}
                     @if(auth()->user()->hasRole('Administrador'))
-                <a href="{{ route('shift-handovers.index') }}" @click="sidebarOpen = false" class="flex items-center px-4 py-3 text-gray-300 hover:bg-gray-700 hover:text-white transition-colors {{ request()->routeIs('shift-handovers.*') ? 'bg-gray-700 text-white' : '' }}">
-                    <i class="fas fa-exchange-alt w-5"></i>
-                    <span class="ml-3">Historial Turnos</span>
-                </a>
+                        <a href="{{ route('shift-handovers.index') }}" @click="sidebarOpen = false" class="flex items-center px-4 py-3 text-gray-300 hover:bg-gray-700 hover:text-white transition-colors {{ request()->routeIs('shift-handovers.*') ? 'bg-gray-700 text-white' : '' }}">
+                            <i class="fas fa-exchange-alt w-5"></i>
+                            <span class="ml-3">Historial Turnos</span>
+                        </a>
                     @endif
 
                     @can('view_shift_cash_outs')
-                <a href="{{ route('shift-cash-outs.index') }}" @click="sidebarOpen = false" class="flex items-center px-4 py-3 text-gray-300 hover:bg-gray-700 hover:text-white transition-colors {{ request()->routeIs('shift-cash-outs.*') ? 'bg-gray-700 text-white' : '' }}">
-                    <i class="fas fa-wallet w-5"></i>
+                        <a href="{{ route('shift-cash-outs.index') }}" @click="sidebarOpen = false" class="flex items-center px-4 py-3 text-gray-300 hover:bg-gray-700 hover:text-white transition-colors {{ request()->routeIs('shift-cash-outs.*') ? 'bg-gray-700 text-white' : '' }}">
+                            <i class="fas fa-wallet w-5"></i>
                             <span class="ml-3">Retiros de Caja (Turno)</span>
-                </a>
-                @endcan
+                        </a>
+                    @endcan
                 @endif
 
                 @can('manage_roles')

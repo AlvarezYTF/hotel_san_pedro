@@ -20,13 +20,6 @@ use Barryvdh\DomPDF\Facade\Pdf;
 
 class ReceptionistDashboardController extends Controller
 {
-    private function getGlobalActiveShift(): ?ShiftHandover
-    {
-        return ShiftHandover::where('status', ShiftHandoverStatus::ACTIVE)
-            ->orderByDesc('started_at')
-            ->first();
-    }
-
     public function index()
     {
         /** @var \App\Models\User $user */
@@ -273,22 +266,12 @@ class ReceptionistDashboardController extends Controller
 
         // Sanitize base_final
         $baseFinal = $request->input('base_final');
-        if ($baseFinal === '') {
-            $baseFinal = null;
-        }
         if (is_string($baseFinal)) {
             $baseFinal = str_replace('.', '', $baseFinal);
             $baseFinal = (float) str_replace(',', '.', $baseFinal);
         }
 
         $activeShift->updateTotals();
-
-        // Regla: la base a entregar nunca puede ser mayor al efectivo disponible del turno.
-        $disponible = (float) $activeShift->base_esperada;
-        if ($baseFinal !== null && (float) $baseFinal > $disponible) {
-            return back()->withInput()->with('error', "La base final no puede ser mayor al efectivo disponible. Disponible: $" . number_format($disponible, 0, ',', '.') . ".");
-        }
-
         $activeShift->status = ShiftHandoverStatus::DELIVERED;
         $activeShift->ended_at = Carbon::now();
         $activeShift->observaciones_entrega = $request->input('observaciones');
@@ -411,9 +394,6 @@ class ReceptionistDashboardController extends Controller
     {
         $user = Auth::user();
         $activeShift = $user->turnoActivo()->first();
-        if (!$activeShift && $user->hasRole('Administrador')) {
-            $activeShift = $this->getGlobalActiveShift();
-        }
         return view('shift-cash-outs.create', compact('activeShift'));
     }
 
@@ -421,12 +401,9 @@ class ReceptionistDashboardController extends Controller
     {
         $user = Auth::user();
         $activeShift = $user->turnoActivo()->first();
-        if (!$activeShift && $user->hasRole('Administrador')) {
-            $activeShift = $this->getGlobalActiveShift();
-        }
 
-        if (!$activeShift) {
-            return back()->with('error', 'No hay un turno activo en el sistema para registrar un retiro de caja.');
+        if (!$activeShift && !$user->hasRole('Administrador')) {
+            return back()->with('error', 'Debes tener un turno activo para registrar una salida de caja.');
         }
 
         $request->validate([
@@ -441,17 +418,26 @@ class ReceptionistDashboardController extends Controller
             $amount = (float) str_replace(',', '.', $amount);
         }
 
-        // Determinar el tipo de turno basado en el turno activo (caja global)
-        $shiftType = $activeShift->shift_type;
+        // Determinar el tipo de turno basado en el turno activo o en la hora actual
+        $shiftType = null;
+        if ($activeShift) {
+            $shiftType = $activeShift->shift_type;
+        } else {
+            $hour = (int) now()->format('H');
+            // Si la hora está entre las 22:00 y las 06:00, es turno NOCHE
+            $shiftType = ($hour >= 22 || $hour < 6) ? ShiftType::NIGHT : ShiftType::DAY;
+        }
 
-        // VALIDACIÓN DE SALDO DISPONIBLE (aplica también para admin)
-        $disponible = $activeShift->getEfectivoDisponible();
-        if ($amount > $disponible) {
-            return back()->with('error', "Saldo insuficiente en caja del turno. Disponible: $" . number_format($disponible, 0, ',', '.'))->withInput();
+        // VALIDACIÓN DE SALDO DISPONIBLE
+        if ($activeShift) {
+            $disponible = $activeShift->getEfectivoDisponible();
+            if ($amount > $disponible) {
+                return back()->with('error', "Saldo insuficiente en caja del turno. Disponible: $" . number_format($disponible, 0, ',', '.'))->withInput();
+            }
         }
 
         $cashOut = ShiftCashOut::create([
-            'shift_handover_id' => $activeShift->id,
+            'shift_handover_id' => $activeShift ? $activeShift->id : null,
             'user_id' => $user->id,
             'amount' => $amount,
             'concept' => $request->concept,
@@ -460,8 +446,10 @@ class ReceptionistDashboardController extends Controller
             'shift_date' => Carbon::today(),
         ]);
 
-        // Actualizar totales del turno
-        $activeShift->updateTotals();
+        // Actualizar totales del turno si existe
+        if ($activeShift) {
+            $activeShift->updateTotals();
+        }
 
         $this->auditLog('cash_out', "Retiro de caja por {$amount} - Concepto: {$request->concept}", [
             'cash_out_id' => $cashOut->id,

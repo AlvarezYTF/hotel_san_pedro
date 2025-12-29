@@ -113,8 +113,7 @@ class RoomController extends Controller
      */
     public function create(): View
     {
-        $statuses = RoomStatus::cases();
-        return view('rooms.create', compact('statuses'));
+        return view('rooms.create');
     }
 
     /**
@@ -126,6 +125,7 @@ class RoomController extends Controller
             'room_number' => 'required|string|unique:rooms,room_number',
             'beds_count' => 'required|integer|min:1',
             'max_capacity' => 'required|integer|min:1',
+            'ventilation_type' => 'required|string|in:' . implode(',', array_column(\App\Enums\VentilationType::cases(), 'value')),
             'occupancy_prices' => 'required|array',
             'status' => 'nullable|string',
         ]);
@@ -211,6 +211,7 @@ class RoomController extends Controller
             'room_number' => 'required|string|unique:rooms,room_number,' . $room->id,
             'beds_count' => 'required|integer|min:1',
             'max_capacity' => 'required|integer|min:1',
+            'ventilation_type' => 'required|string|in:' . implode(',', array_column(\App\Enums\VentilationType::cases(), 'value')),
             'occupancy_prices' => 'required|array',
             'status' => 'required|string',
         ]);

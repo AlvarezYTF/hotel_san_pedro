@@ -9,7 +9,6 @@ use App\Models\AuditLog;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Auth;
 use App\Enums\ShiftHandoverStatus;
-use App\Models\ShiftHandover;
 
 class CashOutflowManager extends Component
 {
@@ -95,13 +94,6 @@ class CashOutflowManager extends Component
         $user = Auth::user();
         $activeShift = $user->turnoActivo()->first();
 
-        // Admin: si no tiene turno propio, usar el turno activo global como caja del hotel
-        if (!$activeShift && $user->hasRole('Administrador')) {
-            $activeShift = ShiftHandover::where('status', ShiftHandoverStatus::ACTIVE)
-                ->orderByDesc('started_at')
-                ->first();
-        }
-
         // VALIDACIÓN DE SALDO DISPONIBLE
         if ($activeShift) {
             $disponible = $activeShift->getEfectivoDisponible();
@@ -109,9 +101,9 @@ class CashOutflowManager extends Component
                 $this->addError('amount', "Saldo insuficiente en caja. Disponible: $" . number_format($disponible, 0, ',', '.'));
                 return;
             }
-        } else {
-            // Sin turno activo (ni propio ni global): no se puede registrar gasto, porque no hay caja contra la cual validar.
-            $this->addError('amount', "No hay un turno activo en el sistema para registrar este gasto de caja.");
+        } elseif (!$user->hasRole('Administrador')) {
+            // Si no es admin y no hay turno, no puede sacar dinero
+            $this->addError('amount', "No hay un turno activo para registrar la salida de dinero.");
             return;
         }
 
@@ -123,8 +115,10 @@ class CashOutflowManager extends Component
             'date' => $this->outflow_date,
         ]);
 
-        // Actualizar totales del turno si existe
-        $activeShift->updateTotals();
+        // Actualizar totales del turno activo si existe
+        if ($activeShift) {
+            $activeShift->updateTotals();
+        }
 
         $this->auditLog('cash_outflow_create', "Salida de dinero registrada por {$this->amount}. Motivo: {$this->reason}", ['outflow_id' => $outflow->id]);
 

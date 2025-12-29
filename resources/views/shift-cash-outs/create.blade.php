@@ -22,7 +22,7 @@
             @if(!$activeShift)
             <div class="mb-6 p-4 rounded-lg bg-amber-50 border border-amber-100 text-amber-700 text-sm font-bold flex items-center gap-3">
                 <i class="fas fa-exclamation-triangle text-lg"></i>
-                <span>No hay un turno activo en el sistema. No podrás registrar retiros hasta que exista un turno activo.</span>
+                <span>No tienes un turno activo. El retiro se registrará fuera de turno.</span>
             </div>
             @endif
 

@@ -3,9 +3,12 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Reservation extends Model
 {
+    use SoftDeletes;
+
     protected $fillable = [
         'customer_id',
         'room_id',
@@ -16,6 +19,7 @@ class Reservation extends Model
         'reservation_date',
         'check_in_date',
         'check_out_date',
+        'check_in_time',
         'notes',
     ];
 
@@ -37,10 +41,28 @@ class Reservation extends Model
 
     /**
      * Get the room that is reserved.
+     * Maintained for backward compatibility with single room reservations.
      */
     public function room()
     {
         return $this->belongsTo(Room::class);
+    }
+
+    /**
+     * Get all rooms assigned to this reservation.
+     */
+    public function rooms()
+    {
+        return $this->belongsToMany(Room::class, 'reservation_rooms')
+                    ->withTimestamps();
+    }
+
+    /**
+     * Get the reservation room pivot entries.
+     */
+    public function reservationRooms()
+    {
+        return $this->hasMany(ReservationRoom::class);
     }
 
     /**
@@ -53,11 +75,20 @@ class Reservation extends Model
 
     /**
      * Get the guests assigned to this reservation.
+     * Maintained for backward compatibility.
      */
     public function guests()
     {
         return $this->belongsToMany(Customer::class, 'reservation_guests')
                     ->withTimestamps()
                     ->withTrashed();
+    }
+
+    /**
+     * Get the deposit payments for this reservation.
+     */
+    public function reservationDeposits()
+    {
+        return $this->hasMany(ReservationDeposit::class);
     }
 }
