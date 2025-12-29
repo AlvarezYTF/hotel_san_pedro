@@ -1,0 +1,35 @@
+/* Reports Manager Styles */
+/* TomSelect custom styles */
+
+.ts-wrapper.single .ts-control {
+    border: 1px solid #d1d5db;
+    border-radius: 0.5rem;
+    padding: 0.625rem 0.75rem;
+}
+
+.ts-wrapper.single .ts-control:focus {
+    outline: none;
+    box-shadow: 0 0 0 2px rgba(139, 92, 246, 0.5);
+    border-color: transparent;
+}
+
+.ts-dropdown {
+    border-radius: 0.5rem;
+    border: 1px solid #d1d5db;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+}
+
+.ts-dropdown [data-selectable].option {
+    padding: 0.5rem 0.75rem;
+}
+
+.ts-dropdown [data-selectable].option:hover,
+.ts-dropdown [data-selectable].option.active {
+    background-color: #f3f4f6;
+    color: #8b5cf6;
+}
+
+.ts-wrapper.single .ts-control {
+    background-color: white;
+}
+
