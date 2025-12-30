@@ -282,8 +282,8 @@ class Room extends Model
         // 1. Reservation ends today (was occupied yesterday, checkout today)
         // 2. Reservation starts today and is for one day only (check-in today, check-out tomorrow)
         // 3. Reservation has one day remaining (check-out tomorrow)
-        $previousDay = $normalizedDate->copy()->subDay();
-        $tomorrow = $normalizedDate->copy()->addDay();
+        $previousDay = $date->copy()->subDay();
+        $tomorrow = $date->copy()->addDay();
         $wasOccupiedYesterday = $this->isOccupied($previousDay);
         
         // Case 1: Was occupied yesterday, checkout today
