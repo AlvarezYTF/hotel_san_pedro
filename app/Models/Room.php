@@ -166,15 +166,35 @@ class Room extends Model
             return $this->getCleanStatus();
         }
 
-        // If room is OCCUPIED, apply 24-hour rule
-        // Calculate hours from last_cleaned_at to the queried date (not now())
-        // This ensures consistency when querying past or future dates
+        // If room is OCCUPIED, check if cleaning occurred before check-in
+        // Get active reservation to compare cleaning date with check-in date
+        $reservation = $this->reservations()
+            ->where('check_in_date', '<=', $date)
+            ->where('check_out_date', '>', $date)
+            ->orderBy('check_in_date', 'asc')
+            ->first();
+
+        // Parse and normalize cleaning date
         $cleaningDate = $this->last_cleaned_at instanceof \Carbon\Carbon 
             ? $this->last_cleaned_at 
             : \Carbon\Carbon::parse($this->last_cleaned_at);
         
-        // Normalize both dates to start of day for consistent comparison
         $cleaningDateNormalized = $cleaningDate->copy()->startOfDay();
+
+        // If room was cleaned BEFORE check-in, it stays clean during the stay
+        // Hotel rule: cleaning before guest arrival is valid for the entire initial stay
+        if ($reservation) {
+            $checkInDate = \Carbon\Carbon::parse($reservation->check_in_date)->startOfDay();
+            
+            // If cleaning occurred before check-in, room is clean (no 24-hour rule applies)
+            if ($cleaningDateNormalized->lt($checkInDate)) {
+                return $this->getCleanStatus();
+            }
+        }
+
+        // If room was cleaned AFTER check-in (or on check-in day), apply 24-hour rule
+        // Calculate hours from last_cleaned_at to the queried date (not now())
+        // This ensures consistency when querying past or future dates
         $queryDateNormalized = $date->copy()->startOfDay();
         
         $hoursSinceLastCleaning = $cleaningDateNormalized->diffInHours($queryDateNormalized);
