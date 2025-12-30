@@ -4,7 +4,7 @@
 @section('header', 'Editar Habitación #' . $room->room_number)
 
 @section('content')
-<div class="max-w-7xl mx-auto" x-data="{ 
+<div class="max-w-5xl mx-auto" x-data="{ 
     tab: 'config',
     beds: {{ old('beds_count', $room->beds_count) }}, 
     capacity: {{ old('max_capacity', $room->max_capacity) }},
@@ -38,7 +38,7 @@
 
     <!-- Tab Navigation -->
     <div class="flex items-center space-x-2 mb-6 bg-white p-1.5 rounded-2xl border border-gray-100 shadow-sm w-fit">
-        <button @click="tab = 'config'" :class="tab === 'config' ? 'bg-indigo-600 text-white shadow-md' : 'text-gray-500 hover:bg-gray-50'"
+        <button @click="tab = 'config'" :class="tab === 'config' ? 'bg-emerald-600 text-white shadow-md' : 'text-gray-500 hover:bg-gray-50'"
             class="px-6 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all">
             <i class="fas fa-cog mr-2"></i> Configuración
         </button>
@@ -51,14 +51,14 @@
     <!-- Tab: Configuración Base -->
     <div x-show="tab === 'config'" x-transition>
         <div class="bg-white rounded-3xl border border-gray-100 shadow-xl overflow-hidden">
-            <div class="bg-indigo-600 px-8 py-10 text-white relative">
+            <div class="bg-emerald-600 px-8 py-10 text-white relative">
                 <div class="flex items-center space-x-4">
                     <div class="h-16 w-16 rounded-2xl bg-white/20 backdrop-blur-md flex items-center justify-center text-2xl shadow-inner">
                         <i class="fas fa-edit"></i>
                     </div>
                     <div>
                         <h1 class="text-3xl font-black tracking-tight">Editar Habitación #{{ $room->room_number }}</h1>
-                        <p class="text-indigo-100 font-bold text-sm uppercase tracking-widest opacity-80">Configuración Base y Precios Estándar</p>
+                        <p class="text-emerald-100 font-bold text-sm uppercase tracking-widest opacity-80">Configuración Base y Precios Estándar</p>
                     </div>
                 </div>
             </div>
@@ -72,11 +72,14 @@
                         <div class="grid grid-cols-2 gap-6">
                             <div class="space-y-2">
                                 <label class="block text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Número</label>
-                                <input type="text" name="room_number" value="{{ $room->room_number }}" required class="block w-full px-4 py-4 bg-gray-50 border border-gray-200 rounded-2xl font-bold">
+                                <input type="text" name="room_number" value="{{ $room->room_number }}" required
+                                    class="block w-full px-4 py-4 bg-gray-50 border border-gray-200 rounded-2xl text-gray-900 focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all font-bold">
                             </div>
                             <div class="space-y-2">
                                 <label class="block text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Estado</label>
-                                <select name="status" required class="block w-full px-4 py-4 bg-gray-50 border border-gray-200 rounded-2xl font-bold appearance-none" {{ $isOccupied ? 'disabled' : '' }}>
+                                <select name="status" required
+                                    class="block w-full px-4 py-4 bg-gray-50 border border-gray-200 rounded-2xl text-gray-900 focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all font-bold appearance-none"
+                                    {{ $isOccupied ? 'disabled' : '' }}>
                                     @foreach($statuses as $status)
                                         @if($isOccupied && ($status === \App\Enums\RoomStatus::OCUPADA || $status === \App\Enums\RoomStatus::LIBRE))
                                             @continue
@@ -95,24 +98,27 @@
                         <div class="grid grid-cols-2 gap-6">
                             <div class="space-y-2">
                                 <label class="block text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Camas</label>
-                                <input type="number" name="beds_count" x-model="beds" @input="updateCapacity()" required class="block w-full px-4 py-4 bg-gray-50 border border-gray-200 rounded-2xl font-bold">
+                                <input type="number" name="beds_count" x-model="beds" @input="updateCapacity()" required
+                                    class="block w-full px-4 py-4 bg-gray-50 border border-gray-200 rounded-2xl text-gray-900 focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all font-bold">
                             </div>
                             <div class="space-y-2">
                                 <div class="flex justify-between items-center ml-1">
                                     <label class="block text-[10px] font-black text-gray-400 uppercase tracking-widest">Capacidad Máx.</label>
                                     <label class="flex items-center cursor-pointer">
                                         <input type="checkbox" x-model="autoCalculate" @change="updateCapacity()" class="sr-only peer">
-                                        <div class="w-7 h-4 bg-gray-200 rounded-full peer peer-checked:bg-indigo-600 peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-3 after:w-3 after:transition-all"></div>
+                                        <div class="w-7 h-4 bg-gray-200 rounded-full peer peer-checked:bg-emerald-600 peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-3 after:w-3 after:transition-all"></div>
                                     </label>
                                 </div>
-                                <input type="number" name="max_capacity" x-model="capacity" @input="updateCapacity()" :readonly="autoCalculate" required class="block w-full px-4 py-4 bg-gray-50 border border-gray-200 rounded-2xl font-bold" :class="autoCalculate ? 'opacity-60 grayscale' : ''">
+                                <input type="number" name="max_capacity" x-model="capacity" @input="updateCapacity()" :readonly="autoCalculate" required
+                                    class="block w-full px-4 py-4 bg-gray-50 border border-gray-200 rounded-2xl text-gray-900 focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all font-bold"
+                                    :class="autoCalculate ? 'opacity-60 grayscale' : ''">
                             </div>
                         </div>
 
                         <div class="space-y-2">
                             <label class="block text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Tipo de Ventilación</label>
                             <select name="ventilation_type" required
-                                class="block w-full px-4 py-4 bg-gray-50 border border-gray-200 rounded-2xl font-bold appearance-none">
+                                class="block w-full px-4 py-4 bg-gray-50 border border-gray-200 rounded-2xl text-gray-900 focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all font-bold appearance-none">
                                 <option value="">Seleccione...</option>
                                 @foreach(\App\Enums\VentilationType::cases() as $ventilationType)
                                     <option value="{{ $ventilationType->value }}" {{ old('ventilation_type', $room->ventilation_type?->value ?? '') === $ventilationType->value ? 'selected' : '' }}>
@@ -124,14 +130,15 @@
                     </div>
 
                     <div class="space-y-6">
-                        <h3 class="text-sm font-black text-gray-900 uppercase tracking-widest flex items-center"><i class="fas fa-money-bill-wave mr-2 text-indigo-500"></i> Precios Estándar</h3>
+                        <h3 class="text-sm font-black text-gray-900 uppercase tracking-widest flex items-center"><i class="fas fa-money-bill-wave mr-2 text-emerald-500"></i> Precios Estándar</h3>
                         <div class="bg-gray-50 rounded-3xl p-6 border border-gray-100 space-y-4 max-h-[400px] overflow-y-auto">
                             <template x-for="i in parseInt(capacity)" :key="i">
                                 <div class="space-y-1">
                                     <label class="block text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1" x-text="'Precio para ' + i + (i == 1 ? ' Persona' : ' Personas')"></label>
                                     <div class="relative group">
                                         <div class="absolute inset-y-0 left-0 pl-4 flex items-center text-gray-400 font-bold">$</div>
-                                        <input type="number" :name="'occupancy_prices[' + i + ']'" x-model="prices[i]" required class="block w-full pl-8 pr-4 py-3 bg-white border border-gray-200 rounded-xl text-gray-900 font-bold">
+                                        <input type="number" :name="'occupancy_prices[' + i + ']'" x-model="prices[i]" required
+                                            class="block w-full pl-8 pr-4 py-3 bg-white border border-gray-200 rounded-xl text-gray-900 font-bold focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all">
                                     </div>
                                 </div>
                             </template>
@@ -140,7 +147,7 @@
                 </div>
 
                 <div class="pt-8 flex flex-col sm:flex-row gap-4 border-t border-gray-100">
-                    <button type="submit" class="flex-1 bg-indigo-600 text-white py-4 rounded-2xl font-black text-sm uppercase tracking-widest hover:bg-indigo-700 shadow-xl transition-all">Actualizar Habitación</button>
+                    <button type="submit" class="flex-1 bg-emerald-600 text-white py-4 rounded-2xl font-black text-sm uppercase tracking-widest hover:bg-emerald-700 shadow-xl shadow-emerald-600/20 transition-all active:scale-95">Actualizar Habitación</button>
                     <a href="{{ route('rooms.index') }}" class="flex-1 bg-gray-100 text-gray-600 py-4 rounded-2xl font-black text-sm uppercase tracking-widest hover:bg-gray-200 text-center transition-all">Cancelar</a>
                 </div>
             </form>
