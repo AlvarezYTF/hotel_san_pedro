@@ -134,30 +134,31 @@
                 </thead>
                 <tbody class="divide-y divide-gray-200">
                     @forelse($rooms as $room)
-                    <tr class="{{ $room->display_status->cardBgColor() }} transition-colors duration-150 group">
+                    <tr wire:key="room-{{ $room['id'] }}-{{ $currentDate->format('Y-m-d') }}"
+                        class="{{ $room['display_status']->cardBgColor() }} transition-colors duration-150 group">
                         <td class="px-6 py-4 whitespace-nowrap">
                             <div class="flex items-center">
                                 <div class="h-10 w-10 rounded-lg bg-gray-100 flex items-center justify-center mr-3 text-gray-400 group-hover:bg-blue-50 group-hover:text-blue-600 transition-colors">
                                     <i class="fas fa-door-closed"></i>
                                 </div>
-                                <div wire:click="openRoomDetail({{ $room->id }})" class="cursor-pointer">
-                                    <div class="text-sm font-semibold text-gray-900">Hab. {{ $room->room_number }}</div>
+                                <div wire:click="openRoomDetail({{ $room['id'] }})" class="cursor-pointer">
+                                    <div class="text-sm font-semibold text-gray-900">Hab. {{ $room['room_number'] }}</div>
                                     <div class="text-xs text-gray-500">
-                                        {{ $room->beds_count }} {{ $room->beds_count == 1 ? 'Cama' : 'Camas' }} • Cap. {{ $room->max_capacity }}
+                                        {{ $room['beds_count'] }} {{ $room['beds_count'] == 1 ? 'Cama' : 'Camas' }} • Cap. {{ $room['max_capacity'] }}
                                     </div>
                                 </div>
                             </div>
                         </td>
 
                         <td class="px-6 py-4 whitespace-nowrap text-center">
-                            <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold {{ $room->display_status->color() }}">
+                            <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold {{ $room['display_status']->color() }}">
                                 <span class="w-1.5 h-1.5 rounded-full mr-2" style="background-color: currentColor"></span>
-                                {{ $room->display_status->label() }}
+                                {{ $room['display_status']->label() }}
                             </span>
                         </td>
 
                         <td class="px-6 py-4 whitespace-nowrap text-center">
-                            @php($cleaning = $room->cleaningStatus())
+                            @php($cleaning = $room['cleaning_status'])
                             <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold {{ $cleaning['color'] }}">
                                 <i class="fas {{ $cleaning['icon'] }} mr-1.5"></i>
                                 {{ $cleaning['label'] }}
@@ -165,11 +166,11 @@
                         </td>
 
                         <td class="px-6 py-4 whitespace-nowrap">
-                            @if(isset($room->current_reservation) && $room->current_reservation)
+                            @if(isset($room['current_reservation']) && $room['current_reservation'])
                                 <div class="flex flex-col">
-                                    <span class="text-sm font-semibold text-gray-900">{{ $room->current_reservation->customer->name ?? 'N/A' }}</span>
+                                    <span class="text-sm font-semibold text-gray-900">{{ $room['current_reservation']->customer->name ?? 'N/A' }}</span>
                                     <span class="text-xs text-blue-600 font-medium">
-                                        Salida: {{ \Carbon\Carbon::parse($room->current_reservation->check_out_date)->format('d/m/Y') }}
+                                        Salida: {{ \Carbon\Carbon::parse($room['current_reservation']->check_out_date)->format('d/m/Y') }}
                                     </span>
                                 </div>
                             @else
@@ -178,9 +179,9 @@
                         </td>
 
                         <td class="px-6 py-4 whitespace-nowrap">
-                            @if(isset($room->current_reservation) && $room->current_reservation)
+                            @if(isset($room['current_reservation']) && $room['current_reservation'])
                                 <div class="flex flex-col space-y-1">
-                                    @if($room->is_night_paid)
+                                    @if($room['is_night_paid'])
                                         <span class="inline-flex items-center w-fit px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-700 border border-emerald-200">
                                             <i class="fas fa-moon mr-1"></i> NOCHE PAGA
                                         </span>
@@ -190,10 +191,10 @@
                                         </span>
                                     @endif
 
-                                    @if($room->total_debt > 0)
+                                    @if($room['total_debt'] > 0)
                                         <div class="flex flex-col">
                                             <span class="text-[9px] font-bold text-gray-400 uppercase tracking-widest">Saldo Total</span>
-                                            <span class="text-sm font-bold text-red-700">${{ number_format($room->total_debt, 0, ',', '.') }}</span>
+                                            <span class="text-sm font-bold text-red-700">${{ number_format($room['total_debt'], 0, ',', '.') }}</span>
                                         </div>
                                     @else
                                         <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 w-fit">
@@ -203,36 +204,92 @@
                                 </div>
                             @else
                                 <div class="flex flex-col">
-                                    <span class="text-sm font-semibold text-gray-900">${{ number_format($room->active_prices[1] ?? 0, 0, ',', '.') }}</span>
+                                    <span class="text-sm font-semibold text-gray-900">${{ number_format($room['active_prices'][1] ?? 0, 0, ',', '.') }}</span>
                                     <span class="text-xs text-gray-400">precio base</span>
                                 </div>
                             @endif
                         </td>
 
                         <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                            <div class="flex items-center justify-end space-x-3">
-                                @if($room->display_status === \App\Enums\RoomStatus::LIBRE && (!Carbon\Carbon::parse($date)->isPast() || Carbon\Carbon::parse($date)->isToday()))
-                                    <button wire:click="openQuickRent({{ $room->id }})"
-                                        class="text-blue-600 hover:text-blue-700 transition-colors" title="Arrendar">
-                                        <i class="fas fa-key"></i>
-                                    </button>
-                                @endif
+                            <div class="relative inline-block text-left" x-data="{ open: false }">
+                                <button type="button"
+                                    @click="open = !open"
+                                    @keydown.escape="open = false"
+                                    class="inline-flex items-center px-3 py-2 rounded-lg border border-gray-200 bg-white text-gray-700 text-xs font-bold uppercase tracking-wider shadow-sm hover:border-gray-300 hover:shadow transition">
+                                    <span class="text-base">⋮</span>
+                                    <span class="sr-only">Acciones</span>
+                                </button>
 
-                                @if(isset($room->current_reservation) && $room->current_reservation && \Carbon\Carbon::parse($room->current_reservation->check_out_date)->startOfDay()->eq(\Carbon\Carbon::parse($date)->startOfDay()))
-                                    <button wire:click="continueStay({{ $room->id }})" class="text-emerald-600 hover:text-emerald-700 transition-colors" title="Continúa">
-                                        <i class="fas fa-redo-alt"></i>
-                                    </button>
-                                @endif
-
-                                <a href="{{ route('rooms.edit', $room) }}" class="text-indigo-600 hover:text-indigo-700 transition-colors" title="Editar">
-                                    <i class="fas fa-edit"></i>
-                                </a>
-                                @if($room->display_status !== \App\Enums\RoomStatus::LIBRE)
-                                    <button @click="confirmRelease({{ $room->id }}, '{{ $room->room_number }}', {{ $room->total_debt ?? 0 }}, {{ $room->current_reservation->id ?? 'null' }})" 
-                                        class="text-red-600 hover:text-red-700 transition-colors" title="Liberar">
-                                        <i class="fas fa-sign-out-alt"></i>
-                                    </button>
-                                @endif
+                                <div x-show="open"
+                                    x-transition
+                                    @click.outside="open = false"
+                                    class="origin-top-right absolute right-0 mt-2 w-56 rounded-xl bg-white shadow-lg ring-1 ring-black ring-opacity-5 z-30 divide-y divide-gray-100">
+                                    <div class="py-1">
+                                        @if($room['display_status'] === \App\Enums\RoomStatus::LIBRE && (!$currentDate->isPast() || $currentDate->isToday()))
+                                            <button type="button"
+                                                wire:click="openQuickRent({{ $room['id'] }})"
+                                                wire:target="openQuickRent({{ $room['id'] }})"
+                                                wire:loading.attr="disabled"
+                                                class="w-full flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 disabled:opacity-60 disabled:cursor-not-allowed">
+                                                <i class="fas fa-key text-blue-600 mr-2"></i>
+                                                <span>Ocupar habitación</span>
+                                                <i class="fas fa-spinner fa-spin ml-auto text-xs" wire:loading wire:target="openQuickRent({{ $room['id'] }})"></i>
+                                            </button>
+                                            <button type="button"
+                                                wire:click="openQuickRent({{ $room['id'] }})"
+                                                wire:target="openQuickRent({{ $room['id'] }})"
+                                                wire:loading.attr="disabled"
+                                                class="w-full flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 disabled:opacity-60 disabled:cursor-not-allowed">
+                                                <i class="fas fa-calendar-check text-emerald-600 mr-2"></i>
+                                                <span>Reservar</span>
+                                            </button>
+                                        @endif
+                                        <button type="button"
+                                            @click="confirmRelease({{ $room['id'] }}, '{{ $room['room_number'] }}', {{ $room['total_debt'] ?? 0 }}, {{ $room['current_reservation']->id ?? 'null' }})"
+                                            class="w-full flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">
+                                            <i class="fas fa-broom text-yellow-600 mr-2"></i>
+                                            <span>Marcar limpieza / liberar</span>
+                                        </button>
+                                    </div>
+                                    <div class="py-1">
+                                        <a href="{{ route('rooms.edit', $room['id']) }}"
+                                           class="w-full flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">
+                                            <i class="fas fa-edit text-indigo-600 mr-2"></i>
+                                            <span>Editar habitación</span>
+                                        </a>
+                                        <button type="button"
+                                            wire:click="openRoomDetail({{ $room['id'] }})"
+                                            wire:target="openRoomDetail({{ $room['id'] }})"
+                                            wire:loading.attr="disabled"
+                                            class="w-full flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 disabled:opacity-60 disabled:cursor-not-allowed">
+                                            <i class="fas fa-history text-gray-600 mr-2"></i>
+                                            <span>Ver historial</span>
+                                            <i class="fas fa-spinner fa-spin ml-auto text-xs" wire:loading wire:target="openRoomDetail({{ $room['id'] }})"></i>
+                                        </button>
+                                        @if($room['display_status'] === \App\Enums\RoomStatus::PENDIENTE_CHECKOUT && isset($room['current_reservation']) && $room['current_reservation'])
+                                            <div class="flex">
+                                                <button type="button"
+                                                    wire:click="continueStay({{ $room['id'] }})"
+                                                    wire:target="continueStay({{ $room['id'] }})"
+                                                    wire:loading.attr="disabled"
+                                                    class="w-1/2 flex items-center px-4 py-2 text-sm text-emerald-700 hover:bg-gray-50 disabled:opacity-60 disabled:cursor-not-allowed">
+                                                    <i class="fas fa-redo-alt mr-2"></i>
+                                                    <span>Continuar</span>
+                                                    <i class="fas fa-spinner fa-spin ml-auto text-xs" wire:loading wire:target="continueStay({{ $room['id'] }})"></i>
+                                                </button>
+                                                <button type="button"
+                                                    wire:click="cancelReservation({{ $room['id'] }})"
+                                                    wire:target="cancelReservation({{ $room['id'] }})"
+                                                    wire:loading.attr="disabled"
+                                                    class="w-1/2 flex items-center px-4 py-2 text-sm text-red-700 hover:bg-gray-50 disabled:opacity-60 disabled:cursor-not-allowed">
+                                                    <i class="fas fa-times mr-2"></i>
+                                                    <span>Cancelar</span>
+                                                    <i class="fas fa-spinner fa-spin ml-auto text-xs" wire:loading wire:target="cancelReservation({{ $room['id'] }})"></i>
+                                                </button>
+                                            </div>
+                                        @endif
+                                    </div>
+                                </div>
                             </div>
                         </td>
                     </tr>

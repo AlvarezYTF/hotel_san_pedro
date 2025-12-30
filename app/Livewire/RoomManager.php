@@ -1015,7 +1015,7 @@ class RoomManager extends Component
         $this->lastEventUpdate = now()->timestamp;
     }
 
-    private function mapCleaningFromCode(string $code): array
+    private function mapCleaningFromCode(?string $code): array
     {
         if ($code === 'pendiente') {
             return [
@@ -1090,18 +1090,25 @@ class RoomManager extends Component
             $rooms->getCollection()->map(function($room) use ($selectedDate, $isPast, $isFuture, $snapshots) {
                 if ($isPast) {
                     $snapshot = $snapshots->get($room->id);
-                    $room->display_status = $snapshot
+                    $displayStatus = $snapshot
                         ? ($snapshot->status instanceof RoomStatus ? $snapshot->status : RoomStatus::from($snapshot->status))
                         : $room->getDisplayStatus($selectedDate);
-                    $room->cleaning_status_for_date = $snapshot
-                        ? $this->mapCleaningFromCode($snapshot->cleaning_status)
-                        : $room->cleaningStatus($selectedDate);
-                    $room->current_reservation = $snapshot?->reservation;
-                    $room->is_night_paid = false;
-                    $room->total_debt = 0;
-                    $room->active_prices = $room->getPricesForDate($selectedDate);
+                    $cleaningStatus = $this->mapCleaningFromCode($snapshot?->cleaning_status ?? 'limpia');
+                    $reservation = $snapshot?->reservation;
 
-                    return $room;
+                    return [
+                        'id' => $room->id,
+                        'room_number' => $room->room_number,
+                        'beds_count' => $room->beds_count,
+                        'max_capacity' => $room->max_capacity,
+                        'ventilation_type' => $room->ventilation_type,
+                        'display_status' => $displayStatus,
+                        'cleaning_status' => $cleaningStatus,
+                        'current_reservation' => $reservation,
+                        'is_night_paid' => false,
+                        'total_debt' => 0,
+                        'active_prices' => $room->getPricesForDate($selectedDate),
+                    ];
                 }
 
                 $reservation = null;
@@ -1117,7 +1124,8 @@ class RoomManager extends Component
                     }
                 }
 
-                $room->current_reservation = $reservation ?: null;
+                $isNightPaid = false;
+                $totalDebt = 0.0;
 
                 if ($reservation) {
                     $checkIn = Carbon::parse($reservation->check_in_date);
@@ -1129,27 +1137,32 @@ class RoomManager extends Component
                     $costUntilSelected = $dailyPrice * ($daysUntilSelected + 1);
                     $costUntilSelected = min((float)$reservation->total_amount, $costUntilSelected);
 
-                    $room->is_night_paid = ($reservation->deposit >= $costUntilSelected);
+                    $isNightPaid = ($reservation->deposit >= $costUntilSelected);
 
                     $stayDebt = (float)($reservation->total_amount - $reservation->deposit);
                     $salesDebt = (float)$reservation->sales->where('is_paid', false)->sum('total');
-                    $room->total_debt = $stayDebt + $salesDebt;
-                } else {
-                    $room->total_debt = 0;
-                    $room->is_night_paid = false;
+                    $totalDebt = $stayDebt + $salesDebt;
                 }
 
-                $room->display_status = $room->getDisplayStatus($selectedDate);
-                $room->active_prices = $room->getPricesForDate($selectedDate);
-                $room->cleaning_status_for_date = $room->cleaningStatus($selectedDate);
-
-                return $room;
+                return [
+                    'id' => $room->id,
+                    'room_number' => $room->room_number,
+                    'beds_count' => $room->beds_count,
+                    'max_capacity' => $room->max_capacity,
+                    'ventilation_type' => $room->ventilation_type,
+                    'display_status' => $room->getDisplayStatus($selectedDate),
+                    'cleaning_status' => $room->cleaningStatus($selectedDate),
+                    'current_reservation' => $reservation,
+                    'is_night_paid' => $isNightPaid,
+                    'total_debt' => $totalDebt,
+                    'active_prices' => $room->getPricesForDate($selectedDate),
+                ];
             })
         );
 
         if ($this->status) {
             $filteredCollection = $rooms->getCollection()->filter(function($room) {
-                return $room->display_status->value === $this->status;
+                return $room['display_status']->value === $this->status;
             });
             $rooms->setCollection($filteredCollection);
         }
