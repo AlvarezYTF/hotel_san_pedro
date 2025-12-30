@@ -215,13 +215,26 @@
                         </td>
 
                         <td class="px-6 py-4 whitespace-nowrap">
-                            @if(($room->display_status === \App\Enums\RoomStatus::OCUPADA || $room->display_status === \App\Enums\RoomStatus::PENDIENTE_CHECKOUT) && isset($room->current_reservation) && $room->current_reservation)
-                                <div class="flex flex-col">
-                                    <span class="text-sm font-semibold text-gray-900">{{ $room->current_reservation->customer->name ?? 'N/A' }}</span>
-                                    <span class="text-xs text-blue-600 font-medium">
-                                        Salida: {{ \Carbon\Carbon::parse($room->current_reservation->check_out_date)->format('d/m/Y') }}
-                                    </span>
-                                </div>
+                            @if($room->display_status === \App\Enums\RoomStatus::OCUPADA || $room->display_status === \App\Enums\RoomStatus::PENDIENTE_CHECKOUT)
+                                @if(isset($room->current_reservation) && $room->current_reservation)
+                                    <div class="flex flex-col">
+                                        <span class="text-sm font-semibold text-gray-900">{{ $room->current_reservation->customer->name ?? 'N/A' }}</span>
+                                        <span class="text-xs text-blue-600 font-medium">
+                                            Salida: {{ \Carbon\Carbon::parse($room->current_reservation->check_out_date)->format('d/m/Y') }}
+                                        </span>
+                                    </div>
+                                @elseif(isset($room->guest_name) && $room->guest_name)
+                                    <div class="flex flex-col">
+                                        <span class="text-sm font-semibold text-gray-900">{{ $room->guest_name }}</span>
+                                        @if(isset($room->check_out_date) && $room->check_out_date)
+                                            <span class="text-xs text-blue-600 font-medium">
+                                                Salida: {{ \Carbon\Carbon::parse($room->check_out_date)->format('d/m/Y') }}
+                                            </span>
+                                        @endif
+                                    </div>
+                                @else
+                                    <span class="text-xs text-gray-400 italic">Sin arrendatario</span>
+                                @endif
                             @else
                                 <span class="text-xs text-gray-400 italic">Sin arrendatario</span>
                             @endif
@@ -260,6 +273,9 @@
                         </td>
 
                         <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                            @if($currentDate->isPast() && !$currentDate->isToday())
+                                <span class="text-xs text-gray-400 italic">Histórico</span>
+                            @else
                             <div class="relative inline-block text-left" x-data="{ open: false }">
                                 <button type="button"
                                     @click="open = !open"
@@ -338,6 +354,7 @@
                                     </div>
                                 </div>
                             </div>
+                            @endif
                         </td>
                     </tr>
                     @empty

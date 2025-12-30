@@ -743,27 +743,135 @@ class RoomManager extends Component
                   ->orWhere('beds_count', 'like', '%' . $this->search . '%');
             });
         }
-        if ($this->status) {
-            $query->where('status', $this->status);
-        }
         if ($this->ventilation_type) {
             $query->where('ventilation_type', $this->ventilation_type);
         }
 
-        // Eager load reservations for the month range to optimize queries
-        // We load a buffer (month range) to support calendar navigation, but
-        // the transform will filter to the specific selected date
-        $rooms = $query->with([
-            'reservations' => function($q) use ($startOfMonth, $endOfMonth) {
-                $q->where('check_in_date', '<=', $endOfMonth)
-                  ->where('check_out_date', '>=', $startOfMonth)
-                  ->with('customer');
-            },
-            'reservations.sales',
-            'rates'
-        ])->orderBy('room_number')->paginate(30);
+        $isPastDate = $date->isPast() && !$date->isToday();
 
-        $roomsView = $rooms->getCollection()->map(function($room) use ($date) {
+        if ($isPastDate && $this->status) {
+            $query->whereHas('dailyStatuses', function($q) use ($date) {
+                $q->whereDate('date', $date->toDateString())
+                  ->where('status', $this->status);
+            });
+        } elseif (!$isPastDate && $this->status) {
+            $query->where('status', $this->status);
+        }
+
+        if ($isPastDate) {
+            $rooms = $query->with([
+                'dailyStatuses' => function($q) use ($date) {
+                    $q->whereDate('date', $date->toDateString());
+                },
+                'rates',
+            ])->orderBy('room_number')->paginate(30);
+
+            $roomsView = $rooms->getCollection()->map(function($room) use ($date) {
+                $snapshot = $room->dailyStatuses->first();
+
+                if (!$snapshot) {
+                    $displayStatus = \App\Enums\RoomStatus::LIBRE;
+                    $activePrices = $room->getPricesForDate($date);
+                    $cleaningStatus = $room->cleaningStatus($date);
+
+                    $ventilationLabel = match (true) {
+                        $room->ventilation_type instanceof \App\Enums\VentilationType => $room->ventilation_type->label(),
+                        is_string($room->ventilation_type) && $room->ventilation_type !== '' => \App\Enums\VentilationType::from($room->ventilation_type)->label(),
+                        default => null,
+                    };
+
+                    return (object) [
+                        'id' => $room->id,
+                        'room_number' => $room->room_number,
+                        'beds_count' => $room->beds_count,
+                        'max_capacity' => $room->max_capacity,
+                        'ventilation_type' => $room->ventilation_type,
+                        'ventilation_label' => $ventilationLabel,
+                        'status' => $room->status,
+                        'last_cleaned_at' => $room->last_cleaned_at,
+                        'display_status' => $displayStatus,
+                        'active_prices' => $activePrices,
+                        'cleaning_status' => $cleaningStatus,
+                        'current_reservation' => null,
+                        'guest_name' => null,
+                        'check_out_date' => null,
+                        'total_debt' => 0,
+                        'is_night_paid' => false,
+                    ];
+                }
+
+                $displayStatus = $snapshot->status;
+                $activePrices = $room->getPricesForDate($date);
+
+                $cleaningStatus = match ($snapshot->cleaning_status) {
+                    'pendiente' => [
+                        'code' => 'pendiente',
+                        'label' => 'Pendiente por Aseo',
+                        'color' => 'bg-yellow-100 text-yellow-800',
+                        'icon' => 'fa-broom',
+                    ],
+                    'limpia' => [
+                        'code' => 'limpia',
+                        'label' => 'Limpia',
+                        'color' => 'bg-green-100 text-green-800',
+                        'icon' => 'fa-check-circle',
+                    ],
+                    'sucia' => [
+                        'code' => 'sucia',
+                        'label' => 'Sucia',
+                        'color' => 'bg-red-100 text-red-800',
+                        'icon' => 'fa-times-circle',
+                    ],
+                    default => [
+                        'code' => (string) $snapshot->cleaning_status,
+                        'label' => 'Sin definir',
+                        'color' => 'bg-gray-100 text-gray-700',
+                        'icon' => 'fa-question-circle',
+                    ],
+                };
+
+                $ventilationLabel = match (true) {
+                    $room->ventilation_type instanceof \App\Enums\VentilationType => $room->ventilation_type->label(),
+                    is_string($room->ventilation_type) && $room->ventilation_type !== '' => \App\Enums\VentilationType::from($room->ventilation_type)->label(),
+                    default => null,
+                };
+
+                return (object) [
+                    'id' => $room->id,
+                    'room_number' => $room->room_number,
+                    'beds_count' => $room->beds_count,
+                    'max_capacity' => $room->max_capacity,
+                    'ventilation_type' => $room->ventilation_type,
+                    'ventilation_label' => $ventilationLabel,
+                    'status' => $room->status,
+                    'last_cleaned_at' => $room->last_cleaned_at,
+                    'display_status' => $displayStatus,
+                    'active_prices' => $activePrices,
+                    'cleaning_status' => $cleaningStatus,
+                    'current_reservation' => null,
+                    'guest_name' => $snapshot->guest_name,
+                    'check_out_date' => $snapshot->check_out_date?->toDateString(),
+                    'total_debt' => 0,
+                    'is_night_paid' => false,
+                ];
+            });
+
+            $rooms->setCollection($roomsView);
+        } else {
+            // Eager load reservations for the month range to optimize queries
+            // We load a buffer (month range) to support calendar navigation, but
+            // the transform will filter to the specific selected date
+            $rooms = $query->with([
+                'reservations' => function($q) use ($startOfMonth, $endOfMonth) {
+                    $q->where('check_in_date', '<=', $endOfMonth)
+                      ->where('check_out_date', '>=', $startOfMonth)
+                      ->with('customer');
+                },
+                'reservations.sales',
+                'rates'
+            ])->orderBy('room_number')->paginate(30);
+
+            $roomsView = $rooms->getCollection()->map(function($room) use ($date) {
             $isFuture = $date->isAfter(now()->endOfDay());
             $reservation = null;
 
@@ -835,9 +943,10 @@ class RoomManager extends Component
                 'total_debt' => $totalDebt,
                 'is_night_paid' => $isNightPaid,
             ];
-        });
+            });
 
-        $rooms->setCollection($roomsView);
+            $rooms->setCollection($roomsView);
+        }
 
         return view('livewire.room-manager', [
             'rooms' => $rooms,

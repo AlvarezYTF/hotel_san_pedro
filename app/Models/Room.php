@@ -6,6 +6,7 @@ use App\Casts\RoomStatusCast;
 use App\Enums\RoomStatus;
 use App\Enums\VentilationType;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Room extends Model
 {
@@ -43,6 +44,11 @@ class Room extends Model
     public function reservations()
     {
         return $this->hasMany(Reservation::class);
+    }
+
+    public function dailyStatuses(): HasMany
+    {
+        return $this->hasMany(RoomDailyStatus::class);
     }
 
     /**

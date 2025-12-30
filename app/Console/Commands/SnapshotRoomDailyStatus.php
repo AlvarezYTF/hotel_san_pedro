@@ -51,6 +51,7 @@ class SnapshotRoomDailyStatus extends Command
                         'cleaning_status' => $cleaning['code'],
                         'reservation_id' => $reservation?->id,
                         'guest_name' => $reservation?->customer?->name,
+                        'check_out_date' => $reservation?->check_out_date,
                         'total_amount' => $reservation?->total_amount ?? 0,
                     ]
                 );

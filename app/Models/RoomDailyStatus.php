@@ -15,12 +15,14 @@ class RoomDailyStatus extends Model
         'cleaning_status',
         'reservation_id',
         'guest_name',
+        'check_out_date',
         'total_amount',
     ];
 
     protected $casts = [
         'date' => 'date',
         'status' => RoomStatus::class,
+        'check_out_date' => 'date',
         'total_amount' => 'float',
     ];
 
