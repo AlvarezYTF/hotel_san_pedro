@@ -9,6 +9,7 @@ use App\Models\SaleItem;
 use App\Models\Product;
 use App\Models\Room;
 use App\Models\Category;
+use App\Models\Shift;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -59,7 +60,7 @@ class SaleController extends Controller
 
             foreach ($items as $item) {
                 $product = Product::findOrFail($item['product_id']);
-                
+
                 if ($product->quantity < $item['quantity']) {
                     return back()
                         ->withInput()
@@ -98,14 +99,19 @@ class SaleController extends Controller
                 $debtStatus = 'pagado';
             }
 
-            // Obtener el turno activo del usuario
-            $activeShift = $user->turnoActivo()->first();
+            // Validar turno operativo abierto
+            $operationalShift = Shift::openOperational()->first();
+            $activeHandover = $user->turnoActivo()->first();
+            if (!$operationalShift || !$activeHandover || (int) ($activeHandover->from_shift_id ?? $activeHandover->id) !== (int) $operationalShift->id) {
+                DB::rollBack();
+                return back()->withInput()->withErrors(['turno' => 'Debe existir un turno operativo abierto para registrar la venta.']);
+            }
 
             // Crear la venta
             $sale = Sale::create([
                 'user_id' => $user->id,
                 'room_id' => $request->room_id ?: null,
-                'shift_handover_id' => $activeShift ? $activeShift->id : null,
+                'shift_handover_id' => $activeHandover->id,
                 'payment_method' => $request->payment_method,
                 'cash_amount' => $cashAmount,
                 'transfer_amount' => $transferAmount,
@@ -132,10 +138,8 @@ class SaleController extends Controller
                 $product->recordMovement(-$item['quantity'], 'sale', "Venta #{$sale->id}", $sale->room_id);
             }
 
-            // Actualizar totales del turno si existe
-            if ($activeShift) {
-                $activeShift->updateTotals();
-            }
+            // Actualizar totales del turno
+            $activeHandover->updateTotals();
 
             $this->auditLog('sale_create', "Venta #{$sale->id} registrada por {$total}. Método: {$sale->payment_method}", ['sale_id' => $sale->id]);
 
@@ -151,7 +155,7 @@ class SaleController extends Controller
                 'request' => $request->all(),
                 'user' => Auth::id()
             ]);
-            
+
             return back()
                 ->withInput()
                 ->withErrors(['error' => 'Error al registrar la venta: ' . $e->getMessage() . ' en ' . $e->getFile() . ':' . $e->getLine()]);
@@ -189,7 +193,7 @@ class SaleController extends Controller
             $cashAmount = (float) $request->cash_amount;
             $transferAmount = (float) $request->transfer_amount;
             $total = (float) $sale->total;
-            
+
             if ($request->payment_method === 'efectivo') {
                 $cashAmount = $total;
                 $transferAmount = null;
@@ -215,7 +219,7 @@ class SaleController extends Controller
                 'transfer_amount' => $transferAmount,
                 'notes' => $request->notes,
             ];
-            
+
             // Determinar estado de deuda
             if ($request->payment_method === 'pendiente') {
                 $updateData['debt_status'] = 'pendiente';
@@ -248,7 +252,7 @@ class SaleController extends Controller
                 'request' => $request->all(),
                 'sale_id' => $sale->id
             ]);
-            
+
             return back()
                 ->withInput()
                 ->withErrors(['error' => 'Error al actualizar la venta: ' . $e->getMessage() . ' en ' . $e->getFile() . ':' . $e->getLine()]);

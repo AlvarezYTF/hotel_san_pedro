@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\ShiftProductOut;
 use App\Models\Product;
 use App\Models\ShiftHandover;
+use App\Models\Shift;
 use App\Enums\ShiftProductOutReason;
 use App\Enums\ShiftType;
 use App\Enums\ShiftHandoverStatus;
@@ -21,7 +22,7 @@ class ShiftProductOutController extends Controller
     public function index()
     {
         $activeShift = Auth::user()->turnoActivo;
-        
+
         $productOuts = ShiftProductOut::with(['product', 'user'])
             ->when($activeShift, function ($query) use ($activeShift) {
                 return $query->where('shift_handover_id', $activeShift->id);
@@ -38,10 +39,10 @@ class ShiftProductOutController extends Controller
     public function create()
     {
         $activeShift = Auth::user()->turnoActivo;
-        
-        if (!$activeShift && !Auth::user()->hasRole('Administrador')) {
+        $operationalShift = Shift::openOperational()->first();
+        if (!$activeShift || !$operationalShift || (int) ($activeShift->from_shift_id ?? $activeShift->id) !== (int) $operationalShift->id) {
             return redirect()->route('shift-product-outs.index')
-                ->with('error', 'Debe tener un turno activo para registrar una salida de producto.');
+                ->with('error', 'Debe haber un turno operativo abierto para registrar una salida de producto.');
         }
 
         $products = Product::active()->where('quantity', '>', 0)->get();
@@ -56,7 +57,11 @@ class ShiftProductOutController extends Controller
     public function store(Request $request)
     {
         $activeShift = Auth::user()->turnoActivo;
-        
+        $operationalShift = Shift::openOperational()->first();
+        if (!$activeShift || !$operationalShift || (int) ($activeShift->from_shift_id ?? $activeShift->id) !== (int) $operationalShift->id) {
+            return back()->with('error', 'Debe haber un turno operativo abierto para registrar una salida de producto.')->withInput();
+        }
+
         $request->validate([
             'product_id' => 'required|exists:products,id',
             'quantity' => 'required|numeric|min:0.01',
@@ -73,12 +78,12 @@ class ShiftProductOutController extends Controller
         try {
             DB::beginTransaction();
 
-            // Determinar tipo de turno y fecha
-            $shiftType = $activeShift ? $activeShift->shift_type : (now()->hour >= 22 || now()->hour < 6 ? ShiftType::NIGHT : ShiftType::DAY);
-            $shiftDate = $activeShift ? $activeShift->shift_date : now()->toDateString();
+            // Tomar tipo y fecha desde el turno operativo
+            $shiftType = $activeShift->shift_type;
+            $shiftDate = $activeShift->shift_date;
 
             $productOut = ShiftProductOut::create([
-                'shift_handover_id' => $activeShift?->id,
+                'shift_handover_id' => $activeShift->id,
                 'user_id' => Auth::id(),
                 'product_id' => $request->product_id,
                 'quantity' => $request->quantity,
@@ -90,8 +95,8 @@ class ShiftProductOutController extends Controller
 
             // Descontar del inventario y registrar movimiento
             $product->recordMovement(
-                -$request->quantity, 
-                'salida', 
+                -$request->quantity,
+                'salida',
                 "Salida por " . ShiftProductOutReason::from($request->reason)->label() . ($request->observations ? ": " . $request->observations : "")
             );
 
@@ -128,7 +133,7 @@ class ShiftProductOutController extends Controller
     public function destroy($id)
     {
         $productOut = ShiftProductOut::findOrFail($id);
-        
+
         // Solo permitir eliminar si el turno aún está activo o si es admin
         if ($productOut->shiftHandover && $productOut->shiftHandover->status !== ShiftHandoverStatus::ACTIVE && !Auth::user()->hasRole('Administrador')) {
             return back()->with('error', 'No se puede eliminar una salida de un turno ya cerrado o entregado.');
@@ -138,11 +143,11 @@ class ShiftProductOutController extends Controller
             DB::beginTransaction();
 
             $product = $productOut->product;
-            
+
             // Reintegrar al inventario
             $product->recordMovement(
-                $productOut->quantity, 
-                'entrada', 
+                $productOut->quantity,
+                'entrada',
                 "Anulación de salida ID: {$productOut->id} ({$productOut->reason})"
             );
 

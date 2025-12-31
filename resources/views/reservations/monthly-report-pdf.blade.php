@@ -2,7 +2,7 @@
 <html>
 <head>
     <meta charset="utf-8">
-    <title>Reporte Mensual de Reservaciones - {{ $month->locale('es')->isoFormat('MMMM YYYY') }}</title>
+    <title>Reporte de Reservaciones - {{ $startDate->locale('es')->isoFormat('D [de] MMMM') }} a {{ $endDate->locale('es')->isoFormat('D [de] MMMM [de] YYYY') }}</title>
     <style>
         body { font-family: 'Helvetica', sans-serif; color: #333; line-height: 1.5; font-size: 11px; }
         .header { text-align: center; border-bottom: 2px solid #10b981; padding-bottom: 16px; margin-bottom: 22px; }
@@ -24,8 +24,8 @@
 <body>
     <div class="header">
         <h1 class="hotel-name">HOTEL SAN PEDRO</h1>
-        <p class="document-type">REPORTE MENSUAL DE RESERVACIONES</p>
-        <p class="report-period">{{ $month->locale('es')->isoFormat('MMMM [de] YYYY') }}</p>
+        <p class="document-type">REPORTE DE RESERVACIONES</p>
+        <p class="report-period">{{ $startDate->locale('es')->isoFormat('D [de] MMMM [de] YYYY') }} - {{ $endDate->locale('es')->isoFormat('D [de] MMMM [de] YYYY') }}</p>
         <p class="meta">Fecha de emisión: {{ now()->locale('es')->isoFormat('D [de] MMMM [de] YYYY [a las] HH:mm') }}</p>
     </div>
 

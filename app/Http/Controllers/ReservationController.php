@@ -596,24 +596,73 @@ class ReservationController extends Controller
     }
 
     /**
-     * Export monthly reservations report as PDF.
+     * Export reservations report as PDF with date range.
      */
     public function exportMonthlyReport(Request $request)
     {
-        $month = $request->get('month', now()->format('Y-m'));
+        $startDate = $request->get('start_date');
+        $endDate = $request->get('end_date');
 
+        // Validar que las fechas sean válidas
         try {
-            Carbon::createFromFormat('Y-m', (string) $month);
+            if ($startDate) {
+                $startDate = Carbon::createFromFormat('Y-m-d', $startDate);
+            } else {
+                $startDate = now()->subMonths(3);
+            }
+
+            if ($endDate) {
+                $endDate = Carbon::createFromFormat('Y-m-d', $endDate);
+            } else {
+                $endDate = now();
+            }
         } catch (\Exception $e) {
             return back()->withErrors([
-                'month' => 'Formato de mes inválido. Use YYYY-MM.',
+                'dates' => 'Formato de fecha inválido. Use YYYY-MM-DD.',
             ]);
         }
 
-        $reportData = $this->reportService->getMonthlyReservations((string) $month);
+        // Validar que start_date no sea mayor que end_date
+        if ($startDate->isAfter($endDate)) {
+            return back()->withErrors([
+                'dates' => 'La fecha de inicio no puede ser posterior a la fecha de fin.',
+            ]);
+        }
+
+        // Validar que no excedan 2 años de antigüedad
+        $twoYearsAgo = now()->subYears(2);
+        if ($startDate->isBefore($twoYearsAgo)) {
+            return back()->withErrors([
+                'dates' => 'No se pueden exportar datos con más de 2 años de antigüedad.',
+            ]);
+        }
+
+        // Validar que no sean fechas futuras exageradas (máximo 1 año en el futuro)
+        $oneYearFuture = now()->addYears(1);
+        if ($endDate->isAfter($oneYearFuture)) {
+            return back()->withErrors([
+                'dates' => 'No se pueden exportar datos con más de 1 año de anticipación.',
+            ]);
+        }
+
+        // Obtener las reservaciones para el rango de fechas
+        $reservations = Reservation::whereDate('check_in_date', '>=', $startDate)
+            ->whereDate('check_in_date', '<=', $endDate)
+            ->with(['room', 'customer', 'deposits'])
+            ->orderBy('check_in_date', 'desc')
+            ->get();
+
+        $reportData = [
+            'reservations' => $reservations,
+            'startDate' => $startDate,
+            'endDate' => $endDate,
+            'totalReservations' => $reservations->count(),
+            'totalAmount' => $reservations->sum(fn($r) => $r->total_amount ?? 0),
+        ];
+
         $pdf = Pdf::loadView('reservations.monthly-report-pdf', $reportData);
 
-        return $pdf->download("Reporte_Reservaciones_{$month}.pdf");
+        return $pdf->download("Reporte_Reservaciones_{$startDate->format('Y-m-d')}_a_{$endDate->format('Y-m-d')}.pdf");
     }
 
     /**

@@ -14,6 +14,8 @@ class ShiftHandover extends Model
     use HasFactory;
 
     protected $fillable = [
+        'from_shift_id',
+        'to_shift_id',
         'entregado_por',
         'recibido_por',
         'shift_type',
@@ -31,6 +33,8 @@ class ShiftHandover extends Model
         'diferencia',
         'observaciones_entrega',
         'observaciones_recepcion',
+        'summary',
+        'validated_by',
         'status',
     ];
 
@@ -49,6 +53,7 @@ class ShiftHandover extends Model
         'base_esperada' => 'decimal:2',
         'diferencia' => 'decimal:2',
         'status' => ShiftHandoverStatus::class,
+        'summary' => 'array',
     ];
 
     public function entregadoPor(): BelongsTo
@@ -59,6 +64,21 @@ class ShiftHandover extends Model
     public function recibidoPor(): BelongsTo
     {
         return $this->belongsTo(User::class, 'recibido_por');
+    }
+
+    public function validatedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'validated_by');
+    }
+
+    public function fromShift(): BelongsTo
+    {
+        return $this->belongsTo(Shift::class, 'from_shift_id');
+    }
+
+    public function toShift(): BelongsTo
+    {
+        return $this->belongsTo(Shift::class, 'to_shift_id');
     }
 
     public function cashOuts(): HasMany
@@ -115,18 +135,18 @@ class ShiftHandover extends Model
 
     public function updateTotals(): void
     {
-        $this->total_entradas_efectivo = $this->sales()->where('payment_method', 'efectivo')->sum('cash_amount') 
+        $this->total_entradas_efectivo = $this->sales()->where('payment_method', 'efectivo')->sum('cash_amount')
                                       + $this->sales()->where('payment_method', 'ambos')->sum('cash_amount');
-        
-        $this->total_entradas_transferencia = $this->sales()->where('payment_method', 'transferencia')->sum('transfer_amount') 
+
+        $this->total_entradas_transferencia = $this->sales()->where('payment_method', 'transferencia')->sum('transfer_amount')
                                            + $this->sales()->where('payment_method', 'ambos')->sum('transfer_amount');
-        
+
         // Total salidas de caja del turno:
         // - Gastos (CashOutflow)
         // - Retiros/traslados de efectivo (ShiftCashOut)
         $this->total_salidas = (float) $this->cashOutflows()->sum('amount')
             + (float) $this->cashOuts()->sum('amount');
-        
+
         $this->base_esperada = $this->calcularBaseEsperada();
         $this->save();
     }

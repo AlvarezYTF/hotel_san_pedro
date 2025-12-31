@@ -18,8 +18,12 @@ return new class extends Migration
             $table->decimal('transfer_amount', 12, 2)->nullable()->after('cash_amount')->comment('Monto pagado por transferencia');
         });
 
-        // Update payment_method enum to include 'ambos' and 'pendiente'
-        DB::statement("ALTER TABLE sales MODIFY COLUMN payment_method ENUM('efectivo', 'transferencia', 'ambos', 'pendiente') NOT NULL DEFAULT 'efectivo'");
+        // Update payment_method enum to include 'ambos' and 'pendiente' (skip in sqlite tests)
+        $driver = DB::getDriverName();
+        $schemaDriver = Schema::getConnection()->getDriverName();
+        if ($driver !== 'sqlite' && $schemaDriver !== 'sqlite') {
+            DB::statement("ALTER TABLE sales MODIFY COLUMN payment_method ENUM('efectivo', 'transferencia', 'ambos', 'pendiente') NOT NULL DEFAULT 'efectivo'");
+        }
     }
 
     /**
@@ -31,7 +35,11 @@ return new class extends Migration
             $table->dropColumn(['cash_amount', 'transfer_amount']);
         });
 
-        // Revert payment_method enum
-        DB::statement("ALTER TABLE sales MODIFY COLUMN payment_method ENUM('efectivo', 'transferencia', 'ambos') NOT NULL DEFAULT 'efectivo'");
+        // Revert payment_method enum (skip in sqlite tests)
+        $driver = DB::getDriverName();
+        $schemaDriver = Schema::getConnection()->getDriverName();
+        if ($driver !== 'sqlite' && $schemaDriver !== 'sqlite') {
+            DB::statement("ALTER TABLE sales MODIFY COLUMN payment_method ENUM('efectivo', 'transferencia', 'ambos') NOT NULL DEFAULT 'efectivo'");
+        }
     }
 };

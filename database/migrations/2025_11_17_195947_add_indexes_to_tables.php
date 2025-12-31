@@ -97,6 +97,11 @@ return new class extends Migration
             return false;
         }
 
+        // SQLite (mem tests) no soporta SHOW INDEX; simplemente devolvemos false para saltar creación condicional
+        if (DB::getDriverName() === 'sqlite' || Schema::getConnection()->getDriverName() === 'sqlite') {
+            return false;
+        }
+
         $result = DB::select(
             'SHOW INDEX FROM `' . $table . '` WHERE Key_name = ?',
             [$indexName]

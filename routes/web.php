@@ -49,7 +49,7 @@ Route::middleware('auth')->group(function () {
         Route::get('/dashboard/receptionist-day', [\App\Http\Controllers\ReceptionistDashboardController::class, 'day'])->name('dashboard.receptionist.day.en');
         Route::get('/dashboard/receptionist-night', [\App\Http\Controllers\ReceptionistDashboardController::class, 'night'])->name('dashboard.receptionist.night.en');
     });
-    
+
     // Gestión de Turnos (Shifts)
     // - Ver (listado / detalle / pantalla de recibir)
     Route::middleware('permission:view_shift_handovers|manage_shift_handovers')->group(function () {
@@ -63,10 +63,13 @@ Route::middleware('auth')->group(function () {
     Route::middleware('permission:manage_shift_handovers')->group(function () {
         Route::post('/shifts/start', [\App\Http\Controllers\ReceptionistDashboardController::class, 'startShift'])->name('shift.start');
         Route::post('/shifts/end', [\App\Http\Controllers\ReceptionistDashboardController::class, 'endShift'])->name('shift.end');
-        
+
         Route::get('/shift-handovers/create', [\App\Http\Controllers\ReceptionistDashboardController::class, 'createHandover'])->name('shift-handovers.create');
         Route::post('/shift-handovers', [\App\Http\Controllers\ReceptionistDashboardController::class, 'storeHandover'])->name('shift-handovers.store');
         Route::post('/shift-handovers/receive', [\App\Http\Controllers\ReceptionistDashboardController::class, 'storeReception'])->name('shift-handovers.store-reception');
+
+        // Solo administradores: forzar cierre de turnos operativos atascados
+        Route::post('/shifts/force-close', [\App\Http\Controllers\ReceptionistDashboardController::class, 'forceCloseOperational'])->middleware('role:Administrador')->name('shift.force-close');
     });
 
     // Salidas de Efectivo de Turno (Shift Cash Outs)
@@ -165,6 +168,7 @@ Route::middleware('auth')->group(function () {
     Route::middleware('permission:view_reservations')->group(function () {
         Route::get('/reservations', [ReservationController::class, 'index'])->name('reservations.index');
         Route::get('/reservations/{reservation}/download', [ReservationController::class, 'download'])->name('reservations.download');
+        Route::get('/reservations/export/monthly', [ReservationController::class, 'exportMonthlyReport'])->name('reservations.export.monthly');
         Route::get('/api/check-room-availability', [ReservationController::class, 'checkAvailability'])->name('api.check-availability');
     });
 
@@ -251,12 +255,12 @@ Route::middleware('auth')->group(function () {
     Route::middleware(['role:Administrador'])->group(function () {
         Route::get('/roles', [App\Http\Controllers\RoleController::class, 'index'])->name('roles.index');
         Route::post('/usuarios/{user}/rol', [App\Http\Controllers\UserRoleController::class, 'update'])->name('usuarios.rol.update');
-        
+
         // Hardening de Seguridad Avanzado
         Route::get('/admin/security/permissions', [App\Http\Controllers\SecurityController::class, 'permissionsMatrix'])->name('admin.security.permissions');
         Route::post('/admin/security/permissions', [App\Http\Controllers\SecurityController::class, 'updatePermissions'])->name('admin.security.permissions.update');
         Route::get('/admin/security/audit', \App\Livewire\AuditLogManager::class)->name('admin.security.audit');
-        
+
         // Impersonación
         Route::post('/admin/security/impersonate/stop', [App\Http\Controllers\SecurityController::class, 'stopImpersonation'])
             ->name('admin.security.impersonate.stop')
@@ -265,7 +269,7 @@ Route::middleware('auth')->group(function () {
         Route::post('/admin/security/impersonate/{user}', [App\Http\Controllers\SecurityController::class, 'startImpersonation'])
             ->name('admin.security.impersonate.start')
             ->where('user', '[0-9]+');
-        
+
         // Verificación de PIN
         Route::post('/api/admin/security/verify-pin', [App\Http\Controllers\SecurityController::class, 'verifyPin'])->name('api.admin.security.verify-pin');
     });

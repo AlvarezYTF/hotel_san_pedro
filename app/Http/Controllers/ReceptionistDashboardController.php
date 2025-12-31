@@ -3,10 +3,14 @@
 namespace App\Http\Controllers;
 
 use App\Enums\ShiftHandoverStatus;
+use App\Enums\ShiftStatus;
 use App\Enums\ShiftType;
+use App\Models\Shift;
 use App\Models\Room;
 use App\Models\Sale;
 use App\Models\ShiftHandover;
+use App\Services\ShiftLifecycleService;
+use App\Services\ShiftSnapshotBuilder;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -20,6 +24,12 @@ use Barryvdh\DomPDF\Facade\Pdf;
 
 class ReceptionistDashboardController extends Controller
 {
+    public function __construct(
+        private readonly ShiftLifecycleService $shiftLifecycle,
+        private readonly ShiftSnapshotBuilder $snapshotBuilder
+    ) {
+    }
+
     public function index()
     {
         /** @var \App\Models\User $user */
@@ -95,6 +105,12 @@ class ReceptionistDashboardController extends Controller
             ->where('status', ShiftHandoverStatus::DELIVERED)
             ->first();
 
+        if (!$pendingReception) {
+            $pendingReception = ShiftHandover::whereNull('recibido_por')
+                ->where('status', ShiftHandoverStatus::DELIVERED)
+                ->first();
+        }
+
         // 2. Summary of sales for the active shift
         $salesSummary = [
             'total' => 0,
@@ -104,7 +120,7 @@ class ReceptionistDashboardController extends Controller
 
         if ($activeShift) {
             $activeShift->updateTotals();
-            
+
             $salesSummary['total'] = $activeShift->sales->sum('total');
             $salesSummary['cash'] = $activeShift->total_entradas_efectivo;
             $salesSummary['transfer'] = $activeShift->total_entradas_transferencia;
@@ -120,7 +136,7 @@ class ReceptionistDashboardController extends Controller
 
         // 4. Alerts
         $alerts = [];
-        
+
         // Pending reception alert
         if ($pendingReception) {
             $alerts[] = [
@@ -174,6 +190,10 @@ class ReceptionistDashboardController extends Controller
             ->take(5)
             ->get();
 
+        $operationalShift = Shift::openOperational()
+            ->with('openedBy')
+            ->first();
+
         $view = $type === ShiftType::DAY ? 'dashboards.receptionist-day' : 'dashboards.receptionist-night';
 
         return view($view, compact(
@@ -183,18 +203,19 @@ class ReceptionistDashboardController extends Controller
             'salesSummary',
             'roomsSummary',
             'lastOutflows',
-            'alerts'
+            'alerts',
+            'operationalShift'
         ));
     }
 
     public function startShift(Request $request)
     {
         $user = Auth::user();
-        $type = $request->input('shift_type'); // dia or noche
+        $type = ShiftType::from($request->input('shift_type'));
 
-        // Check if there's already an active shift for this user
-        if (ShiftHandover::where('entregado_por', $user->id)->where('status', ShiftHandoverStatus::ACTIVE)->exists()) {
-            return back()->with('error', 'Ya tienes un turno activo.');
+        // Bloquear si ya hay un turno operativo abierto (aunque sea de otro usuario)
+        if (Shift::openOperational()->exists()) {
+            return back()->with('error', 'Ya existe un turno operativo abierto. Recibe el turno pendiente o pide a un administrador forzarlo.');
         }
 
         // Base inicial por defecto (configurable)
@@ -205,7 +226,33 @@ class ReceptionistDashboardController extends Controller
         $baseInicial = str_replace('.', '', (string) $baseInicialRaw);
         $baseInicial = (float) str_replace(',', '.', $baseInicial);
 
+        // Crear shift operativo garantizando unicidad global
+        $baseSnapshot = [
+            'shift' => [
+                'type' => $type->value,
+                'date' => Carbon::today()->toDateString(),
+            ],
+            'cash' => [
+                'base_inicial' => $baseInicial,
+                'entradas_efectivo' => 0.0,
+                'entradas_transferencia' => 0.0,
+                'salidas' => 0.0,
+                'base_esperada' => $baseInicial,
+            ],
+            'meta' => [
+                'captured_at' => Carbon::now()->toIso8601String(),
+            ],
+        ];
+
+        try {
+            $shift = $this->shiftLifecycle->openFresh($user, $type, $baseSnapshot);
+        } catch (\Throwable $e) {
+            $message = $e instanceof \App\Exceptions\ShiftRuleViolation ? $e->getMessage() : 'No se pudo iniciar el turno.';
+            return back()->with('error', $message)->withInput();
+        }
+
         ShiftHandover::create([
+            'from_shift_id' => $shift->id,
             'entregado_por' => $user->id,
             'shift_type' => $type,
             'shift_date' => Carbon::today(),
@@ -227,6 +274,10 @@ class ReceptionistDashboardController extends Controller
         /** @var \App\Models\User $user */
         $user = Auth::user();
         $activeShift = $user->turnoActivo()->first();
+        $operationalShift = Shift::openOperational()->first();
+        if (!$activeShift || !$operationalShift || (int) ($activeShift->from_shift_id ?? $activeShift->id) !== (int) $operationalShift->id) {
+            return back()->with('error', 'Debe haber un turno operativo abierto para registrar una salida de caja.');
+        }
 
         if (!$activeShift) {
             return redirect()->route('shift-handovers.index')->with('error', 'No tienes un turno activo para entregar.');
@@ -286,6 +337,23 @@ class ReceptionistDashboardController extends Controller
             }
         }
 
+        // Vincular shift operativo y cerrar con snapshot inmutable
+        $shift = $activeShift->from_shift_id ? Shift::find($activeShift->from_shift_id) : Shift::openOperational()->first();
+        if (!$shift) {
+            return back()->with('error', 'No se encontró el turno operativo asociado.');
+        }
+
+        $closingSnapshot = $this->snapshotBuilder->closingFromHandover($activeShift);
+        try {
+            $this->shiftLifecycle->closeWithSnapshot($shift, $user, $closingSnapshot);
+        } catch (\Throwable $e) {
+            $message = $e instanceof \App\Exceptions\ShiftRuleViolation ? $e->getMessage() : 'No se pudo cerrar el turno.';
+            return back()->with('error', $message);
+        }
+
+        // Persistir summary y vínculo
+        $activeShift->from_shift_id = $activeShift->from_shift_id ?: $shift->id;
+        $activeShift->summary = $closingSnapshot;
         $activeShift->save();
 
         $this->auditLog('shift_end', "Usuario {$user->username} entregó turno {$activeShift->shift_type->value} (handover #{$activeShift->id})", [
@@ -350,19 +418,57 @@ class ReceptionistDashboardController extends Controller
         }
 
         $handover->status = ShiftHandoverStatus::RECEIVED;
+
+        // Abrir siguiente turno desde snapshot de cierre previo
+        $previousShift = $handover->from_shift_id ? Shift::find($handover->from_shift_id) : null;
+        if (!$previousShift || !$previousShift->closing_snapshot) {
+            return back()->with('error', 'No hay snapshot de cierre del turno anterior para iniciar el siguiente.');
+        }
+
+        $nextType = $previousShift->type;
+        try {
+            $nextShift = $this->shiftLifecycle->openFresh($user, $nextType, $previousShift->closing_snapshot);
+        } catch (\Throwable $e) {
+            $message = $e instanceof \App\Exceptions\ShiftRuleViolation ? $e->getMessage() : 'No se pudo iniciar el turno siguiente.';
+            return back()->with('error', $message);
+        }
+
+        $handover->to_shift_id = $nextShift->id;
         $handover->save();
+
+        // Crear el nuevo handover activo para el receptor, enlazado al shift recién abierto
+        ShiftHandover::create([
+            'from_shift_id' => $nextShift->id,
+            'entregado_por' => $user->id,
+            'shift_type' => $nextType,
+            'shift_date' => Carbon::today(),
+            'started_at' => Carbon::now(),
+            'base_inicial' => $handover->base_recibida ?? 0,
+            'status' => ShiftHandoverStatus::ACTIVE,
+        ]);
 
         $this->auditLog('shift_receive', "Usuario {$user->username} recibió turno #{$handover->id}", [
             'shift_id' => $handover->id,
             'base_recibida' => $handover->base_recibida,
-            'diferencia' => $handover->diferencia
+            'diferencia' => $handover->diferencia,
+            'next_shift_id' => $nextShift->id
         ]);
 
-        // Automatically start a new shift for the receiving user
-        return $this->startShift(new Request([
-            'shift_type' => $user->hasRole('Recepcionista Noche') ? 'noche' : 'dia',
-            'base_inicial' => $handover->base_recibida
-        ]));
+        return back()->with('success', 'Turno recibido y nuevo turno iniciado desde snapshot previo.');
+    }
+
+    // Solo Admin: forzar cierre de turnos operativos abiertos
+    public function forceCloseOperational(Request $request)
+    {
+        $user = Auth::user();
+        if (!$user->hasRole('Administrador')) {
+            abort(403);
+        }
+
+        $reason = $request->input('reason', 'Cierre forzado por administrador');
+        $closed = $this->shiftLifecycle->forceCloseOperational($user->id, $reason);
+
+        return back()->with('success', "Se cerraron {$closed} turno(s) operativo(s). Razón: {$reason}");
     }
 
     // Cash Out Methods
@@ -418,15 +524,8 @@ class ReceptionistDashboardController extends Controller
             $amount = (float) str_replace(',', '.', $amount);
         }
 
-        // Determinar el tipo de turno basado en el turno activo o en la hora actual
-        $shiftType = null;
-        if ($activeShift) {
-            $shiftType = $activeShift->shift_type;
-        } else {
-            $hour = (int) now()->format('H');
-            // Si la hora está entre las 22:00 y las 06:00, es turno NOCHE
-            $shiftType = ($hour >= 22 || $hour < 6) ? ShiftType::NIGHT : ShiftType::DAY;
-        }
+        // Determinar el tipo de turno desde el turno operativo
+        $shiftType = $activeShift->shift_type;
 
         // VALIDACIÓN DE SALDO DISPONIBLE
         if ($activeShift) {
@@ -437,7 +536,7 @@ class ReceptionistDashboardController extends Controller
         }
 
         $cashOut = ShiftCashOut::create([
-            'shift_handover_id' => $activeShift ? $activeShift->id : null,
+            'shift_handover_id' => $activeShift->id,
             'user_id' => $user->id,
             'amount' => $amount,
             'concept' => $request->concept,
@@ -446,10 +545,8 @@ class ReceptionistDashboardController extends Controller
             'shift_date' => Carbon::today(),
         ]);
 
-        // Actualizar totales del turno si existe
-        if ($activeShift) {
-            $activeShift->updateTotals();
-        }
+        // Actualizar totales del turno
+        $activeShift->updateTotals();
 
         $this->auditLog('cash_out', "Retiro de caja por {$amount} - Concepto: {$request->concept}", [
             'cash_out_id' => $cashOut->id,

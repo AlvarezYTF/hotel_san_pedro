@@ -76,14 +76,14 @@ class CashOutflowManager extends Component
     private function sanitizeNumber($value)
     {
         if (empty($value)) return 0;
-        
+
         // Si ya es un número (int o float), lo devolvemos tal cual
         if (is_int($value) || is_float($value)) return (float)$value;
 
         // Si es un string, quitamos puntos de miles y cambiamos coma por punto decimal
         $clean = str_replace('.', '', (string)$value);
         $clean = str_replace(',', '.', $clean);
-        
+
         return is_numeric($clean) ? (float)$clean : 0;
     }
 
@@ -93,23 +93,21 @@ class CashOutflowManager extends Component
 
         $user = Auth::user();
         $activeShift = $user->turnoActivo()->first();
+        if (!$activeShift) {
+            $this->addError('amount', "Debe haber un turno operativo abierto para registrar la salida de dinero.");
+            return;
+        }
 
         // VALIDACIÓN DE SALDO DISPONIBLE
-        if ($activeShift) {
-            $disponible = $activeShift->getEfectivoDisponible();
-            if ($this->amount > $disponible) {
-                $this->addError('amount', "Saldo insuficiente en caja. Disponible: $" . number_format($disponible, 0, ',', '.'));
-                return;
-            }
-        } elseif (!$user->hasRole('Administrador')) {
-            // Si no es admin y no hay turno, no puede sacar dinero
-            $this->addError('amount', "No hay un turno activo para registrar la salida de dinero.");
+        $disponible = $activeShift->getEfectivoDisponible();
+        if ($this->amount > $disponible) {
+            $this->addError('amount', "Saldo insuficiente en caja. Disponible: $" . number_format($disponible, 0, ',', '.'));
             return;
         }
 
         $outflow = CashOutflow::create([
             'user_id' => $user->id,
-            'shift_handover_id' => $activeShift ? $activeShift->id : null,
+            'shift_handover_id' => $activeShift->id,
             'amount' => $this->amount,
             'reason' => $this->reason,
             'date' => $this->outflow_date,
@@ -147,7 +145,7 @@ class CashOutflowManager extends Component
         if ($activeShift) {
             $activeShift->updateTotals();
         }
-        
+
         session()->flash('success', 'Registro eliminado correctamente y registrado en auditoría.');
     }
 

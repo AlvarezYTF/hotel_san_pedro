@@ -17,10 +17,12 @@ return new class extends Migration
             $table->dropColumn('shift');
         });
 
-        // Eliminar el índice si existe
-        $indexes = DB::select("SHOW INDEXES FROM sales WHERE key_name = 'sales_sale_date_shift_index'");
-        if (count($indexes) > 0) {
-            DB::statement("ALTER TABLE sales DROP INDEX sales_sale_date_shift_index");
+        // Eliminar el índice si existe (solo en drivers que soportan SHOW INDEX)
+        if (DB::getDriverName() !== 'sqlite' && Schema::getConnection()->getDriverName() !== 'sqlite') {
+            $indexes = DB::select("SHOW INDEXES FROM sales WHERE key_name = 'sales_sale_date_shift_index'");
+            if (count($indexes) > 0) {
+                DB::statement("ALTER TABLE sales DROP INDEX sales_sale_date_shift_index");
+            }
         }
     }
 

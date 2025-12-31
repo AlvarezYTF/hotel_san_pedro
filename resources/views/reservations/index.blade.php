@@ -25,17 +25,34 @@
             <div class="flex items-center space-x-3">
                 <form method="GET"
                       action="{{ route('reservations.export.monthly') }}"
-                      class="flex items-center gap-2">
-                    <label for="monthly-report-month" class="sr-only">Mes del reporte</label>
-                    <input id="monthly-report-month"
-                           type="month"
-                           name="month"
-                           value="{{ $date->format('Y-m') }}"
-                           required
-                           class="h-[42px] px-3 rounded-xl border border-gray-200 bg-white text-sm font-semibold text-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500 shadow-sm" />
+                      class="flex items-center gap-2 flex-wrap">
+                    <div class="flex items-center gap-2">
+                        <label for="export-start-date" class="text-sm font-semibold text-gray-700">Desde:</label>
+                        <input id="export-start-date"
+                               type="date"
+                               name="start_date"
+                               value="{{ request('start_date', \Carbon\Carbon::now()->subMonths(3)->format('Y-m-d')) }}"
+                               min="{{ \Carbon\Carbon::now()->subYears(2)->format('Y-m-d') }}"
+                               max="{{ \Carbon\Carbon::now()->addYears(1)->format('Y-m-d') }}"
+                               required
+                               class="h-[42px] px-3 rounded-xl border border-gray-200 bg-white text-sm font-semibold text-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500 shadow-sm" />
+                    </div>
+
+                    <div class="flex items-center gap-2">
+                        <label for="export-end-date" class="text-sm font-semibold text-gray-700">Hasta:</label>
+                        <input id="export-end-date"
+                               type="date"
+                               name="end_date"
+                               value="{{ request('end_date', \Carbon\Carbon::now()->format('Y-m-d')) }}"
+                               min="{{ \Carbon\Carbon::now()->subYears(2)->format('Y-m-d') }}"
+                               max="{{ \Carbon\Carbon::now()->addYears(1)->format('Y-m-d') }}"
+                               required
+                               class="h-[42px] px-3 rounded-xl border border-gray-200 bg-white text-sm font-semibold text-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500 shadow-sm" />
+                    </div>
+
                     <button type="submit"
                             class="inline-flex items-center justify-center px-4 sm:px-5 py-2.5 rounded-xl border-2 border-red-600 bg-white text-red-600 text-sm font-semibold hover:bg-red-50 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 shadow-sm hover:shadow-md"
-                            title="Exportar reporte mensual en PDF">
+                            title="Exportar reporte en PDF">
                         <i class="fas fa-file-pdf mr-2"></i>
                         <span>Exportar PDF</span>
                     </button>

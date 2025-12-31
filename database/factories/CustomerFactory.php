@@ -27,6 +27,7 @@ class CustomerFactory extends Factory
             'zip_code' => fake()->postcode(),
             'notes' => fake()->optional()->sentence(),
             'is_active' => true,
+            'requires_electronic_invoice' => fake()->boolean(20),
         ];
     }
 
