@@ -4,6 +4,7 @@ namespace App\Services;
 
 // TODO: Adaptar cuando se implementen las reservas
 // use App\Models\Reservation;
+use App\Models\Customer;
 use App\Models\ElectronicInvoice;
 use App\Models\ElectronicInvoiceItem;
 use App\Models\CompanyTaxSetting;
@@ -11,6 +12,7 @@ use App\Models\DianDocumentType;
 use App\Models\DianOperationType;
 use App\Models\DianPaymentMethod;
 use App\Models\DianPaymentForm;
+use App\Models\Service;
 use App\Services\FactusNumberingRangeService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -28,6 +30,169 @@ class ElectronicInvoiceService
     // {
     //     ...
     // }
+
+    /**
+     * Create electronic invoice from form data.
+     *
+     * @param array<string, mixed> $data
+     * @return ElectronicInvoice
+     * @throws \Exception
+     */
+    public function createFromForm(array $data): ElectronicInvoice
+    {
+        DB::beginTransaction();
+        
+        try {
+            $customer = Customer::with('taxProfile')->findOrFail($data['customer_id']);
+            
+            if (!$customer->hasCompleteTaxProfileData()) {
+                throw new \Exception('El cliente no tiene perfil fiscal completo.');
+            }
+            
+            // Get document type code
+            $documentType = DianDocumentType::findOrFail($data['document_type_id']);
+            
+            // Get numbering range
+            $numberingRange = FactusNumberingRangeService::getValidRangeForDocument($documentType->code);
+            if (!$numberingRange) {
+                throw new \Exception('No hay un rango de numeración activo para el tipo de documento seleccionado.');
+            }
+            
+            // Create invoice
+            $invoice = ElectronicInvoice::create([
+                'customer_id' => $customer->id,
+                'factus_numbering_range_id' => $numberingRange->factus_id,
+                'document_type_id' => $data['document_type_id'],
+                'operation_type_id' => $data['operation_type_id'],
+                'payment_method_code' => $data['payment_method_code'] ?? null,
+                'payment_form_code' => $data['payment_form_code'] ?? null,
+                'reference_code' => $data['reference_code'] ?? null,
+                'status' => 'pending',
+                'gross_value' => 0,
+                'tax_amount' => 0,
+                'discount_amount' => 0,
+                'total' => 0,
+            ]);
+            
+            // Create items and calculate totals
+            $grossValue = 0;
+            $taxAmount = 0;
+            
+            foreach ($data['items'] as $itemData) {
+                $service = Service::with(['unitMeasure', 'standardCode', 'tribute'])->findOrFail($itemData['service_id']);
+                
+                $quantity = (float) $itemData['quantity'];
+                $price = (float) $itemData['price'];
+                $taxRate = (float) ($itemData['tax_rate'] ?? $service->tax_rate ?? 0);
+                
+                $subtotal = $quantity * $price;
+                $itemTaxAmount = $subtotal * ($taxRate / 100);
+                $itemTotal = $subtotal + $itemTaxAmount;
+                
+                $grossValue += $subtotal;
+                $taxAmount += $itemTaxAmount;
+                
+                ElectronicInvoiceItem::create([
+                    'electronic_invoice_id' => $invoice->id,
+                    'tribute_id' => $service->tribute_id,
+                    'standard_code_id' => $service->standard_code_id,
+                    'unit_measure_id' => $service->unit_measure_id,
+                    'code_reference' => $service->code_reference,
+                    'name' => $service->name,
+                    'quantity' => $quantity,
+                    'price' => $price,
+                    'tax_rate' => $taxRate,
+                    'tax_amount' => $itemTaxAmount,
+                    'discount_rate' => 0,
+                    'is_excluded' => false,
+                    'total' => $itemTotal,
+                ]);
+            }
+            
+            $total = $grossValue + $taxAmount;
+            
+            $invoice->update([
+                'gross_value' => $grossValue,
+                'tax_amount' => $taxAmount,
+                'total' => $total,
+            ]);
+            
+            // Send to Factus
+            $this->sendToFactus($invoice);
+            
+            DB::commit();
+            
+            return $invoice->fresh(['customer', 'items']);
+        } catch (\Exception $e) {
+            DB::rollBack();
+            Log::error('Error creating electronic invoice from form', [
+                'error' => $e->getMessage(),
+                'data' => $data,
+            ]);
+            throw $e;
+        }
+    }
+
+    /**
+     * Send invoice to Factus API.
+     *
+     * @param ElectronicInvoice $invoice
+     * @return void
+     * @throws \Exception
+     */
+    private function sendToFactus(ElectronicInvoice $invoice): void
+    {
+        $company = CompanyTaxSetting::first();
+        if (!$company) {
+            throw new \Exception('La configuración fiscal de la empresa no está completa.');
+        }
+        
+        $payload = $this->buildPayload($invoice, $company);
+        
+        try {
+            $response = $this->apiService->post('/v1/bills', $payload);
+            
+            $status = $this->mapStatusFromResponse($response);
+            
+            $updateData = [
+                'status' => $status,
+                'payload_sent' => $payload,
+                'response_dian' => $response,
+            ];
+            
+            if (isset($response['cufe']) && !empty($response['cufe'])) {
+                $updateData['cufe'] = $response['cufe'];
+            }
+            
+            if (isset($response['qr']) && !empty($response['qr'])) {
+                $updateData['qr'] = $response['qr'];
+            }
+            
+            if (isset($response['number']) && !empty($response['number'])) {
+                $updateData['document'] = $response['number'];
+            }
+            
+            if (isset($response['pdf_url']) && !empty($response['pdf_url'])) {
+                $updateData['pdf_url'] = $response['pdf_url'];
+            }
+            
+            if (isset($response['xml_url']) && !empty($response['xml_url'])) {
+                $updateData['xml_url'] = $response['xml_url'];
+            }
+            
+            if (isset($response['validated_at']) && !empty($response['validated_at'])) {
+                $updateData['validated_at'] = $response['validated_at'];
+            }
+            
+            $invoice->update($updateData);
+        } catch (\Exception $e) {
+            Log::error('Error sending invoice to Factus', [
+                'invoice_id' => $invoice->id,
+                'error' => $e->getMessage(),
+            ]);
+            throw new \Exception('Error al enviar la factura a Factus: ' . $e->getMessage());
+        }
+    }
 
     private function buildPayload(ElectronicInvoice $invoice, CompanyTaxSetting $company): array
     {

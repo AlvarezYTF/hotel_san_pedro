@@ -25,6 +25,24 @@
                     </div>
                 </div>
             </div>
+            
+            <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+                @can('create_services')
+                <a href="{{ route('services.index') }}"
+                   class="inline-flex items-center justify-center px-4 sm:px-5 py-2.5 rounded-xl border-2 border-indigo-600 bg-indigo-600 text-white text-sm font-semibold hover:bg-indigo-700 hover:border-indigo-700 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 shadow-sm hover:shadow-md">
+                    <i class="fas fa-concierge-bell mr-2"></i>
+                    <span>Gestionar Servicios</span>
+                </a>
+                @endcan
+                
+                @can('generate_invoices')
+                <a href="{{ route('electronic-invoices.create') }}"
+                   class="inline-flex items-center justify-center px-4 sm:px-5 py-2.5 rounded-xl border-2 border-emerald-600 bg-emerald-600 text-white text-sm font-semibold hover:bg-emerald-700 hover:border-emerald-700 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500 shadow-sm hover:shadow-md">
+                    <i class="fas fa-plus mr-2"></i>
+                    <span>Nueva Factura</span>
+                </a>
+                @endcan
+            </div>
         </div>
     </div>
 

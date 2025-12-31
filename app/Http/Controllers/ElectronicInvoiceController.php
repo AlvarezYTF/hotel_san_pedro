@@ -3,9 +3,19 @@
 namespace App\Http\Controllers;
 
 use App\Http\Requests\ElectronicInvoice\ElectronicInvoiceFilterRequest;
+use App\Http\Requests\StoreElectronicInvoiceRequest;
+use App\Models\Customer;
+use App\Models\DianDocumentType;
+use App\Models\DianOperationType;
+use App\Models\DianPaymentForm;
+use App\Models\DianPaymentMethod;
 use App\Models\ElectronicInvoice;
+use App\Models\Service;
 use App\Services\ElectronicInvoiceService;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Redirect;
+use Illuminate\View\View;
 
 class ElectronicInvoiceController extends Controller
 {
@@ -16,6 +26,52 @@ class ElectronicInvoiceController extends Controller
     // TODO: Adaptar este método cuando se implementen las reservas
     // La facturación electrónica se generará desde las reservas, no desde ventas
     // public function generate(Reservation $reservation) { ... }
+
+    public function create(): View
+    {
+        $customers = Customer::with('taxProfile')->active()->orderBy('name')->get();
+        $services = Service::active()->with(['unitMeasure', 'standardCode', 'tribute'])->orderBy('name')->get();
+        $documentTypes = DianDocumentType::orderBy('name')->get();
+        $operationTypes = DianOperationType::orderBy('name')->get();
+        $paymentMethods = DianPaymentMethod::orderBy('name')->get();
+        $paymentForms = DianPaymentForm::orderBy('name')->get();
+
+        // Get tax catalogs for customer creation/edition modals
+        $identificationDocuments = \App\Models\DianIdentificationDocument::query()->orderBy('id')->get();
+        $legalOrganizations = \App\Models\DianLegalOrganization::query()->orderBy('id')->get();
+        $tributes = \App\Models\DianCustomerTribute::query()->orderBy('id')->get();
+        $municipalities = \App\Models\DianMunicipality::query()
+            ->orderBy('department')
+            ->orderBy('name')
+            ->get();
+
+        return view('electronic-invoices.create', [
+            'customers' => $customers,
+            'services' => $services,
+            'documentTypes' => $documentTypes,
+            'operationTypes' => $operationTypes,
+            'paymentMethods' => $paymentMethods,
+            'paymentForms' => $paymentForms,
+            'identificationDocuments' => $identificationDocuments,
+            'legalOrganizations' => $legalOrganizations,
+            'tributes' => $tributes,
+            'municipalities' => $municipalities,
+        ]);
+    }
+
+    public function store(StoreElectronicInvoiceRequest $request): RedirectResponse
+    {
+        try {
+            $invoice = $this->invoiceService->createFromForm($request->validated());
+            
+            return Redirect::route('electronic-invoices.show', $invoice)
+                ->with('success', 'Factura electrónica creada y enviada exitosamente.');
+        } catch (\Exception $e) {
+            return Redirect::back()
+                ->withInput()
+                ->withErrors(['error' => 'Error al crear la factura: ' . $e->getMessage()]);
+        }
+    }
 
     public function index(ElectronicInvoiceFilterRequest $request)
     {

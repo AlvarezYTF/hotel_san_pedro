@@ -233,10 +233,34 @@ Route::middleware('auth')->group(function () {
     // Salidas de Dinero
     Route::get('/cash-outflows', \App\Livewire\CashOutflowManager::class)->name('cash-outflows.index');
 
+    // Servicios
+    Route::middleware('permission:view_services')->group(function () {
+        Route::get('/services', [\App\Http\Controllers\ServiceController::class, 'index'])->name('services.index');
+        Route::get('/services/{service}', [\App\Http\Controllers\ServiceController::class, 'show'])->name('services.show');
+    });
+
+    Route::middleware('permission:create_services')->group(function () {
+        Route::get('/services/create', [\App\Http\Controllers\ServiceController::class, 'create'])->name('services.create');
+        Route::post('/services', [\App\Http\Controllers\ServiceController::class, 'store'])->name('services.store');
+    });
+
+    Route::middleware('permission:edit_services')->group(function () {
+        Route::get('/services/{service}/edit', [\App\Http\Controllers\ServiceController::class, 'edit'])->name('services.edit');
+        Route::put('/services/{service}', [\App\Http\Controllers\ServiceController::class, 'update'])->name('services.update');
+    });
+
+    Route::middleware('permission:delete_services')->group(function () {
+        Route::delete('/services/{service}', [\App\Http\Controllers\ServiceController::class, 'destroy'])->name('services.destroy');
+    });
+
     // Facturas electrónicas
     Route::middleware('permission:generate_invoices')->group(function () {
         Route::get('/electronic-invoices', [\App\Http\Controllers\ElectronicInvoiceController::class, 'index'])
             ->name('electronic-invoices.index');
+        Route::get('/electronic-invoices/create', [\App\Http\Controllers\ElectronicInvoiceController::class, 'create'])
+            ->name('electronic-invoices.create');
+        Route::post('/electronic-invoices', [\App\Http\Controllers\ElectronicInvoiceController::class, 'store'])
+            ->name('electronic-invoices.store');
         Route::get('/electronic-invoices/{electronicInvoice}', [\App\Http\Controllers\ElectronicInvoiceController::class, 'show'])
             ->name('electronic-invoices.show');
         Route::post('/electronic-invoices/{electronicInvoice}/refresh-status', [\App\Http\Controllers\ElectronicInvoiceController::class, 'refreshStatus'])

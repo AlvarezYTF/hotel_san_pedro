@@ -167,7 +167,20 @@ class CustomerController extends Controller
     public function getTaxProfile(Customer $customer): JsonResponse
     {
         $customer->load('taxProfile.identificationDocument');
-        // ...
+        
+        return Response::json([
+            'customer' => [
+                'id' => $customer->id,
+                'name' => $customer->name,
+                'has_complete_tax_profile' => $customer->hasCompleteTaxProfileData(),
+                'requires_electronic_invoice' => $customer->requires_electronic_invoice,
+                'tax_profile' => $customer->taxProfile ? [
+                    'identification' => $customer->taxProfile->identification,
+                    'dv' => $customer->taxProfile->dv,
+                    'document_type' => $customer->taxProfile->identificationDocument?->code,
+                ] : null,
+            ],
+        ]);
     }
 
     /**

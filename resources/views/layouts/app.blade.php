@@ -134,6 +134,15 @@
                     <span class="ml-3">Clientes</span>
                 </a>
                 
+                @can('view_services')
+                @if(Auth::user()->hasRole('Administrador'))
+                <a href="{{ route('services.index') }}" @click="sidebarOpen = false" class="flex items-center px-4 py-3 text-gray-300 hover:bg-gray-700 hover:text-white transition-colors {{ request()->routeIs('services.*') ? 'bg-gray-700 text-white' : '' }}">
+                    <i class="fas fa-concierge-bell w-5"></i>
+                    <span class="ml-3">Servicios</span>
+                </a>
+                @endif
+                @endcan
+                
                 @can('generate_invoices')
                 @if(Auth::user()->hasRole('Administrador'))
                 <a href="{{ route('electronic-invoices.index') }}" @click="sidebarOpen = false" class="flex items-center px-4 py-3 text-gray-300 hover:bg-gray-700 hover:text-white transition-colors {{ request()->routeIs('electronic-invoices.*') ? 'bg-gray-700 text-white' : '' }}">

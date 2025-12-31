@@ -66,6 +66,12 @@ class RoleSeeder extends Seeder
             // Salidas de Dinero
             'manage_cash_outflows',
             
+            // Servicios
+            'view_services',
+            'create_services',
+            'edit_services',
+            'delete_services',
+            
             // Usuarios y roles
             'view_users',
             'create_users',
