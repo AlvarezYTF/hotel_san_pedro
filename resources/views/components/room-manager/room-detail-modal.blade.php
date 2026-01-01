@@ -38,8 +38,6 @@
                             @php
                                 $totalDebt = (float) ($detailData['total_debt'] ?? 0);
                                 $isCredit = $totalDebt < 0;
-                                $totalRefunds = (float) ($detailData['total_refunds'] ?? 0);
-                                $hasRefunds = $totalRefunds > 0;
                             @endphp
                             <div class="p-4 {{ $isCredit ? 'bg-blue-50' : 'bg-red-50' }} rounded-xl text-center relative group">
                                 <p class="text-[9px] font-bold {{ $isCredit ? 'text-blue-600' : 'text-red-600' }} uppercase mb-1">
@@ -48,11 +46,6 @@
                                 <p class="text-sm font-black {{ $isCredit ? 'text-blue-700' : 'text-red-700' }}">
                                     ${{ number_format(abs($totalDebt), 0, ',', '.') }}
                                 </p>
-                                @if($hasRefunds)
-                                    <p class="text-[9px] text-gray-500 mt-1">
-                                        Total devoluciones: ${{ number_format($totalRefunds, 0, ',', '.') }}
-                                    </p>
-                                @endif
                                 @if($isCredit && isset($detailData['reservation']['id']))
                                     <button 
                                         type="button"
@@ -131,6 +124,36 @@
                                 </table>
                             </div>
                         </div>
+
+                        <!-- Historial de Devoluciones -->
+                        @if(!empty($detailData['refunds_history']) && count($detailData['refunds_history']) > 0)
+                        <div class="space-y-4 pt-4 border-t border-gray-100">
+                            <div class="flex items-center justify-between pb-2 border-b border-gray-100">
+                                <h4 class="text-xs font-bold text-gray-900 uppercase tracking-widest">Historial de Devoluciones</h4>
+                                <span class="text-[9px] text-gray-500 font-medium">Total: ${{ number_format($detailData['total_refunds'] ?? 0, 0, ',', '.') }}</span>
+                            </div>
+                            <div class="max-h-32 overflow-y-auto custom-scrollbar">
+                                <table class="min-w-full divide-y divide-gray-50">
+                                    <thead class="bg-gray-50">
+                                        <tr>
+                                            <th class="px-4 py-2 text-left text-[9px] font-bold text-gray-400 uppercase">Fecha</th>
+                                            <th class="px-4 py-2 text-center text-[9px] font-bold text-gray-400 uppercase">Monto</th>
+                                            <th class="px-4 py-2 text-left text-[9px] font-bold text-gray-400 uppercase">Registrado Por</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody class="divide-y divide-gray-50">
+                                        @foreach($detailData['refunds_history'] as $refund)
+                                            <tr class="hover:bg-gray-50/50 transition-colors">
+                                                <td class="px-4 py-3 text-xs font-bold text-gray-900">{{ $refund['created_at'] }}</td>
+                                                <td class="px-4 py-3 text-xs text-center font-bold text-blue-600">${{ number_format($refund['amount'], 0, ',', '.') }}</td>
+                                                <td class="px-4 py-3 text-xs text-gray-500">{{ $refund['created_by'] }}</td>
+                                            </tr>
+                                        @endforeach
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                        @endif
 
                         <!-- Historial de Abonos -->
                         <div class="space-y-4 pt-4 border-t border-gray-100">

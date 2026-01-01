@@ -6,6 +6,7 @@
         let additionalGuestSelect = null;
         let productSelect = null;
 
+
         // Toast notifications are handled by x-notifications.toast component
         Livewire.on('notify', (data) => {
             const payload = Array.isArray(data) ? data[0] : data;

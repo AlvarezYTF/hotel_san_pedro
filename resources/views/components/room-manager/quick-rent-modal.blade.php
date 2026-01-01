@@ -1,4 +1,4 @@
-@props(['rentForm', 'additionalGuests'])
+@props(['rentForm', 'additionalGuests', 'checkInDate'])
 
 <div x-show="quickRentModal" class="fixed inset-0 z-50 overflow-y-auto" x-cloak>
     <div class="flex items-center justify-center min-h-screen p-4">
@@ -78,7 +78,16 @@
                         </div>
                         <div class="space-y-1.5">
                             <label class="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">CHECK-OUT</label>
-                            <input type="date" wire:model.live="rentForm.check_out" class="w-full bg-gray-50 border border-gray-200 rounded-lg px-4 py-2.5 text-sm font-bold">
+                            <input type="date" 
+                                   wire:model.live="rentForm.check_out" 
+                                   min="{{ $checkInDate ? \Carbon\Carbon::parse($checkInDate)->addDay()->format('Y-m-d') : \Carbon\Carbon::today()->addDay()->format('Y-m-d') }}"
+                                   class="w-full bg-gray-50 border border-gray-200 rounded-lg px-4 py-2.5 text-sm font-bold @error('rentForm.check_out') border-red-500 @enderror">
+                            @error('rentForm.check_out')
+                                <p class="text-[10px] text-red-600 mt-1 flex items-center">
+                                    <i class="fas fa-exclamation-circle mr-1 text-[8px]"></i>
+                                    {{ $message }}
+                                </p>
+                            @enderror
                         </div>
                     </div>
 

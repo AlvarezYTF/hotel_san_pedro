@@ -91,7 +91,8 @@
     <!-- MODAL: ARRENDAMIENTO RÁPIDO -->
     <x-room-manager.quick-rent-modal 
         :rentForm="$rentForm" 
-        :additionalGuests="$additionalGuests" 
+        :additionalGuests="$additionalGuests"
+        :checkInDate="$date"
     />
 
     <!-- MODAL: CREAR CLIENTE -->
@@ -105,6 +106,9 @@
 
     <!-- MODAL: CONFIRMACIÓN DE LIBERACIÓN -->
     <x-room-manager.room-release-confirmation-modal />
+
+    <!-- MODAL: HUÉSPEDES -->
+    <x-room-manager.guests-modal />
 
     <!-- SCRIPTS -->
     <x-room-manager.scripts />

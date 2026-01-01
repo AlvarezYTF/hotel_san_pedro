@@ -176,10 +176,26 @@ class RoomManager extends Component
                 if ($isPaid) $paidAmount -= $dailyPrice;
             }
 
-            // Verificar si ya se registró una devolución en auditoría
-            $refundRegistered = AuditLog::where('event', 'customer_refund_registered')
+            // Obtener historial de devoluciones
+            $refundsHistory = AuditLog::where('event', 'customer_refund_registered')
                 ->whereRaw('JSON_EXTRACT(metadata, "$.reservation_id") = ?', [$reservation->id])
-                ->exists();
+                ->with('user')
+                ->orderBy('created_at', 'desc')
+                ->get()
+                ->map(function($log) {
+                    return [
+                        'id' => $log->id,
+                        'amount' => (float) ($log->metadata['refund_amount'] ?? 0),
+                        'created_at' => $log->created_at->format('d/m/Y H:i'),
+                        'created_by' => $log->user->name ?? 'N/A',
+                    ];
+                })
+                ->toArray();
+
+            $totalRefunds = collect($refundsHistory)->sum('amount');
+
+            // Calcular saldo a favor (sin restar devoluciones, porque ya se ajustó el deposit)
+            $total_debt = ($total_hospedaje - $abono) + $consumos_pendientes;
 
             $this->detailData = [
                 'room' => $room->toArray(),
@@ -191,7 +207,8 @@ class RoomManager extends Component
                 'sales_total' => $consumos_pagados + $consumos_pendientes,
                 'consumos_pendientes' => $consumos_pendientes,
                 'total_debt' => $total_debt,
-                'refund_registered' => $refundRegistered,
+                'refunds_history' => $refundsHistory,
+                'total_refunds' => $totalRefunds,
                 'sales' => $reservation->sales->toArray(),
                 'stay_history' => $stay_history,
                 'deposit_history' => $reservation->reservationDeposits()
@@ -376,27 +393,22 @@ class RoomManager extends Component
         $daysConsumed = max(1, min($daysTotal, $daysConsumed));
         $total_hospedaje_consumido = $dailyPrice * $daysConsumed;
 
-        // Calcular total de devoluciones ya registradas
-        $totalRefunds = AuditLog::where('event', 'customer_refund_registered')
-            ->whereRaw('JSON_EXTRACT(metadata, "$.reservation_id") = ?', [$reservation->id])
-            ->get()
-            ->sum(function($log) {
-                return (float) ($log->metadata['refund_amount'] ?? 0);
-            });
-
-        // Calcular saldo a favor considerando devoluciones previas
-        // Solo considerar el nuevo saldo a favor después de las devoluciones previas
-        $total_debt = ($total_hospedaje_consumido - $abono - $totalRefunds) + $consumos_pendientes;
+        // Calcular saldo a favor (sin considerar devoluciones previas)
+        $total_debt = ($total_hospedaje_consumido - $abono) + $consumos_pendientes;
         
         if ($total_debt >= 0) {
-            $this->dispatch('notify', type: 'error', message: 'No hay saldo a favor nuevo para devolver. El saldo a favor ya fue devuelto en devoluciones anteriores.');
+            $this->dispatch('notify', type: 'error', message: 'No hay saldo a favor del cliente para devolver.');
             return;
         }
 
-        // El monto a devolver es el nuevo saldo a favor (negativo)
+        // El monto a devolver es el saldo a favor (negativo)
         $refundAmount = abs($total_debt);
         $customer = $reservation->customer;
         $roomNumber = $room->room_number;
+
+        // Ajustar el abono restando el monto devuelto para que el pendiente quede en 0
+        $newDeposit = max(0, $abono - $refundAmount);
+        $reservation->update(['deposit' => $newDeposit]);
 
         // Registrar en auditoría
         AuditLog::create([
@@ -413,14 +425,15 @@ class RoomManager extends Component
                 'room_number' => $roomNumber,
                 'refund_amount' => $refundAmount,
                 'total_hospedaje' => $total_hospedaje_consumido,
-                'abono' => $abono,
+                'abono_antes' => $abono,
+                'abono_despues' => $newDeposit,
                 'consumos_pendientes' => $consumos_pendientes,
                 'date' => $this->date,
             ]
         ]);
 
         $this->loadRoomDetail();
-        $this->dispatch('notify', type: 'success', message: "Devolución de $" . number_format($refundAmount, 0, ',', '.') . " registrada exitosamente. Total devoluciones: $" . number_format($totalRefunds + $refundAmount, 0, ',', '.') . ".");
+        $this->dispatch('notify', type: 'success', message: "Devolución de $" . number_format($refundAmount, 0, ',', '.') . " registrada exitosamente. El pendiente ahora está en $0.");
     }
 
     public function addSale()
@@ -531,6 +544,56 @@ class RoomManager extends Component
         $this->dispatch('notify', type: 'success', message: 'Abono actualizado.');
     }
 
+    public function loadRoomGuests($roomId)
+    {
+        $room = Room::findOrFail($roomId);
+        $date = Carbon::parse($this->date)->startOfDay();
+
+        $reservation = $room->reservations()
+            ->where('check_in_date', '<=', $date)
+            ->where('check_out_date', '>', $date)
+            ->with(['customer.taxProfile', 'guests.taxProfile'])
+            ->first();
+
+        if (!$reservation) {
+            return [
+                'room_id' => $room->id,
+                'room_number' => $room->room_number,
+                'guests' => [],
+                'main_guest' => null,
+            ];
+        }
+
+        $mainGuest = [
+            'id' => $reservation->customer->id,
+            'name' => $reservation->customer->name,
+            'identification' => $reservation->customer->taxProfile?->identification ?? null,
+            'phone' => $reservation->customer->phone,
+            'email' => $reservation->customer->email,
+            'is_main' => true,
+        ];
+
+        $additionalGuests = $reservation->guests->map(function($guest) {
+            return [
+                'id' => $guest->id,
+                'name' => $guest->name,
+                'identification' => $guest->taxProfile?->identification ?? null,
+                'phone' => $guest->phone,
+                'email' => $guest->email,
+                'is_main' => false,
+            ];
+        })->toArray();
+
+        $allGuests = array_merge([$mainGuest], $additionalGuests);
+
+        return [
+            'room_id' => $room->id,
+            'room_number' => $room->room_number,
+            'guests' => $allGuests,
+            'main_guest' => $mainGuest,
+        ];
+    }
+
     public function loadRoomReleaseData($roomId)
     {
         $room = Room::findOrFail($roomId);
@@ -557,6 +620,7 @@ class RoomManager extends Component
                 'refund_registered' => false,
                 'sales' => [],
                 'deposit_history' => [],
+                'refunds_history' => [],
             ];
         }
 
@@ -574,19 +638,26 @@ class RoomManager extends Component
         $daysConsumed = max(1, min($daysTotal, $daysConsumed));
         $total_hospedaje = $dailyPrice * $daysConsumed;
 
-        // Calcular total de devoluciones ya registradas
-        $totalRefunds = AuditLog::where('event', 'customer_refund_registered')
+        // Obtener historial de devoluciones
+        $refundsHistory = AuditLog::where('event', 'customer_refund_registered')
             ->whereRaw('JSON_EXTRACT(metadata, "$.reservation_id") = ?', [$reservation->id])
+            ->with('user')
+            ->orderBy('created_at', 'desc')
             ->get()
-            ->sum(function($log) {
-                return (float) ($log->metadata['refund_amount'] ?? 0);
-            });
+            ->map(function($log) {
+                return [
+                    'id' => $log->id,
+                    'amount' => (float) ($log->metadata['refund_amount'] ?? 0),
+                    'created_at' => $log->created_at->format('d/m/Y H:i'),
+                    'created_by' => $log->user->name ?? 'N/A',
+                ];
+            })
+            ->toArray();
 
-        // Calcular saldo a favor considerando devoluciones previas
-        $total_debt = ($total_hospedaje - $abono - $totalRefunds) + $consumos_pendientes;
+        $totalRefunds = collect($refundsHistory)->sum('amount');
 
-        // Verificar si hay devoluciones registradas
-        $refundRegistered = $totalRefunds > 0;
+        // Calcular saldo a favor (sin restar devoluciones, porque ya se ajustó el deposit)
+        $total_debt = ($total_hospedaje - $abono) + $consumos_pendientes;
 
         return [
             'room_id' => $room->id,
@@ -603,8 +674,8 @@ class RoomManager extends Component
             'sales_total' => $consumos_pagados + $consumos_pendientes,
             'consumos_pendientes' => $consumos_pendientes,
             'total_debt' => $total_debt,
+            'refunds_history' => $refundsHistory,
             'total_refunds' => $totalRefunds,
-            'refund_registered' => $refundRegistered,
             'sales' => $reservation->sales->map(function($sale) {
                 return [
                     'id' => $sale->id,
@@ -1474,7 +1545,38 @@ class RoomManager extends Component
     public function viewReleaseHistoryDetail($historyId)
     {
         $history = RoomReleaseHistory::with(['room', 'customer', 'releasedBy'])->findOrFail($historyId);
-        $this->releaseHistoryDetail = $history;
+        
+        // Obtener historial de devoluciones si hay reservation_id
+        $refundsHistory = [];
+        if ($history->reservation_id) {
+            $refundsHistory = AuditLog::where('event', 'customer_refund_registered')
+                ->whereRaw('JSON_EXTRACT(metadata, "$.reservation_id") = ?', [$history->reservation_id])
+                ->with('user')
+                ->orderBy('created_at', 'desc')
+                ->get()
+                ->map(function($log) {
+                    return [
+                        'id' => $log->id,
+                        'amount' => (float) ($log->metadata['refund_amount'] ?? 0),
+                        'created_at' => $log->created_at->format('d/m/Y H:i'),
+                        'created_by' => $log->user->name ?? 'N/A',
+                    ];
+                })
+                ->toArray();
+        }
+        
+        // Convertir modelo a array y agregar propiedades adicionales
+        $historyArray = $history->toArray();
+        $historyArray['refunds_history'] = $refundsHistory;
+        $historyArray['total_refunds'] = collect($refundsHistory)->sum('amount');
+        
+        // Convertir a objeto stdClass y preservar relaciones
+        $historyObject = json_decode(json_encode($historyArray), false);
+        $historyObject->room = $history->room;
+        $historyObject->customer = $history->customer;
+        $historyObject->releasedBy = $history->releasedBy;
+        
+        $this->releaseHistoryDetail = $historyObject;
         $this->releaseHistoryDetailModal = true;
     }
 
@@ -1716,7 +1818,7 @@ class RoomManager extends Component
                 'reservations' => function($q) use ($startOfMonth, $endOfMonth) {
                     $q->where('check_in_date', '<=', $endOfMonth)
                       ->where('check_out_date', '>=', $startOfMonth)
-                      ->with('customer');
+                      ->with(['customer', 'guests']);
                 },
                 'reservations.sales',
                 'rates'

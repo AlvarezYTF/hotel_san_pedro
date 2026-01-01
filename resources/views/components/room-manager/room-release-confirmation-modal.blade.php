@@ -186,6 +186,36 @@
                                 </div>
                             </template>
 
+                            <!-- Historial de Devoluciones -->
+                            <template x-if="roomData.reservation && roomData.refunds_history && roomData.refunds_history.length > 0">
+                                <div>
+                                    <div class="flex items-center justify-between mb-4">
+                                        <h4 class="text-xs font-bold text-gray-900 uppercase tracking-widest">Historial de Devoluciones</h4>
+                                        <span class="text-[9px] text-gray-500 font-medium">Total: <strong x-text="'$' + new Intl.NumberFormat('es-CO', {minimumFractionDigits: 0, maximumFractionDigits: 0}).format(roomData.total_refunds || 0)"></strong></span>
+                                    </div>
+                                    <div class="overflow-x-auto">
+                                        <table class="min-w-full divide-y divide-gray-100">
+                                            <thead class="bg-gray-50">
+                                                <tr>
+                                                    <th class="px-4 py-3 text-left text-[9px] font-bold text-gray-400 uppercase">Fecha</th>
+                                                    <th class="px-4 py-3 text-center text-[9px] font-bold text-gray-400 uppercase">Monto</th>
+                                                    <th class="px-4 py-3 text-left text-[9px] font-bold text-gray-400 uppercase">Registrado Por</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody class="bg-white divide-y divide-gray-50">
+                                                <template x-for="refund in roomData.refunds_history" :key="refund.id">
+                                                    <tr>
+                                                        <td class="px-4 py-3 text-sm font-bold text-gray-900" x-text="refund.created_at"></td>
+                                                        <td class="px-4 py-3 text-sm text-center font-bold text-blue-600" x-text="'$' + new Intl.NumberFormat('es-CO', {minimumFractionDigits: 0, maximumFractionDigits: 0}).format(refund.amount)"></td>
+                                                        <td class="px-4 py-3 text-sm text-gray-500" x-text="refund.created_by"></td>
+                                                    </tr>
+                                                </template>
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            </template>
+
                             <!-- Advertencia si hay deuda -->
                             <template x-if="(roomData.total_debt || 0) > 0">
                                 <div class="bg-red-50 border-2 border-red-200 rounded-xl p-6">
@@ -211,7 +241,7 @@
                             </template>
 
                             <!-- Advertencia si hay saldo a favor y no se registró devolución -->
-                            <template x-if="(roomData.total_debt || 0) < 0 && !roomData.refund_registered">
+                            <template x-if="(roomData.total_debt || 0) < 0 && (!roomData.refunds_history || roomData.refunds_history.length === 0)">
                                 <div class="bg-orange-50 border-2 border-orange-300 rounded-xl p-6">
                                     <div class="flex items-start space-x-3">
                                         <div class="flex-shrink-0">
@@ -247,7 +277,7 @@
                             </template>
 
                             <!-- Sin deuda o saldo a favor ya registrado -->
-                            <template x-if="(roomData.total_debt || 0) === 0 || ((roomData.total_debt || 0) < 0 && roomData.refund_registered)">
+                            <template x-if="(roomData.total_debt || 0) === 0 || ((roomData.total_debt || 0) < 0 && roomData.refunds_history && roomData.refunds_history.length > 0)">
                                 <div class="bg-emerald-50 border-2 border-emerald-200 rounded-xl p-6">
                                     <div class="flex items-start space-x-3">
                                         <div class="flex-shrink-0">
@@ -294,14 +324,14 @@
                                     if ((roomData.total_debt || 0) > 0 && !paymentConfirmed) {
                                         return;
                                     }
-                                    if ((roomData.total_debt || 0) < 0 && !roomData.refund_registered) {
+                                    if ((roomData.total_debt || 0) < 0 && (!roomData.refunds_history || roomData.refunds_history.length === 0)) {
                                         return;
                                     }
                                     @this.call('releaseRoom', roomData.room_id, 'libre');
                                     show = false;
                                 "
-                                :disabled="((roomData.total_debt || 0) > 0 && !paymentConfirmed) || ((roomData.total_debt || 0) < 0 && !roomData.refund_registered)"
-                                :class="((roomData.total_debt || 0) > 0 && !paymentConfirmed) || ((roomData.total_debt || 0) < 0 && !roomData.refund_registered)
+                                :disabled="((roomData.total_debt || 0) > 0 && !paymentConfirmed) || ((roomData.total_debt || 0) < 0 && (!roomData.refunds_history || roomData.refunds_history.length === 0))"
+                                :class="((roomData.total_debt || 0) > 0 && !paymentConfirmed) || ((roomData.total_debt || 0) < 0 && (!roomData.refunds_history || roomData.refunds_history.length === 0))
                                     ? 'bg-gray-400 cursor-not-allowed' 
                                     : 'bg-emerald-600 hover:bg-emerald-700'"
                                 class="w-full sm:w-auto inline-flex justify-center items-center px-8 py-3 rounded-xl border border-transparent shadow-sm text-sm font-bold text-white transition-all duration-200">

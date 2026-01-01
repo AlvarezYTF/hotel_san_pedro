@@ -136,6 +136,9 @@
                                 </thead>
                                 <tbody class="divide-y divide-gray-200">
                                     @foreach($releaseHistoryDetail->sales_data as $sale)
+                                        @php
+                                            $sale = is_array($sale) ? $sale : (array) $sale;
+                                        @endphp
                                         <tr>
                                             <td class="px-4 py-3 text-sm font-bold text-gray-900">{{ $sale['product_name'] ?? 'N/A' }}</td>
                                             <td class="px-4 py-3 text-sm text-center text-gray-900">{{ $sale['quantity'] ?? 0 }}</td>
@@ -172,6 +175,9 @@
                                 </thead>
                                 <tbody class="divide-y divide-gray-200">
                                     @foreach($releaseHistoryDetail->deposits_data as $deposit)
+                                        @php
+                                            $deposit = is_array($deposit) ? $deposit : (array) $deposit;
+                                        @endphp
                                         <tr>
                                             <td class="px-4 py-3 text-sm text-gray-900">{{ \Carbon\Carbon::parse($deposit['created_at'])->format('d/m/Y H:i') }}</td>
                                             <td class="px-4 py-3 text-sm text-right font-bold text-gray-900">${{ number_format($deposit['amount'] ?? 0, 0, ',', '.') }}</td>
@@ -189,12 +195,52 @@
                     </div>
                     @endif
 
+                    {{-- Historial de Devoluciones --}}
+                    @php
+                        $refundsHistory = isset($releaseHistoryDetail->refunds_history) ? $releaseHistoryDetail->refunds_history : [];
+                        $totalRefunds = $releaseHistoryDetail->total_refunds ?? 0;
+                    @endphp
+                    @if(!empty($refundsHistory) && count($refundsHistory) > 0)
+                    <div class="mb-6">
+                        <div class="flex items-center justify-between mb-4">
+                            <h4 class="text-sm font-bold text-gray-900 uppercase tracking-wider">Historial de Devoluciones</h4>
+                            <span class="text-xs text-gray-500 font-medium">Total: <strong class="text-blue-600">${{ number_format($totalRefunds, 0, ',', '.') }}</strong></span>
+                        </div>
+                        <div class="overflow-x-auto">
+                            <table class="min-w-full divide-y divide-gray-200">
+                                <thead class="bg-gray-50">
+                                    <tr>
+                                        <th class="px-4 py-2 text-left text-xs font-bold text-gray-500 uppercase">Fecha</th>
+                                        <th class="px-4 py-2 text-right text-xs font-bold text-gray-500 uppercase">Monto</th>
+                                        <th class="px-4 py-2 text-left text-xs font-bold text-gray-500 uppercase">Registrado Por</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-gray-200">
+                                    @foreach($refundsHistory as $refund)
+                                        @php
+                                            $refund = is_array($refund) ? $refund : (array) $refund;
+                                        @endphp
+                                        <tr>
+                                            <td class="px-4 py-3 text-sm font-bold text-gray-900">{{ $refund['created_at'] ?? 'N/A' }}</td>
+                                            <td class="px-4 py-3 text-sm text-right font-bold text-blue-600">${{ number_format($refund['amount'] ?? 0, 0, ',', '.') }}</td>
+                                            <td class="px-4 py-3 text-sm text-gray-500">{{ $refund['created_by'] ?? 'N/A' }}</td>
+                                        </tr>
+                                    @endforeach
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    @endif
+
                     {{-- Huéspedes --}}
                     @if(!empty($releaseHistoryDetail->guests_data))
                     <div class="mb-6">
                         <h4 class="text-sm font-bold text-gray-900 uppercase tracking-wider mb-4">Huéspedes</h4>
                         <div class="space-y-3">
                             @foreach($releaseHistoryDetail->guests_data as $guest)
+                                @php
+                                    $guest = is_array($guest) ? $guest : (array) $guest;
+                                @endphp
                                 <div class="p-4 bg-gray-50 rounded-xl">
                                     <div class="grid grid-cols-2 gap-4">
                                         <div>
