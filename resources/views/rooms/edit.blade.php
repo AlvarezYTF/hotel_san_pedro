@@ -4,13 +4,13 @@
 @section('header', 'Editar Habitación #' . $room->room_number)
 
 @section('content')
-<div class="max-w-5xl mx-auto" x-data="{ 
+<div class="max-w-5xl mx-auto" x-data="{
     tab: 'config',
-    beds: {{ old('beds_count', $room->beds_count) }}, 
+    beds: {{ old('beds_count', $room->beds_count) }},
     capacity: {{ old('max_capacity', $room->max_capacity) }},
     autoCalculate: false,
     prices: {{ json_encode(old('occupancy_prices', $room->occupancy_prices ?? [1 => 0, 2 => 0])) }},
-    
+
     // Para nueva tarifa especial
     showRateModal: false,
     newRate: {
@@ -21,6 +21,15 @@
     },
 
     updateCapacity() {
+        // Limitar el número de camas a máximo 15
+        if(this.beds > 15) {
+            this.beds = 15;
+        }
+        // Asegurar mínimo de 1
+        if(this.beds < 1) {
+            this.beds = 1;
+        }
+
         if(this.autoCalculate) {
             this.capacity = this.beds * 2;
         }
@@ -98,7 +107,8 @@
                         <div class="grid grid-cols-2 gap-6">
                             <div class="space-y-2">
                                 <label class="block text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Camas</label>
-                                <input type="number" name="beds_count" x-model="beds" @input="updateCapacity()" required
+                                <input type="number" name="beds_count" x-model="beds" @input="updateCapacity()" required min="1" max="15"
+                                    oninput="if(this.value > 15) this.value = 15; if(this.value < 1) this.value = 1;"
                                     class="block w-full px-4 py-4 bg-gray-50 border border-gray-200 rounded-2xl text-gray-900 focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all font-bold">
                             </div>
                             <div class="space-y-2">
@@ -221,7 +231,7 @@
     <div x-show="showRateModal" class="fixed inset-0 z-50 overflow-y-auto" x-cloak>
         <div class="flex items-center justify-center min-h-screen p-4">
             <div @click="showRateModal = false" class="fixed inset-0 bg-gray-900/60 backdrop-blur-sm transition-opacity"></div>
-            
+
             <div class="relative bg-white rounded-3xl shadow-2xl w-full max-w-2xl overflow-hidden transform transition-all">
                 <div class="bg-amber-500 px-8 py-6 text-white flex items-center justify-between">
                     <div class="flex items-center space-x-3">

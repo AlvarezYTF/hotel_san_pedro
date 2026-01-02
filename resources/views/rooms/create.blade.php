@@ -11,6 +11,15 @@
     prices: {{ json_encode(old('occupancy_prices', [1 => 0, 2 => 0])) }},
     
     updateCapacity() {
+        // Limitar el número de camas a máximo 15
+        if(this.beds > 15) {
+            this.beds = 15;
+        }
+        // Asegurar mínimo de 1
+        if(this.beds < 1) {
+            this.beds = 1;
+        }
+        
         if(this.autoCalculate) {
             this.capacity = this.beds * 2;
         }
@@ -64,7 +73,8 @@
                         <div class="grid grid-cols-2 gap-6">
                             <div class="space-y-2">
                                 <label for="beds_count" class="block text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Camas</label>
-                                <input type="number" name="beds_count" id="beds_count" x-model="beds" @input="updateCapacity()" required min="1"
+                                <input type="number" name="beds_count" id="beds_count" x-model="beds" @input="updateCapacity()" required min="1" max="15"
+                                    oninput="if(this.value > 15) this.value = 15; if(this.value < 1) this.value = 1;"
                                     class="block w-full px-4 py-4 bg-gray-50 border border-gray-200 rounded-2xl text-gray-900 focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all font-bold">
                             </div>
                             <div class="space-y-2">

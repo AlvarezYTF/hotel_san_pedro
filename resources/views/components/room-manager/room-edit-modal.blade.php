@@ -1,17 +1,17 @@
 @props(['room', 'statuses', 'isOccupied'])
 
-<div x-show="roomEditModal" 
+<div x-show="roomEditModal"
      x-cloak
      class="fixed inset-0 z-50 overflow-y-auto"
      style="display: none;"
-     x-data="{ 
+     x-data="{
         roomEditModal: @entangle('roomEditModal'),
         tab: 'config',
-        beds: {{ old('beds_count', $room->beds_count ?? 1) }}, 
+        beds: {{ old('beds_count', $room->beds_count ?? 1) }},
         capacity: {{ old('max_capacity', $room->max_capacity ?? 2) }},
         autoCalculate: false,
         prices: {{ json_encode(old('occupancy_prices', $room->occupancy_prices ?? [1 => 0, 2 => 0])) }},
-        
+
         // Para nueva tarifa especial
         showRateModal: false,
         newRate: {
@@ -22,6 +22,15 @@
         },
 
         updateCapacity() {
+            // Limitar el número de camas a máximo 15
+            if(this.beds > 15) {
+                this.beds = 15;
+            }
+            // Asegurar mínimo de 1
+            if(this.beds < 1) {
+                this.beds = 1;
+            }
+
             if(this.autoCalculate) {
                 this.capacity = this.beds * 2;
             }
@@ -35,11 +44,11 @@
                 style: 'currency', currency: 'COP', minimumFractionDigits: 0
             }).format(val);
         }
-    }" 
+    }"
      x-init="updateCapacity()">
     <div class="flex items-center justify-center min-h-screen p-4">
         <div @click="roomEditModal = false" class="fixed inset-0 bg-gray-900/60 backdrop-blur-sm"></div>
-        
+
         <div class="relative bg-white rounded-2xl shadow-2xl w-full max-w-4xl overflow-hidden transform transition-all">
             <!-- Header -->
             <div class="px-8 py-6 border-b border-gray-100 flex items-center justify-between">
@@ -57,12 +66,12 @@
             <!-- Tab Navigation -->
             <div class="px-8 pt-6">
                 <div class="flex items-center space-x-2 bg-gray-50 p-1.5 rounded-xl w-fit">
-                    <button @click="tab = 'config'" 
+                    <button @click="tab = 'config'"
                             :class="tab === 'config' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'"
                             class="px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-widest transition-all">
                         <i class="fas fa-cog mr-2"></i> Configuración
                     </button>
-                    <button @click="tab = 'rates'" 
+                    <button @click="tab = 'rates'"
                             :class="tab === 'rates' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'"
                             class="px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-widest transition-all">
                         <i class="fas fa-calendar-star mr-2"></i> Tarifas Especiales
@@ -74,7 +83,7 @@
             <div class="p-8 space-y-8">
                 <!-- Tab: Configuración Base -->
                 <div x-show="tab === 'config'" x-transition>
-                    <form action="{{ route('rooms.update', $room) }}" method="POST" class="space-y-8" 
+                    <form action="{{ route('rooms.update', $room) }}" method="POST" class="space-y-8"
                           onsubmit="setTimeout(() => { window.location.reload(); }, 100);">
                         @csrf
                         @method('PUT')
@@ -110,7 +119,8 @@
                                 <div class="grid grid-cols-2 gap-4">
                                     <div class="space-y-2">
                                         <label class="block text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">Camas</label>
-                                        <input type="number" name="beds_count" x-model="beds" @input="updateCapacity()" required
+                                        <input type="number" name="beds_count" x-model="beds" @input="updateCapacity()" required min="1" max="15"
+                                            oninput="if(this.value > 15) this.value = 15; if(this.value < 1) this.value = 1;"
                                             class="block w-full px-4 py-2.5 bg-white border border-gray-200 rounded-xl text-sm font-bold text-gray-900 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none">
                                     </div>
                                     <div class="space-y-2">
@@ -148,7 +158,7 @@
                                 <div class="bg-gray-50 rounded-xl p-4 border border-gray-100 space-y-3 max-h-[400px] overflow-y-auto">
                                     <template x-for="i in parseInt(capacity)" :key="i">
                                         <div class="space-y-1">
-                                            <label class="block text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1" 
+                                            <label class="block text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1"
                                                    x-text="'Precio para ' + i + (i == 1 ? ' Persona' : ' Personas')"></label>
                                             <div class="relative">
                                                 <div class="absolute inset-y-0 left-0 pl-3 flex items-center text-gray-400 font-bold text-sm">$</div>
@@ -225,7 +235,7 @@
         <div x-show="showRateModal" class="fixed inset-0 z-[60] overflow-y-auto" x-cloak style="display: none;">
             <div class="flex items-center justify-center min-h-screen p-4">
                 <div @click="showRateModal = false" class="fixed inset-0 bg-gray-900/60 backdrop-blur-sm"></div>
-                
+
                 <div class="relative bg-white rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden transform transition-all" @click.stop>
                     <div class="px-8 py-6 border-b border-gray-100 flex items-center justify-between">
                         <div class="flex items-center space-x-3">
@@ -243,19 +253,19 @@
                         @csrf
                         <div class="space-y-2">
                             <label class="block text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">Nombre del Evento / Temporada</label>
-                            <input type="text" name="event_name" placeholder="Ej: Semana Santa" required 
+                            <input type="text" name="event_name" placeholder="Ej: Semana Santa" required
                                    class="block w-full px-4 py-2.5 bg-white border border-gray-200 rounded-xl text-sm font-bold text-gray-900 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none">
                         </div>
 
                         <div class="grid grid-cols-2 gap-4">
                             <div class="space-y-2">
                                 <label class="block text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">Desde</label>
-                                <input type="date" name="start_date" required 
+                                <input type="date" name="start_date" required
                                        class="block w-full px-4 py-2.5 bg-white border border-gray-200 rounded-xl text-sm font-bold text-gray-900 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none">
                             </div>
                             <div class="space-y-2">
                                 <label class="block text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">Hasta</label>
-                                <input type="date" name="end_date" required 
+                                <input type="date" name="end_date" required
                                        class="block w-full px-4 py-2.5 bg-white border border-gray-200 rounded-xl text-sm font-bold text-gray-900 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none">
                             </div>
                         </div>
@@ -268,7 +278,7 @@
                                         <label class="text-[9px] font-bold text-gray-400 uppercase" x-text="i + (i==1 ? ' Persona' : ' Personas')"></label>
                                         <div class="relative">
                                             <div class="absolute inset-y-0 left-0 pl-3 flex items-center text-gray-400 text-xs">$</div>
-                                            <input type="number" :name="'occupancy_prices[' + i + ']'" x-model="newRate.prices[i]" required 
+                                            <input type="number" :name="'occupancy_prices[' + i + ']'" x-model="newRate.prices[i]" required
                                                    class="block w-full pl-6 pr-3 py-2 bg-white border border-gray-200 rounded-lg text-sm font-bold text-gray-900 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none">
                                         </div>
                                     </div>

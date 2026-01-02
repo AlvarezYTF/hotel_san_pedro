@@ -19,8 +19,8 @@
                         <div class="absolute inset-y-0 left-0 pl-3 sm:pl-4 flex items-center pointer-events-none">
                             <i class="fas fa-hashtag text-gray-400 text-sm"></i>
                         </div>
-                        <input 
-                            type="text" 
+                        <input
+                            type="text"
                             id="room_number"
                             wire:model.blur="room_number"
                             class="block w-full pl-10 sm:pl-11 pr-3 sm:pr-4 py-2.5 border border-gray-300 rounded-xl text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all @error('room_number') border-red-300 focus:ring-red-500 @enderror"
@@ -44,7 +44,7 @@
                         <div class="absolute inset-y-0 left-0 pl-3 sm:pl-4 flex items-center pointer-events-none">
                             <i class="fas fa-wind text-gray-400 text-sm"></i>
                         </div>
-                        <select 
+                        <select
                             id="ventilation_type"
                             wire:model.blur="ventilation_type"
                             class="block w-full pl-10 sm:pl-11 pr-10 py-2.5 border border-gray-300 rounded-xl text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent appearance-none bg-white @error('ventilation_type') border-red-300 focus:ring-red-500 @enderror"
@@ -87,13 +87,17 @@
                         <div class="absolute inset-y-0 left-0 pl-3 sm:pl-4 flex items-center pointer-events-none">
                             <i class="fas fa-bed text-gray-400 text-sm"></i>
                         </div>
-                        <input 
-                            type="number" 
+                        <input
+                            type="number"
                             id="beds_count"
-                            wire:model.live="beds_count"
+                            wire:model.blur="beds_count"
                             min="1"
+                            max="15"
+                            oninput="if(this.value > 15) this.value = 15;"
+                            onblur="if(this.value === '' || this.value < 1) this.value = 1;"
                             class="block w-full pl-10 sm:pl-11 pr-3 sm:pr-4 py-2.5 border border-gray-300 rounded-xl text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all @error('beds_count') border-red-300 focus:ring-red-500 @enderror"
                             placeholder="Ej: 2"
+                            required
                         >
                     </div>
                     @error('beds_count')
@@ -114,8 +118,8 @@
                             <span class="text-xs font-semibold text-gray-500 group-hover:text-emerald-600 transition-colors">
                                 Auto
                             </span>
-                            <input 
-                                type="checkbox" 
+                            <input
+                                type="checkbox"
                                 wire:model.live="auto_calculate"
                                 class="sr-only peer"
                             >
@@ -128,8 +132,8 @@
                         <div class="absolute inset-y-0 left-0 pl-3 sm:pl-4 flex items-center pointer-events-none">
                             <i class="fas fa-user-friends text-gray-400 text-sm"></i>
                         </div>
-                        <input 
-                            type="number" 
+                        <input
+                            type="number"
                             id="max_capacity"
                             wire:model.blur="max_capacity"
                             min="1"
@@ -167,8 +171,8 @@
                             <div class="absolute inset-y-0 left-0 pl-3 sm:pl-4 flex items-center pointer-events-none">
                                 <span class="text-gray-400 text-sm font-semibold">$</span>
                             </div>
-                            <input 
-                                type="number" 
+                            <input
+                                type="number"
                                 wire:model.blur="occupancy_prices.{{ $i }}"
                                 min="1"
                                 step="1"
@@ -193,7 +197,7 @@
                 <p class="text-xs text-gray-500">
                     Los campos marcados con <span class="text-red-500">*</span> son obligatorios
                 </p>
-                
+
                 <div class="flex flex-col sm:flex-row sm:justify-end gap-3 sm:gap-3">
                     <button type="button"
                             @click="$dispatch('close-create-room-modal')"
@@ -201,8 +205,8 @@
                         <i class="fas fa-times mr-2"></i>
                         Cancelar
                     </button>
-                    
-                    <button type="submit" 
+
+                    <button type="submit"
                             wire:loading.attr="disabled"
                             class="inline-flex items-center justify-center px-4 sm:px-6 py-2.5 rounded-xl border-2 border-emerald-600 bg-emerald-600 text-white text-sm font-semibold hover:bg-emerald-700 hover:border-emerald-700 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500 shadow-sm hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed">
                         <i class="fas fa-save mr-2" wire:loading.remove wire:target="store"></i>

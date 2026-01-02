@@ -21,7 +21,7 @@ class CreateRoom extends Component
     {
         return [
             'room_number' => 'required|string|unique:rooms,room_number',
-            'beds_count' => 'required|integer|min:1',
+            'beds_count' => 'required|integer|min:1|max:15',
             'max_capacity' => 'required|integer|min:1',
             'ventilation_type' => 'required|string|in:' . implode(',', array_column(VentilationType::cases(), 'value')),
             'occupancy_prices' => 'required|array',
@@ -36,6 +36,7 @@ class CreateRoom extends Component
             'room_number.unique' => 'Este número de habitación ya existe.',
             'beds_count.required' => 'El número de camas es obligatorio.',
             'beds_count.min' => 'Debe haber al menos 1 cama.',
+            'beds_count.max' => 'El número de camas no puede ser mayor a 15.',
             'max_capacity.required' => 'La capacidad máxima es obligatoria.',
             'max_capacity.min' => 'La capacidad máxima debe ser al menos 1.',
             'ventilation_type.required' => 'El tipo de ventilación es obligatorio.',
@@ -51,6 +52,16 @@ class CreateRoom extends Component
 
     public function updatedBedsCount(): void
     {
+        // Limitar el número de camas a máximo 15
+        if ($this->beds_count > 15) {
+            $this->beds_count = 15;
+        }
+
+        // Asegurar mínimo de 1 solo si el valor es válido (no vacío ni null)
+        if (isset($this->beds_count) && $this->beds_count !== '' && $this->beds_count < 1) {
+            $this->beds_count = 1;
+        }
+
         if ($this->auto_calculate) {
             $this->updateCapacity();
         }
@@ -85,18 +96,19 @@ class CreateRoom extends Component
 
     private function updateCapacity(): void
     {
-        if (!isset($this->beds_count) || $this->beds_count < 1) {
+        // Solo validar y corregir si el valor está establecido y es válido
+        if (isset($this->beds_count) && $this->beds_count !== '' && $this->beds_count < 1) {
             $this->beds_count = 1;
         }
-        
+
         if (!isset($this->max_capacity) || $this->max_capacity < 1) {
             $this->max_capacity = 2;
         }
-        
-        if ($this->auto_calculate) {
+
+        if ($this->auto_calculate && isset($this->beds_count) && $this->beds_count > 0) {
             $this->max_capacity = $this->beds_count * 2;
         }
-        
+
         $this->initializePrices();
     }
 
@@ -105,13 +117,13 @@ class CreateRoom extends Component
         if (!isset($this->max_capacity) || $this->max_capacity < 1) {
             $this->max_capacity = 2;
         }
-        
+
         $newPrices = [];
         for ($i = 1; $i <= $this->max_capacity; $i++) {
             // Preserve existing non-zero values, otherwise set to null (will show as placeholder)
             $existingValue = $this->occupancy_prices[$i] ?? null;
             $previousValue = $this->occupancy_prices[$i - 1] ?? null;
-            
+
             if ($existingValue !== null && $existingValue > 0) {
                 $newPrices[$i] = $existingValue;
             } elseif ($previousValue !== null && $previousValue > 0) {
@@ -125,6 +137,16 @@ class CreateRoom extends Component
 
     public function store(): void
     {
+        // Asegurar que beds_count tenga un valor válido antes de validar
+        if (!isset($this->beds_count) || $this->beds_count === '' || $this->beds_count < 1) {
+            $this->beds_count = 1;
+        }
+
+        // Limitar a máximo 15
+        if ($this->beds_count > 15) {
+            $this->beds_count = 15;
+        }
+
         // Validate that at least one price is set
         $hasAtLeastOnePrice = false;
         foreach ($this->occupancy_prices as $value) {
@@ -133,25 +155,25 @@ class CreateRoom extends Component
                 break;
             }
         }
-        
+
         if (!$hasAtLeastOnePrice) {
             throw ValidationException::withMessages([
                 'occupancy_prices' => 'Debe definir al menos un precio de ocupación.',
             ]);
         }
-        
+
         // Convert null values to 0 for validation
         $pricesForValidation = [];
         foreach ($this->occupancy_prices as $key => $value) {
             $pricesForValidation[$key] = $value !== null ? (int)$value : null;
         }
-        
+
         // Temporarily set occupancy_prices for validation
         $originalPrices = $this->occupancy_prices;
         $this->occupancy_prices = $pricesForValidation;
-        
+
         $this->validate();
-        
+
         // Restore original prices
         $this->occupancy_prices = $originalPrices;
 
@@ -188,7 +210,7 @@ class CreateRoom extends Component
         $this->auto_calculate = true;
         $this->ventilation_type = '';
         $this->occupancy_prices = [];
-        
+
         // Re-initialize after reset
         $this->updateCapacity();
 
