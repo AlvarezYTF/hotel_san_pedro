@@ -648,7 +648,7 @@ class ReservationController extends Controller
         // Obtener las reservaciones para el rango de fechas
         $reservations = Reservation::whereDate('check_in_date', '>=', $startDate)
             ->whereDate('check_in_date', '<=', $endDate)
-            ->with(['room', 'customer', 'deposits'])
+            ->with(['room', 'customer', 'rooms'])
             ->orderBy('check_in_date', 'desc')
             ->get();
 
