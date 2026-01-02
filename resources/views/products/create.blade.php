@@ -171,13 +171,13 @@
                     <div class="p-2 rounded-lg bg-amber-50 text-amber-600">
                         <i class="fas fa-dollar-sign text-sm"></i>
                     </div>
-                    <h2 class="text-base sm:text-lg font-semibold text-gray-900">Precio de Venta (COP)</h2>
+                    <h2 class="text-base sm:text-lg font-semibold text-gray-900">Precio de Venta</h2>
                 </div>
 
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
                     <div>
                         <label for="price" class="block text-xs sm:text-sm font-semibold text-gray-700 mb-2">
-                            Precio al público (COP) <span class="text-red-500">*</span>
+                            Precio al público <span class="text-red-500">*</span>
                         </label>
                         <div class="relative">
                             <div class="absolute inset-y-0 left-0 pl-3 sm:pl-4 flex items-center pointer-events-none">

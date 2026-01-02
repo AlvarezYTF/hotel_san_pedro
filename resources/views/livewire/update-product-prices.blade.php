@@ -1,10 +1,10 @@
 <div>
     <!-- Botón para abrir el modal -->
-    <button type="button" 
+    <button type="button"
             wire:click="openModal"
             class="inline-flex items-center justify-center px-4 py-2 rounded-xl border border-gray-300 text-sm font-semibold text-gray-700 bg-white hover:bg-gray-50 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500">
         <i class="fas fa-exchange-alt mr-2"></i>
-        Actualizar Precios (USD → COP)
+        Actualizar Precios
     </button>
 
     <!-- Modal -->
@@ -12,9 +12,9 @@
     <div class="fixed inset-0 z-50 overflow-y-auto" x-data="{ show: @entangle('showModal') }" x-show="show" x-cloak>
         <div class="flex items-center justify-center min-h-screen p-4">
             <!-- Overlay -->
-            <div class="fixed inset-0 bg-gray-900/60 backdrop-blur-sm transition-opacity" 
+            <div class="fixed inset-0 bg-gray-900/60 backdrop-blur-sm transition-opacity"
                  wire:click="closeModal"></div>
-            
+
             <!-- Modal Content -->
             <div class="relative bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden transform transition-all"
                  @click.stop>
@@ -27,7 +27,7 @@
                             </div>
                             <div>
                                 <h3 class="text-xl font-bold text-white">Actualizar Precios de Productos</h3>
-                                <p class="text-sm text-green-100">Conversión de USD a Pesos Colombianos (COP)</p>
+                                <p class="text-sm text-green-100">Conversión de USD a Pesos Colombianos</p>
                             </div>
                         </div>
                         <button wire:click="closeModal" class="text-white hover:text-gray-200 transition-colors">
@@ -47,7 +47,7 @@
                                     <div class="text-sm text-blue-800">
                                         <p class="font-semibold mb-1">Instrucciones:</p>
                                         <ul class="list-disc list-inside space-y-1 text-xs">
-                                            <li>Ingrese la tasa de cambio actual (1 USD = X COP)</li>
+                                            <li>Ingrese la tasa de cambio actual (1 USD = X Pesos)</li>
                                             <li>Se actualizarán todos los productos activos</li>
                                             <li>Puede previsualizar los cambios antes de aplicar</li>
                                             <li>Total de productos a actualizar: <strong>{{ $totalProducts }}</strong></li>
@@ -58,13 +58,13 @@
 
                             <div>
                                 <label for="exchangeRate" class="block text-sm font-semibold text-gray-700 mb-2">
-                                    Tasa de Cambio (1 USD = X COP) <span class="text-red-500">*</span>
+                                    Tasa de Cambio (1 USD = X Pesos) <span class="text-red-500">*</span>
                                 </label>
                                 <div class="relative">
                                     <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
                                         <span class="text-gray-500 text-sm font-semibold">$</span>
                                     </div>
-                                    <input type="number" 
+                                    <input type="number"
                                            id="exchangeRate"
                                            wire:model="exchangeRate"
                                            step="0.01"
@@ -103,7 +103,7 @@
                                             <tr>
                                                 <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Producto</th>
                                                 <th class="px-4 py-3 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider">Precio Actual (USD)</th>
-                                                <th class="px-4 py-3 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider">Nuevo Precio (COP)</th>
+                                                <th class="px-4 py-3 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider">Nuevo Precio</th>
                                             </tr>
                                         </thead>
                                         <tbody class="bg-white divide-y divide-gray-200">
@@ -129,7 +129,7 @@
                             class="px-4 py-2 rounded-xl border border-gray-300 text-sm font-semibold text-gray-700 bg-white hover:bg-gray-50 transition-colors">
                         Cancelar
                     </button>
-                    
+
                     <div class="flex items-center space-x-3">
                         @if($previewMode)
                             <button type="button"

@@ -149,7 +149,7 @@
                                 <i class="fas fa-tag text-sm"></i>
                             </div>
                         </div>
-                        <div class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1 text-center">Precio de Venta (COP)</div>
+                        <div class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1 text-center">Precio de Venta</div>
                         <div class="text-xl sm:text-2xl font-bold text-emerald-700 text-center">{{ formatCurrency($product->price) }}</div>
                     </div>
                     
@@ -159,7 +159,7 @@
                                 <i class="fas fa-shopping-cart text-sm"></i>
                             </div>
                         </div>
-                        <div class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1 text-center">Precio de Costo (COP)</div>
+                        <div class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1 text-center">Precio de Costo</div>
                         <div class="text-xl sm:text-2xl font-bold text-blue-700 text-center">
                             {{ $product->cost_price ? formatCurrency($product->cost_price) : 'N/A' }}
                         </div>

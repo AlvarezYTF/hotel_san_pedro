@@ -13,10 +13,10 @@ if (!function_exists('formatCurrency')) {
         $value = (float) $value;
         
         if ($showDecimals) {
-            return '$' . number_format($value, 2, ',', '.') . ' COP';
+            return '$' . number_format($value, 2, ',', '.');
         }
         
-        return '$' . number_format($value, 0, ',', '.') . ' COP';
+        return '$' . number_format($value, 0, ',', '.');
     }
 }
 
