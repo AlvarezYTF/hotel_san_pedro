@@ -11,7 +11,13 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        //
+        // Cargar helper de moneda si no está cargado por composer
+        if (!function_exists('formatCurrency')) {
+            $helperPath = app_path('Helpers/CurrencyHelper.php');
+            if (file_exists($helperPath)) {
+                require_once $helperPath;
+            }
+        }
     }
 
     /**

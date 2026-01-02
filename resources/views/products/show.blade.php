@@ -42,7 +42,7 @@
                         <div class="flex items-center space-x-2 text-sm">
                             <i class="fas fa-tag text-gray-400"></i>
                             <span class="text-gray-500">Precio:</span>
-                            <span class="font-bold text-emerald-600 text-base sm:text-lg">${{ number_format($product->price, 2) }}</span>
+                            <span class="font-bold text-emerald-600 text-base sm:text-lg">{{ formatCurrency($product->price) }}</span>
                         </div>
                         <div class="flex items-center space-x-2 text-sm">
                             <i class="fas fa-warehouse text-gray-400"></i>
@@ -149,8 +149,8 @@
                                 <i class="fas fa-tag text-sm"></i>
                             </div>
                         </div>
-                        <div class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1 text-center">Precio de Venta</div>
-                        <div class="text-xl sm:text-2xl font-bold text-emerald-700 text-center">${{ number_format($product->price, 2) }}</div>
+                        <div class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1 text-center">Precio de Venta (COP)</div>
+                        <div class="text-xl sm:text-2xl font-bold text-emerald-700 text-center">{{ formatCurrency($product->price) }}</div>
                     </div>
                     
                     <div class="p-4 sm:p-5 bg-blue-50 rounded-xl border border-blue-100">
@@ -159,9 +159,9 @@
                                 <i class="fas fa-shopping-cart text-sm"></i>
                             </div>
                         </div>
-                        <div class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1 text-center">Precio de Costo</div>
+                        <div class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1 text-center">Precio de Costo (COP)</div>
                         <div class="text-xl sm:text-2xl font-bold text-blue-700 text-center">
-                            {{ $product->cost_price ? '$' . number_format($product->cost_price, 2) : 'N/A' }}
+                            {{ $product->cost_price ? formatCurrency($product->cost_price) : 'N/A' }}
                         </div>
                     </div>
                     
@@ -174,7 +174,7 @@
                         </div>
                         <div class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1 text-center">Ganancia</div>
                         <div class="text-xl sm:text-2xl font-bold text-violet-700 text-center">
-                            ${{ number_format($product->price - $product->cost_price, 2) }}
+                            {{ formatCurrency($product->price - $product->cost_price) }}
                         </div>
                     </div>
                     @else

@@ -6,7 +6,7 @@
         return false;
     })->values();
     $ventaCats = $categories->diff($aseoCats)->values();
-    
+
     // Identificar grupo del producto actual
     $currentGroupId = '';
     if ($product->category_id) {
@@ -35,9 +35,9 @@
         </div>
     </div>
 
-    <form method="POST" action="{{ route('products.update', $product) }}" id="product-form" 
-          x-data="{ 
-            loading: false, 
+    <form method="POST" action="{{ route('products.update', $product) }}" id="product-form"
+          x-data="{
+            loading: false,
             price: {{ old('price', $product->price ?? 0) }},
             selectedGroup: '{{ old('group', $currentGroupId) }}',
             aseoCats: {{ $aseoCats->toJson() }},
@@ -47,7 +47,7 @@
                 if (this.selectedGroup === 'ventas') return this.ventaCats;
                 return [];
             }
-          }" 
+          }"
           @submit="loading = true">
         @csrf
         @method('PUT')
@@ -186,13 +186,13 @@
                 <div class="p-2 rounded-xl bg-emerald-50 text-emerald-600">
                     <i class="fas fa-dollar-sign text-sm"></i>
                 </div>
-                <h2 class="text-base sm:text-lg font-semibold text-gray-900">Precio de Venta</h2>
+                <h2 class="text-base sm:text-lg font-semibold text-gray-900">Precio de Venta (COP)</h2>
             </div>
 
             <div class="space-y-5 sm:space-y-6">
                     <div>
                         <label for="price" class="block text-xs sm:text-sm font-semibold text-gray-700 mb-2">
-                            Precio al público <span class="text-red-500">*</span>
+                            Precio al público (COP) <span class="text-red-500">*</span>
                         </label>
                         <div class="relative">
                             <div class="absolute inset-y-0 left-0 pl-3 sm:pl-4 flex items-center pointer-events-none">
@@ -301,11 +301,20 @@
 @push('scripts')
 <script>
 document.addEventListener('DOMContentLoaded', function() {
+    // Formateo de precios en formato colombiano (COP) - sin decimales forzados
     const priceInput = document.getElementById('price');
     if (priceInput) {
         priceInput.addEventListener('blur', function() {
             if (this.value) {
-                this.value = parseFloat(this.value).toFixed(2);
+                // Remover todos los caracteres no numéricos
+                let numericValue = this.value.replace(/\D/g, '');
+                if (numericValue !== '') {
+                    // Formatear con puntos como separadores de miles (formato colombiano)
+                    this.value = new Intl.NumberFormat('es-CO', {
+                        minimumFractionDigits: 0,
+                        maximumFractionDigits: 0
+                    }).format(numericValue);
+                }
             }
         });
     }

@@ -6,7 +6,7 @@
         return false;
     })->values();
     $ventaCats = $categories->diff($aseoCats)->values();
-    
+
     // Identificar grupo inicial si hay errores de validación
     $initialGroupId = '';
     $oldCategoryId = old('category_id');
@@ -23,9 +23,9 @@
 
 @section('content')
 <div class="max-w-4xl mx-auto">
-    <form method="POST" action="{{ route('products.store') }}" id="product-form" 
-          x-data="{ 
-            loading: false, 
+    <form method="POST" action="{{ route('products.store') }}" id="product-form"
+          x-data="{
+            loading: false,
             price: {{ old('price', 0) }},
             selectedGroup: '{{ $initialGroupId }}',
             aseoCats: {{ $aseoCats->toJson() }},
@@ -35,10 +35,10 @@
                 if (this.selectedGroup === 'ventas') return this.ventaCats;
                 return [];
             }
-          }" 
+          }"
           @submit="loading = true">
         @csrf
-        
+
         <!-- Header -->
         <div class="bg-white rounded-xl border border-gray-100 p-4 sm:p-6 mb-4 sm:mb-6 shadow-sm">
             <div class="flex items-center space-x-3 sm:space-x-4">
@@ -61,16 +61,16 @@
                     </div>
                     <h2 class="text-base sm:text-lg font-semibold text-gray-900">Información del Producto</h2>
                 </div>
-                
+
                 <div class="space-y-4 sm:space-y-6">
                     <!-- Nombre del producto -->
                     <div>
                         <label for="name" class="block text-xs sm:text-sm font-semibold text-gray-700 mb-2">
                             Nombre del producto <span class="text-red-500">*</span>
                         </label>
-                        <input type="text" 
-                               id="name" 
-                               name="name" 
+                        <input type="text"
+                               id="name"
+                               name="name"
                                value="{{ old('name') }}"
                                class="block w-full px-3 sm:px-4 py-2.5 border border-gray-300 rounded-xl text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all @error('name') border-red-300 focus:ring-red-500 @enderror"
                                placeholder="Ej: Coca Cola 350ml, Jabón de tocador, etc."
@@ -109,7 +109,7 @@
                                 Categoría <span class="text-red-500">*</span>
                             </label>
                             <div class="relative">
-                                <select id="category_id" 
+                                <select id="category_id"
                                         name="category_id"
                                         class="block w-full pl-3 sm:pl-4 pr-10 py-2.5 border border-gray-300 rounded-xl text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent appearance-none bg-white @error('category_id') border-red-300 focus:ring-red-500 @enderror"
                                         x-bind:required="selectedGroup === 'ventas'">
@@ -171,21 +171,21 @@
                     <div class="p-2 rounded-lg bg-amber-50 text-amber-600">
                         <i class="fas fa-dollar-sign text-sm"></i>
                     </div>
-                    <h2 class="text-base sm:text-lg font-semibold text-gray-900">Precio de Venta</h2>
+                    <h2 class="text-base sm:text-lg font-semibold text-gray-900">Precio de Venta (COP)</h2>
                 </div>
-                
+
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
                     <div>
                         <label for="price" class="block text-xs sm:text-sm font-semibold text-gray-700 mb-2">
-                            Precio al público <span class="text-red-500">*</span>
+                            Precio al público (COP) <span class="text-red-500">*</span>
                         </label>
                         <div class="relative">
                             <div class="absolute inset-y-0 left-0 pl-3 sm:pl-4 flex items-center pointer-events-none">
                                 <span class="text-gray-500 text-sm">$</span>
                             </div>
-                            <input type="text" 
-                                   id="price" 
-                                   name="price" 
+                            <input type="text"
+                                   id="price"
+                                   name="price"
                                    value="{{ number_format(old('price', 0), 0, ',', '.') }}"
                                    oninput="formatNumberInput(this)"
                                    x-bind:required="selectedGroup === 'ventas'"
@@ -215,13 +215,13 @@
                     </div>
                     <h2 class="text-base sm:text-lg font-semibold text-gray-900">Estado del Producto</h2>
                 </div>
-                
+
                 <div>
                     <label for="status" class="block text-xs sm:text-sm font-semibold text-gray-700 mb-2">
                         Estado
                     </label>
                     <div class="relative">
-                        <select id="status" 
+                        <select id="status"
                                 name="status"
                                 class="block w-full pl-3 sm:pl-4 pr-10 py-2.5 border border-gray-300 rounded-xl text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent appearance-none bg-white @error('status') border-red-300 focus:ring-red-500 @enderror">
                             <option value="active" {{ old('status', 'active') == 'active' ? 'selected' : '' }}>Activo</option>
@@ -250,15 +250,15 @@
                     <p class="text-xs text-gray-500">
                         Los campos marcados con <span class="text-red-500">*</span> son obligatorios
                     </p>
-                
+
                     <div class="flex flex-col sm:flex-row gap-3 sm:gap-3">
-                        <a href="{{ route('products.index') }}" 
+                        <a href="{{ route('products.index') }}"
                            class="inline-flex items-center justify-center px-4 sm:px-6 py-2.5 rounded-xl border border-gray-300 text-sm font-semibold text-gray-700 bg-white hover:bg-gray-50 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500">
                             <i class="fas fa-arrow-left mr-2"></i>
                             Volver
                         </a>
-                        
-                        <button type="submit" 
+
+                        <button type="submit"
                                 x-bind:disabled="loading"
                                 class="inline-flex items-center justify-center px-4 sm:px-6 py-2.5 rounded-xl border-2 border-blue-600 bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 hover:border-blue-700 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 shadow-sm hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed">
                             <i class="fas fa-save mr-2" x-show="!loading"></i>
@@ -276,12 +276,20 @@
 @push('scripts')
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    // Formateo de precios al perder el foco
+    // Formateo de precios en formato colombiano (COP) - sin decimales forzados
     const priceInput = document.getElementById('price');
     if (priceInput) {
         priceInput.addEventListener('blur', function() {
             if (this.value) {
-                this.value = parseFloat(this.value).toFixed(2);
+                // Remover todos los caracteres no numéricos
+                let numericValue = this.value.replace(/\D/g, '');
+                if (numericValue !== '') {
+                    // Formatear con puntos como separadores de miles (formato colombiano)
+                    this.value = new Intl.NumberFormat('es-CO', {
+                        minimumFractionDigits: 0,
+                        maximumFractionDigits: 0
+                    }).format(numericValue);
+                }
             }
         });
     }

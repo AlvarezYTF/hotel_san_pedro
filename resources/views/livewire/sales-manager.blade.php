@@ -26,13 +26,19 @@
                 </div>
             </div>
             
-            @can('create_sales')
-            <a href="{{ route('sales.create') }}" 
-               class="inline-flex items-center justify-center px-4 sm:px-5 py-2.5 rounded-xl border-2 border-green-600 bg-green-600 text-white text-sm font-semibold hover:bg-green-700 hover:border-green-700 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 shadow-sm hover:shadow-md">
-                <i class="fas fa-plus mr-2"></i>
-                <span>Nueva Venta</span>
-            </a>
-            @endcan
+            <div class="flex items-center space-x-3">
+                @can('create_sales')
+                <a href="{{ route('sales.create') }}" 
+                   class="inline-flex items-center justify-center px-4 sm:px-5 py-2.5 rounded-xl border-2 border-green-600 bg-green-600 text-white text-sm font-semibold hover:bg-green-700 hover:border-green-700 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 shadow-sm hover:shadow-md">
+                    <i class="fas fa-plus mr-2"></i>
+                    <span>Nueva Venta</span>
+                </a>
+                @endcan
+                
+                @can('update_products')
+                <livewire:update-product-prices />
+                @endcan
+            </div>
         </div>
     </div>
 
@@ -347,7 +353,7 @@
                                     </div>
                                 </td>
                                 <td class="px-4 py-4 whitespace-nowrap">
-                                    <div class="text-sm font-bold text-gray-900">${{ number_format($sale->total, 2, ',', '.') }}</div>
+                                    <div class="text-sm font-bold text-gray-900">{{ formatCurrency($sale->total) }}</div>
                                 </td>
                                 <td class="px-4 py-4 whitespace-nowrap">
                                     @if($sale->payment_method === 'ambos')
@@ -359,11 +365,11 @@
                                             <div class="text-xs text-gray-600 space-y-0.5">
                                                 <div class="flex items-center">
                                                     <i class="fas fa-money-bill-wave text-green-500 mr-1 text-xs"></i>
-                                                    ${{ number_format($sale->cash_amount ?? 0, 2, ',', '.') }}
+                                                    {{ formatCurrency($sale->cash_amount ?? 0) }}
                                                 </div>
                                                 <div class="flex items-center">
                                                     <i class="fas fa-university text-blue-500 mr-1 text-xs"></i>
-                                                    ${{ number_format($sale->transfer_amount ?? 0, 2, ',', '.') }}
+                                                    {{ formatCurrency($sale->transfer_amount ?? 0) }}
                                                 </div>
                                             </div>
                                         </div>

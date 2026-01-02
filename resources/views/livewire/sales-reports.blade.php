@@ -11,15 +11,15 @@
                     <p class="text-xs sm:text-sm text-gray-500 mt-1">Ventas del día {{ $currentDate->format('d/m/Y') }}</p>
                 </div>
             </div>
-            
+
             <div class="flex gap-2">
                 <form wire:submit.prevent="loadData" class="flex gap-2">
-                    <input type="date" 
+                    <input type="date"
                            wire:model.live="date"
                            max="{{ date('Y-m-d') }}"
                            class="px-3 py-2.5 border border-gray-300 rounded-xl text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500">
                 </form>
-                <a href="{{ route('sales.index') }}" 
+                <a href="{{ route('sales.index') }}"
                    class="inline-flex items-center justify-center px-4 py-2.5 rounded-xl border border-gray-300 text-sm font-semibold text-gray-700 bg-white hover:bg-gray-50 transition-all">
                     <i class="fas fa-arrow-left mr-2"></i>
                     Volver
@@ -46,7 +46,7 @@
             <div class="flex items-center justify-between">
                 <div>
                     <p class="text-xs font-semibold text-gray-500 uppercase">Total Recaudado</p>
-                    <p class="text-2xl font-bold text-green-600 mt-1">${{ number_format($totalSales, 2, ',', '.') }}</p>
+                    <p class="text-2xl font-bold text-green-600 mt-1">{{ formatCurrency($totalSales) }}</p>
                 </div>
                 <div class="p-3 rounded-lg bg-green-50 text-green-600">
                     <i class="fas fa-dollar-sign text-xl"></i>
@@ -58,7 +58,7 @@
             <div class="flex items-center justify-between">
                 <div>
                     <p class="text-xs font-semibold text-gray-500 uppercase">Turno Día</p>
-                    <p class="text-2xl font-bold text-yellow-600 mt-1">${{ number_format($totalByShift['dia'] ?? 0, 2, ',', '.') }}</p>
+                    <p class="text-2xl font-bold text-yellow-600 mt-1">{{ formatCurrency($totalByShift['dia'] ?? 0) }}</p>
                 </div>
                 <div class="p-3 rounded-lg bg-yellow-50 text-yellow-600">
                     <i class="fas fa-sun text-xl"></i>
@@ -70,7 +70,7 @@
             <div class="flex items-center justify-between">
                 <div>
                     <p class="text-xs font-semibold text-gray-500 uppercase">Turno Noche</p>
-                    <p class="text-2xl font-bold text-indigo-600 mt-1">${{ number_format($totalByShift['noche'] ?? 0, 2, ',', '.') }}</p>
+                    <p class="text-2xl font-bold text-indigo-600 mt-1">{{ formatCurrency($totalByShift['noche'] ?? 0) }}</p>
                 </div>
                 <div class="p-3 rounded-lg bg-indigo-50 text-indigo-600">
                     <i class="fas fa-moon text-xl"></i>
@@ -95,7 +95,7 @@
                                 <p class="text-sm font-semibold text-gray-900">{{ $user->name }}</p>
                                 <p class="text-xs text-gray-500">{{ count($userSales) }} venta(s)</p>
                             </div>
-                            <p class="text-lg font-bold text-gray-900">${{ number_format($userTotal, 2, ',', '.') }}</p>
+                            <p class="text-lg font-bold text-gray-900">{{ formatCurrency($userTotal) }}</p>
                         </div>
                     </div>
                 @endforeach
@@ -111,7 +111,7 @@
                 @foreach($totalByPaymentMethod as $method => $total)
                     <div class="border border-gray-200 rounded-lg p-4">
                         <p class="text-xs font-semibold text-gray-500 uppercase mb-1">{{ ucfirst($method) }}</p>
-                        <p class="text-xl font-bold text-gray-900">${{ number_format($total, 2, ',', '.') }}</p>
+                        <p class="text-xl font-bold text-gray-900">{{ formatCurrency($total) }}</p>
                     </div>
                 @endforeach
             </div>
@@ -148,7 +148,7 @@
                                 </td>
                                 <td class="px-4 py-3 text-sm text-gray-900 capitalize">{{ $sale->shift }}</td>
                                 <td class="px-4 py-3 text-sm text-gray-900 capitalize">{{ $sale->payment_method }}</td>
-                                <td class="px-4 py-3 text-sm font-medium text-gray-900 text-right">${{ number_format($sale->total, 2, ',', '.') }}</td>
+                                <td class="px-4 py-3 text-sm font-medium text-gray-900 text-right">{{ formatCurrency($sale->total) }}</td>
                             </tr>
                         @endforeach
                     </tbody>

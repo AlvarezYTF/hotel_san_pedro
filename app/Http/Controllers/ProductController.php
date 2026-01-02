@@ -21,7 +21,7 @@ class ProductController extends Controller
     public function search(\Illuminate\Http\Request $request): \Illuminate\Http\JsonResponse
     {
         $query = $request->query('q');
-        
+
         $products = \App\Models\Product::where('status', 'active')
             ->when($query, function($q) use ($query) {
                 $q->where(function($sub) use ($query) {
@@ -83,11 +83,18 @@ class ProductController extends Controller
     public function store(StoreProductRequest $request): RedirectResponse
     {
         $data = $request->validated();
-        
-        // Sanitize price (remove thousand separators)
+
+        // Sanitize price (remove thousand separators and convert to COP format)
         if (isset($data['price'])) {
+            // Remove all dots (thousand separators in Colombian format)
             $data['price'] = str_replace('.', '', $data['price']);
-            $data['price'] = (float) str_replace(',', '.', $data['price']);
+            // Replace comma with dot for decimal separator if present, otherwise treat as integer
+            if (strpos($data['price'], ',') !== false) {
+                $data['price'] = (float) str_replace(',', '.', $data['price']);
+            } else {
+                // For COP, typically no decimals, so convert to integer
+                $data['price'] = (int) $data['price'];
+            }
         }
 
         $data['status'] = 'active'; // Set status as active by default
@@ -102,7 +109,7 @@ class ProductController extends Controller
         }
 
         $product = \App\Models\Product::create($data);
-        
+
         // Registrar movimiento inicial si hay stock (esto sumará al 0 inicial)
         if ($initialQuantity > 0) {
             $product->recordMovement($initialQuantity, 'input', 'Carga inicial de inventario');
@@ -120,7 +127,7 @@ class ProductController extends Controller
     private function getDefaultAseoCategoryId(): int
     {
         $keywords = ['aseo', 'limpieza', 'insumo'];
-        
+
         $category = \App\Models\Category::where(function($q) use ($keywords) {
             foreach ($keywords as $kw) {
                 $q->orWhere('name', 'like', "%{$kw}%");
@@ -168,11 +175,18 @@ class ProductController extends Controller
     {
         $data = $request->validated();
         $newQuantity = $data['quantity'];
-        
-        // Sanitize price (remove thousand separators)
+
+        // Sanitize price (remove thousand separators and convert to COP format)
         if (isset($data['price'])) {
+            // Remove all dots (thousand separators in Colombian format)
             $data['price'] = str_replace('.', '', $data['price']);
-            $data['price'] = (float) str_replace(',', '.', $data['price']);
+            // Replace comma with dot for decimal separator if present, otherwise treat as integer
+            if (strpos($data['price'], ',') !== false) {
+                $data['price'] = (float) str_replace(',', '.', $data['price']);
+            } else {
+                // For COP, typically no decimals, so convert to integer
+                $data['price'] = (int) $data['price'];
+            }
         }
 
         // Quitar quantity del array para que update() no lo guarde directamente
@@ -185,7 +199,7 @@ class ProductController extends Controller
 
         $oldQuantity = $product->quantity;
         $product->update($data);
-        
+
         // Registrar ajuste si la cantidad cambió manualmente
         if ($oldQuantity != $newQuantity) {
             $diff = $newQuantity - $oldQuantity;
@@ -204,7 +218,7 @@ class ProductController extends Controller
     public function destroy(\App\Models\Product $product): RedirectResponse
     {
         $this->auditLog('inventory_delete', "Producto eliminado: {$product->name} (SKU: {$product->sku})", ['product_id' => $product->id]);
-        
+
         $product->delete();
         $this->productRepository->clearCache();
 

@@ -10,7 +10,7 @@
         });
     ">
         @csrf
-        
+
     <!-- Header -->
     <div class="bg-white rounded-xl border border-gray-100 p-4 sm:p-6 mb-4 sm:mb-6">
         <div class="flex items-center space-x-3 sm:space-x-4">
@@ -33,7 +33,7 @@
                 </div>
                 <h2 class="text-base sm:text-lg font-semibold text-gray-900">Información de la Venta</h2>
             </div>
-            
+
             <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
                 <!-- Fecha de Venta (Inmodificable) -->
                 <div>
@@ -53,15 +53,15 @@
                         Relacionar con Habitación (Opcional)
                     </label>
                     <div class="relative">
-                        <select id="room_id" 
+                        <select id="room_id"
                                 name="room_id"
                                 wire:model.live="room_id"
                                 class="block w-full pl-3 sm:pl-4 pr-10 py-2.5 border border-gray-300 rounded-xl text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent appearance-none bg-white @error('room_id') border-red-300 focus:ring-red-500 @enderror">
                             <option value="">Venta Normal</option>
                             @foreach($rooms as $room)
                                 @php
-                                    $customerName = $room->current_reservation && $room->current_reservation->customer 
-                                        ? $room->current_reservation->customer->name 
+                                    $customerName = $room->current_reservation && $room->current_reservation->customer
+                                        ? $room->current_reservation->customer->name
                                         : '';
                                 @endphp
                                 <option value="{{ $room->id }}">
@@ -103,7 +103,7 @@
                         Método de Pago <span class="text-red-500">*</span>
                     </label>
                     <div class="relative">
-                        <select id="payment_method" 
+                        <select id="payment_method"
                                 name="payment_method"
                                 wire:model.live="payment_method"
                                 class="block w-full pl-3 sm:pl-4 pr-10 py-2.5 border border-gray-300 rounded-xl text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent appearance-none bg-white @error('payment_method') border-red-300 focus:ring-red-500 @enderror"
@@ -125,7 +125,7 @@
                             {{ $message }}
                         </p>
                     @enderror
-                    
+
                     <!-- Campos para pago mixto -->
                     @if($payment_method === 'ambos')
                         <div class="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -137,7 +137,7 @@
                                     <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                                         <span class="text-gray-500 text-sm">$</span>
                                     </div>
-                                    <input type="text" 
+                                    <input type="text"
                                            id="cash_amount"
                                            name="cash_amount"
                                            wire:model.live.debounce.500ms="cash_amount"
@@ -152,7 +152,7 @@
                                     </p>
                                 @enderror
                             </div>
-                            
+
                             <div>
                                 <label for="transfer_amount" class="block text-xs font-semibold text-gray-700 mb-2">
                                     Monto por Transferencia <span class="text-red-500">*</span>
@@ -161,7 +161,7 @@
                                     <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                                         <span class="text-gray-500 text-sm">$</span>
                                     </div>
-                                    <input type="text" 
+                                    <input type="text"
                                            id="transfer_amount"
                                            name="transfer_amount"
                                            wire:model.live.debounce.500ms="transfer_amount"
@@ -176,7 +176,7 @@
                                     </p>
                                 @enderror
                             </div>
-                            
+
                             <div class="sm:col-span-2">
                                 <div class="p-3 rounded-xl bg-gray-50 border border-gray-100 space-y-2">
                                     <div class="flex justify-between items-center text-xs">
@@ -185,9 +185,9 @@
                                     </div>
                                     <div class="flex justify-between items-center text-xs">
                                         <span class="text-gray-500 font-medium">Total de la venta:</span>
-                                        <span class="font-bold text-gray-900">${{ number_format($this->total, 0, ',', '.') }}</span>
+                                        <span class="font-bold text-gray-900">{{ formatCurrency($this->total) }}</span>
                                     </div>
-                                    
+
                                     <div class="pt-2 border-t border-gray-200 flex justify-between items-center">
                                         <span class="text-xs font-bold uppercase tracking-wider text-gray-600">
                                             {{ $this->diferencia_pagos < 0 ? 'Faltante:' : ($this->diferencia_pagos > 0 ? 'Sobrante:' : 'Estado:') }}
@@ -214,7 +214,7 @@
                         Estado de Deuda
                     </label>
                     <div class="relative">
-                        <select id="debt_status_select" 
+                        <select id="debt_status_select"
                                 wire:model="debt_status"
                                 disabled
                                 class="block w-full pl-3 sm:pl-4 pr-10 py-2.5 border border-gray-200 rounded-xl text-sm text-gray-500 focus:outline-none appearance-none bg-gray-50 cursor-not-allowed">
@@ -244,7 +244,7 @@
                     <label for="notes" class="block text-xs sm:text-sm font-semibold text-gray-700 mb-2">
                         Notas
                     </label>
-                    <textarea id="notes" 
+                    <textarea id="notes"
                               name="notes"
                               wire:model="notes"
                               rows="2"
@@ -303,25 +303,29 @@
                             }
                         @endphp
                         <div class="space-y-2">
-                            <input type="number" 
+                            <input type="number"
                                    wire:model.live="selectedQuantity"
                                    min="1"
-                                   max="{{ $maxStock }}"
                                    step="1"
                                    class="block w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent @error('selectedQuantity') border-red-300 focus:ring-red-500 @enderror"
                                    required>
                             @if($currentSubtotal > 0)
                                 <p class="text-[10px] font-black text-green-600 uppercase tracking-widest text-right">
-                                    Subtotal: ${{ number_format($currentSubtotal, 0, ',', '.') }}
+                                    Subtotal: {{ formatCurrency($currentSubtotal) }}
                                 </p>
                             @endif
                         </div>
                         @error('selectedQuantity')
                             <p class="mt-1 text-xs text-red-600 font-bold uppercase tracking-tighter">{{ $message }}</p>
                         @enderror
+                        @if($selectedProduct && $maxStock < 999)
+                            <p class="mt-1 text-[10px] text-gray-500">
+                                Stock disponible: <span class="font-semibold">{{ $maxStock }}</span> unidades
+                            </p>
+                        @endif
                     </div>
                 </div>
-                <button type="button" 
+                <button type="button"
                         wire:click="addItem"
                         class="mt-4 inline-flex items-center justify-center px-3 py-2 rounded-lg border-2 border-green-600 bg-green-600 text-white text-xs font-semibold hover:bg-green-700 transition-all">
                     <i class="fas fa-plus mr-1.5"></i>
@@ -351,27 +355,31 @@
                                         Cantidad
                                     </label>
                                     <div class="flex items-center space-x-2">
-                                        <input type="number" 
+                                        <input type="number"
                                                wire:model.live="items.{{ $index }}.quantity"
                                                wire:change="calculateTotal"
                                                min="1"
-                                               max="{{ $item['stock_available'] ?? 999 }}"
                                                class="block w-20 px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent @error('items.'.$index.'.quantity') border-red-500 @enderror">
-                                        <span class="text-xs text-gray-400">x ${{ number_format($item['product_price'], 0, ',', '.') }}</span>
+                                        <span class="text-xs text-gray-400">x {{ formatCurrency($item['product_price']) }}</span>
                                     </div>
                                     @error('items.'.$index.'.quantity')
                                         <p class="mt-1 text-[8px] text-red-600 font-bold uppercase">{{ $message }}</p>
                                     @enderror
+                                    @if(isset($item['stock_available']))
+                                        <p class="mt-0.5 text-[8px] text-gray-400">
+                                            Stock: <span class="font-semibold">{{ $item['stock_available'] }}</span>
+                                        </p>
+                                    @endif
                                 </div>
                                 <div class="text-right">
                                     <label class="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">
                                         Subtotal
                                     </label>
-                                    <p class="text-sm font-black text-gray-900">${{ number_format($item['product_price'] * $item['quantity'], 0, ',', '.') }}</p>
+                                    <p class="text-sm font-black text-gray-900">{{ formatCurrency($item['product_price'] * $item['quantity']) }}</p>
                                 </div>
                             </div>
                             <div class="mt-3 pt-3 border-t border-gray-100 flex justify-end">
-                                <button type="button" 
+                                <button type="button"
                                         wire:click="removeItem({{ $index }})"
                                         class="text-rose-500 hover:text-rose-700 text-[10px] font-bold uppercase flex items-center bg-rose-50 px-2 py-1 rounded-md transition-colors">
                                     <i class="fas fa-trash-alt mr-1.5"></i>
@@ -401,7 +409,7 @@
                             </div>
                             <div class="text-right bg-green-50 px-6 py-3 rounded-2xl border border-green-100">
                                 <p class="text-[10px] font-bold text-green-600 uppercase tracking-widest">Total a Pagar</p>
-                                <p class="text-3xl font-black text-green-700">${{ number_format($this->total, 0, ',', '.') }}</p>
+                                <p class="text-3xl font-black text-green-700">{{ formatCurrency($this->total) }}</p>
                             </div>
                         </div>
                     </div>
@@ -421,15 +429,15 @@
                 <p class="text-xs text-gray-500">
                     Los campos marcados con <span class="text-red-500">*</span> son obligatorios
                 </p>
-                
+
                 <div class="flex flex-col sm:flex-row gap-3">
-                    <a href="{{ route('sales.index') }}" 
+                    <a href="{{ route('sales.index') }}"
                        class="inline-flex items-center justify-center px-4 sm:px-6 py-2.5 rounded-xl border border-gray-300 text-sm font-semibold text-gray-700 bg-white hover:bg-gray-50 transition-colors duration-200">
                         <i class="fas fa-arrow-left mr-2"></i>
                         Volver
                     </a>
-                    
-                    <button type="submit" 
+
+                    <button type="submit"
                             x-bind:disabled="submitting"
                             class="inline-flex items-center justify-center px-4 sm:px-6 py-2.5 rounded-xl border-2 border-green-600 bg-green-600 text-white text-sm font-semibold hover:bg-green-700 hover:border-green-700 transition-all duration-200 shadow-sm hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed">
                         <i class="fas fa-save mr-2" x-show="!submitting"></i>
@@ -441,7 +449,7 @@
             </div>
         </div>
     </div>
-    
+
     <!-- Hidden inputs for items -->
     @foreach($items as $index => $item)
         <input type="hidden" name="items[{{ $index }}][product_id]" value="{{ $item['product_id'] }}">

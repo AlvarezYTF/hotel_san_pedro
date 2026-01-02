@@ -8,7 +8,7 @@
                     <th class="px-6 py-4 text-left">Producto</th>
                     <th class="px-6 py-4 text-left">Categoría</th>
                     <th class="px-6 py-4 text-left">Stock</th>
-                    <th class="px-6 py-4 text-left">Precio</th>
+                    <th class="px-6 py-4 text-left">Precio (COP)</th>
                     <th class="px-6 py-4 text-left">Estado</th>
                     <th class="px-6 py-4 text-right">Acciones</th>
                 </tr>

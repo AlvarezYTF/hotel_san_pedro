@@ -22,23 +22,23 @@ class CreateSale extends Component
     public $transfer_amount = null;
     public $debt_status = 'pagado';
     public $notes = '';
-    
+
     // Items
     public $items = [];
-    
+
     // Computed properties
     public $rooms = [];
     public $products = [];
     public $selectedProduct = null;
     public $selectedQuantity = 1;
-    
+
     public function getTotalProperty()
     {
         $total = 0;
         foreach ($this->items as $item) {
             $total += $item['product_price'] * $item['quantity'];
         }
-        
+
         // Sumar también el producto que está seleccionado actualmente en el buscador pero no agregado
         if ($this->selectedProduct) {
             $prod = collect($this->products)->firstWhere('id', $this->selectedProduct);
@@ -46,7 +46,7 @@ class CreateSale extends Component
                 $total += $prod->price * ($this->selectedQuantity ?: 0);
             }
         }
-        
+
         return $total;
     }
 
@@ -79,7 +79,7 @@ class CreateSale extends Component
     public function mount()
     {
         $this->sale_date = now()->format('Y-m-d');
-        
+
         // Load only rooms with active reservations (Status: 'ocupada')
         $this->rooms = Room::where('status', 'ocupada')
             ->with(['reservations' => function($q) {
@@ -118,7 +118,7 @@ class CreateSale extends Component
             $this->transfer_amount = null;
         } else {
             $this->debt_status = 'pagado';
-            
+
             if ($this->payment_method === 'efectivo') {
                 $this->cash_amount = $this->total;
                 $this->transfer_amount = null;
@@ -149,6 +149,16 @@ class CreateSale extends Component
 
     public function updatedSelectedQuantity()
     {
+        // Validar stock en tiempo real
+        if ($this->selectedProduct && $this->selectedQuantity > 0) {
+            $product = Product::find($this->selectedProduct);
+            if ($product && $this->selectedQuantity > $product->quantity) {
+                $this->addError('selectedQuantity', "No hay suficiente stock disponible. Stock actual: {$product->quantity} unidades.");
+            } else {
+                $this->resetErrorBag('selectedQuantity');
+            }
+        }
+
         $this->updatePaymentFields();
     }
 
@@ -182,7 +192,7 @@ class CreateSale extends Component
 
         if ($existingIndex !== false) {
             $newQuantity = $this->items[$existingIndex]['quantity'] + $this->selectedQuantity;
-            
+
             if ($newQuantity > $product->quantity) {
                 $this->addError('selectedQuantity', "No se puede agregar más. El total en la lista ({$newQuantity}) superaría el stock ({$product->quantity}).");
                 return;
@@ -233,7 +243,7 @@ class CreateSale extends Component
     private function sanitizeNumber($value)
     {
         if (empty($value)) return 0;
-        
+
         // Si ya es un número (int o float), lo devolvemos tal cual
         if (is_int($value) || is_float($value)) return (float)$value;
 
@@ -241,7 +251,7 @@ class CreateSale extends Component
         // Esto es necesario porque PHP interpreta "3.000" como 3.0
         $clean = str_replace('.', '', (string)$value);
         $clean = str_replace(',', '.', $clean);
-        
+
         return is_numeric($clean) ? (float)$clean : 0;
     }
 
@@ -258,16 +268,37 @@ class CreateSale extends Component
                 // Ensure quantity doesn't exceed stock
                 if ($item['quantity'] > $product->quantity) {
                     $this->items[$index]['quantity'] = $product->quantity;
-                    $this->addError("items.{$index}.quantity", "Cantidad ajustada al máximo disponible ({$product->quantity})");
+                    $this->addError("items.{$index}.quantity", "No hay suficiente stock disponible. Stock actual: {$product->quantity} unidades.");
+                } else {
+                    // Clear error if quantity is valid
+                    $this->resetErrorBag("items.{$index}.quantity");
                 }
             }
         }
-        
+
         $this->updatePaymentFields();
     }
 
-    public function updatedItems()
+    public function updatedItems($value, $key)
     {
+        // Validar stock cuando se actualiza la cantidad de un item
+        // El key viene como "items.0.quantity" cuando se actualiza desde wire:model
+        if (preg_match('/^items\.(\d+)\.quantity$/', $key, $matches)) {
+            $index = (int) $matches[1];
+            if (isset($this->items[$index])) {
+                $item = $this->items[$index];
+                $product = Product::find($item['product_id']);
+                if ($product && isset($item['quantity'])) {
+                    // Validar que la cantidad no exceda el stock
+                    if ($item['quantity'] > $product->quantity) {
+                        $this->addError("items.{$index}.quantity", "No hay suficiente stock disponible. Stock actual: {$product->quantity} unidades.");
+                    } else {
+                        $this->resetErrorBag("items.{$index}.quantity");
+                    }
+                }
+            }
+        }
+
         $this->updatePaymentFields();
     }
 
@@ -279,7 +310,7 @@ class CreateSale extends Component
         }
 
         $total = $this->total;
-        
+
         if ($this->payment_method === 'efectivo') {
             $this->cash_amount = $total;
             $this->transfer_amount = null;

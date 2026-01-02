@@ -53,7 +53,11 @@
         @endif
     </td>
     <td class="px-6 py-4 whitespace-nowrap text-sm font-bold text-gray-900">
-        ${{ number_format($product->price, 2) }}
+        @if(function_exists('formatCurrency'))
+            {{ formatCurrency($product->price) }}
+        @else
+            ${{ number_format($product->price, 0, ',', '.') }}
+        @endif
     </td>
     <td class="px-6 py-4 whitespace-nowrap">
         @php

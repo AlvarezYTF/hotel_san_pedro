@@ -75,7 +75,7 @@
             
             <div>
                 <label class="block text-xs font-semibold text-gray-500 mb-1">Total</label>
-                <p class="text-lg font-bold text-gray-900">${{ number_format($sale->total, 2, ',', '.') }}</p>
+                <p class="text-lg font-bold text-gray-900">{{ formatCurrency($sale->total) }}</p>
             </div>
         </div>
     </div>
@@ -111,15 +111,15 @@
                                 </span>
                             </td>
                             <td class="px-4 py-3 text-sm text-gray-900">{{ $item->quantity }}</td>
-                            <td class="px-4 py-3 text-sm text-gray-900">${{ number_format($item->unit_price, 2, ',', '.') }}</td>
-                            <td class="px-4 py-3 text-sm font-medium text-gray-900 text-right">${{ number_format($item->total, 2, ',', '.') }}</td>
+                            <td class="px-4 py-3 text-sm text-gray-900">{{ formatCurrency($item->unit_price) }}</td>
+                            <td class="px-4 py-3 text-sm font-medium text-gray-900 text-right">{{ formatCurrency($item->total) }}</td>
                         </tr>
                     @endforeach
                 </tbody>
                 <tfoot class="bg-gray-50">
                     <tr>
                         <td colspan="4" class="px-4 py-3 text-sm font-semibold text-gray-900 text-right">Total:</td>
-                        <td class="px-4 py-3 text-lg font-bold text-gray-900 text-right">${{ number_format($sale->total, 2, ',', '.') }}</td>
+                        <td class="px-4 py-3 text-lg font-bold text-gray-900 text-right">{{ formatCurrency($sale->total) }}</td>
                     </tr>
                 </tfoot>
             </table>
@@ -160,11 +160,11 @@
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
                         <label class="block text-xs font-semibold text-gray-500 mb-1">Efectivo</label>
-                        <p class="text-sm font-medium text-gray-900">${{ number_format($sale->cash_amount ?? 0, 2, ',', '.') }}</p>
+                        <p class="text-sm font-medium text-gray-900">{{ formatCurrency($sale->cash_amount ?? 0) }}</p>
                     </div>
                     <div>
                         <label class="block text-xs font-semibold text-gray-500 mb-1">Transferencia</label>
-                        <p class="text-sm font-medium text-gray-900">${{ number_format($sale->transfer_amount ?? 0, 2, ',', '.') }}</p>
+                        <p class="text-sm font-medium text-gray-900">{{ formatCurrency($sale->transfer_amount ?? 0) }}</p>
                     </div>
                 </div>
             @endif
