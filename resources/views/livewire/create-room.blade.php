@@ -1,17 +1,4 @@
-<div class="max-w-4xl mx-auto space-y-4 sm:space-y-6">
-    <!-- Header -->
-    <div class="bg-white rounded-xl border border-gray-100 p-4 sm:p-6">
-        <div class="flex items-center space-x-3 sm:space-x-4">
-            <div class="p-2.5 sm:p-3 rounded-xl bg-emerald-50 text-emerald-600">
-                <i class="fas fa-bed text-lg sm:text-xl"></i>
-            </div>
-            <div>
-                <h1 class="text-xl sm:text-2xl font-bold text-gray-900">Nueva Habitación</h1>
-                <p class="text-xs sm:text-sm text-gray-500 mt-1">Registra una nueva habitación con su configuración y precios</p>
-            </div>
-        </div>
-    </div>
-
+<div class="p-6 space-y-4 sm:space-y-6">
     <form wire:submit="store" class="space-y-4 sm:space-y-6">
         <!-- Información Básica -->
         <div class="bg-white rounded-xl border border-gray-100 p-4 sm:p-6">
@@ -183,7 +170,7 @@
                             <input 
                                 type="number" 
                                 wire:model.blur="occupancy_prices.{{ $i }}"
-                                min="0"
+                                min="1"
                                 step="1"
                                 class="block w-full pl-8 sm:pl-9 pr-3 sm:pr-4 py-2.5 border border-gray-300 rounded-xl text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all @error("occupancy_prices.{$i}") border-red-300 focus:ring-red-500 @enderror"
                                 placeholder="0"
@@ -207,12 +194,13 @@
                     Los campos marcados con <span class="text-red-500">*</span> son obligatorios
                 </p>
                 
-                <div class="flex flex-col sm:flex-row gap-3 sm:gap-3">
-                    <a href="{{ route('rooms.index') }}" 
-                       class="inline-flex items-center justify-center px-4 sm:px-6 py-2.5 rounded-xl border border-gray-300 text-sm font-semibold text-gray-700 bg-white hover:bg-gray-50 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500">
-                        <i class="fas fa-arrow-left mr-2"></i>
-                        Volver
-                    </a>
+                <div class="flex flex-col sm:flex-row sm:justify-end gap-3 sm:gap-3">
+                    <button type="button"
+                            @click="$dispatch('close-create-room-modal')"
+                            class="inline-flex items-center justify-center px-4 sm:px-6 py-2.5 rounded-xl border border-gray-300 text-sm font-semibold text-gray-700 bg-white hover:bg-gray-50 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500">
+                        <i class="fas fa-times mr-2"></i>
+                        Cancelar
+                    </button>
                     
                     <button type="submit" 
                             wire:loading.attr="disabled"

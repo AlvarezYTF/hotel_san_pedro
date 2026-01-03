@@ -4,6 +4,7 @@ namespace App\Livewire;
 
 use Livewire\Component;
 use Livewire\Attributes\On;
+use Livewire\Attributes\Computed;
 use App\Models\Room;
 use App\Models\Reservation;
 use App\Models\ReservationSale;
@@ -13,6 +14,7 @@ use App\Models\Customer;
 use App\Models\CustomerTaxProfile;
 use App\Models\AuditLog;
 use App\Models\RoomReleaseHistory;
+use App\Models\RoomDailyStatus;
 use App\Enums\RoomStatus;
 use App\Enums\VentilationType;
 use Carbon\Carbon;
@@ -45,6 +47,9 @@ class RoomManager extends Component
     public $showAddSale = false;
     public $showAddDeposit = false;
     public $quickRentModal = false;
+    public $roomEditModal = false;
+    public $roomEditData = null;
+    public $createRoomModal = false;
     
     // Tabs
     public $activeTab = 'rooms'; // 'rooms' or 'history'
@@ -128,21 +133,44 @@ class RoomManager extends Component
     {
         $room = Room::find($this->selectedRoomId);
         $date = Carbon::parse($this->date);
+        $isPastDate = $date->isPast() && !$date->isToday();
 
-        $reservation = $room->reservations()
-            ->where('check_in_date', '<=', $date)
-            ->where('check_out_date', '>', $date)
-            ->with(['customer.taxProfile', 'sales.product', 'reservationDeposits'])
-            ->first();
+        // Para fechas pasadas, usar snapshot si existe
+        if ($isPastDate) {
+            $snapshot = RoomDailyStatus::where('room_id', $room->id)
+                ->whereDate('date', $date->toDateString())
+                ->with('reservation.customer.taxProfile', 'reservation.sales.product', 'reservation.reservationDeposits')
+                ->first();
+
+            if ($snapshot && $snapshot->reservation_id) {
+                $reservation = $snapshot->reservation;
+            } else {
+                // Si no hay snapshot, intentar buscar reserva histórica
+                $reservation = $room->reservations()
+                    ->where('check_in_date', '<=', $date)
+                    ->where('check_out_date', '>', $date)
+                    ->with(['customer.taxProfile', 'sales.product', 'reservationDeposits'])
+                    ->first();
+            }
+        } else {
+            // Para hoy o futuro, usar lógica normal
+            $reservation = $room->reservations()
+                ->where('check_in_date', '<=', $date)
+                ->where('check_out_date', '>', $date)
+                ->with(['customer.taxProfile', 'sales.product', 'reservationDeposits'])
+                ->first();
+        }
 
         if (!$reservation) {
+            $status = $isPastDate && isset($snapshot) ? $snapshot->status : $room->status;
             $this->detailData = [
                 'room' => $room->toArray(),
                 'reservation' => null,
                 'sales' => [],
                 'stay_history' => [],
-                'status_label' => $room->status->label(),
-                'status_color' => $room->status->color()
+                'status_label' => $status->label(),
+                'status_color' => $status->color(),
+                'is_past_date' => $isPastDate,
             ];
         } else {
             $total_hospedaje_completo = (float) $reservation->total_amount;
@@ -237,7 +265,8 @@ class RoomManager extends Component
                     })
                     ->toArray(),
                 'status_label' => RoomStatus::OCUPADA->label(),
-                'status_color' => RoomStatus::OCUPADA->color()
+                'status_color' => RoomStatus::OCUPADA->color(),
+                'is_past_date' => $isPastDate,
             ];
         }
     }
@@ -364,11 +393,11 @@ class RoomManager extends Component
         // If not found, try using selectedRoomId (for detail modal context)
         if (!$reservation && $this->selectedRoomId) {
             $room = Room::find($this->selectedRoomId);
-            $reservation = $room->reservations()
-                ->where('check_in_date', '<=', $date)
-                ->where('check_out_date', '>', $date)
-                ->with(['customer', 'customer.taxProfile', 'sales'])
-                ->first();
+        $reservation = $room->reservations()
+            ->where('check_in_date', '<=', $date)
+            ->where('check_out_date', '>', $date)
+            ->with(['customer', 'customer.taxProfile', 'sales'])
+            ->first();
         }
 
         if (!$reservation) {
@@ -1031,6 +1060,17 @@ class RoomManager extends Component
         $this->dispatch('notify', type: 'success', message: "Estancia extendida.");
     }
 
+    public function openRoomEdit($roomId)
+    {
+        $room = Room::with('rates')->find($roomId);
+        $this->roomEditData = [
+            'room' => $room,
+            'statuses' => RoomStatus::cases(),
+            'isOccupied' => $room->isOccupied(),
+        ];
+        $this->roomEditModal = true;
+    }
+
     public function openQuickRent($roomId)
     {
         $room = Room::find($roomId);
@@ -1519,6 +1559,18 @@ class RoomManager extends Component
      * - Si este listener NO se ejecuta (componente no montado), el polling (refreshRoomsPolling())
      *   capturará el cambio en ≤5s
      */
+    #[On('room-created')]
+    public function onRoomCreated(int $roomId): void
+    {
+        // Close modal
+        $this->createRoomModal = false;
+        
+        // Refresh rooms list to show the new room
+        $this->refreshRooms();
+        $this->refreshTrigger = now()->timestamp;
+        $this->lastEventUpdate = now()->timestamp;
+    }
+
     #[On('room-status-updated')]
     public function onRoomStatusUpdated(int $roomId): void
     {
@@ -1723,7 +1775,8 @@ class RoomManager extends Component
                 $snapshot = $room->dailyStatuses->first();
 
                 if (!$snapshot) {
-                    $displayStatus = \App\Enums\RoomStatus::LIBRE;
+                    // Si no hay snapshot, usar estado calculado (fallback)
+                    $displayStatus = $room->getDisplayStatus($date);
                     $activePrices = $room->getPricesForDate($date);
                     $cleaningStatus = $room->cleaningStatus($date);
 
@@ -1732,6 +1785,13 @@ class RoomManager extends Component
                         is_string($room->ventilation_type) && $room->ventilation_type !== '' => \App\Enums\VentilationType::from($room->ventilation_type)->label(),
                         default => null,
                     };
+
+                    // Buscar reserva histórica si existe
+                    $reservation = $room->reservations()
+                        ->where('check_in_date', '<=', $date)
+                        ->where('check_out_date', '>', $date)
+                        ->with(['customer', 'guests'])
+                        ->first();
 
                     return (object) [
                         'id' => $room->id,
@@ -1745,14 +1805,15 @@ class RoomManager extends Component
                         'display_status' => $displayStatus,
                         'active_prices' => $activePrices,
                         'cleaning_status' => $cleaningStatus,
-                        'current_reservation' => null,
-                        'guest_name' => null,
-                        'check_out_date' => null,
+                        'current_reservation' => $reservation,
+                        'guest_name' => $reservation?->customer?->name ?? null,
+                        'check_out_date' => $reservation?->check_out_date?->toDateString(),
                         'total_debt' => 0,
                         'is_night_paid' => false,
                     ];
                 }
 
+                // Usar datos del snapshot (estado real al final del día)
                 $displayStatus = $snapshot->status;
                 $activePrices = $room->getPricesForDate($date);
 
@@ -1789,6 +1850,33 @@ class RoomManager extends Component
                     default => null,
                 };
 
+                // Cargar reserva desde snapshot si existe
+                $reservation = null;
+                if ($snapshot->reservation_id) {
+                    $reservation = Reservation::with(['customer', 'guests', 'sales'])
+                        ->find($snapshot->reservation_id);
+                }
+
+                // Calcular deuda si hay reserva
+                $totalDebt = 0;
+                $isNightPaid = false;
+                if ($reservation) {
+                    $checkIn = Carbon::parse($reservation->check_in_date);
+                    $checkOut = Carbon::parse($reservation->check_out_date);
+                    $daysTotal = max(1, $checkIn->diffInDays($checkOut));
+                    $dailyPrice = (float)$reservation->total_amount / $daysTotal;
+
+                    $daysUntilSelected = $checkIn->diffInDays($date);
+                    $costUntilSelected = $dailyPrice * ($daysUntilSelected + 1);
+                    $costUntilSelected = min((float)$reservation->total_amount, $costUntilSelected);
+
+                    $isNightPaid = ($reservation->deposit >= $costUntilSelected);
+
+                    $stay_debt = (float)($reservation->total_amount - $reservation->deposit);
+                    $sales_debt = (float)$reservation->sales->where('is_paid', false)->sum('total');
+                    $totalDebt = $stay_debt + $sales_debt;
+                }
+
                 return (object) [
                     'id' => $room->id,
                     'room_number' => $room->room_number,
@@ -1801,11 +1889,11 @@ class RoomManager extends Component
                     'display_status' => $displayStatus,
                     'active_prices' => $activePrices,
                     'cleaning_status' => $cleaningStatus,
-                    'current_reservation' => null,
-                    'guest_name' => $snapshot->guest_name,
-                    'check_out_date' => $snapshot->check_out_date?->toDateString(),
-                    'total_debt' => 0,
-                    'is_night_paid' => false,
+                    'current_reservation' => $reservation,
+                    'guest_name' => $snapshot->guest_name ?? $reservation?->customer?->name,
+                    'check_out_date' => $snapshot->check_out_date?->toDateString() ?? $reservation?->check_out_date?->toDateString(),
+                    'total_debt' => $totalDebt,
+                    'is_night_paid' => $isNightPaid,
                 ];
             });
 

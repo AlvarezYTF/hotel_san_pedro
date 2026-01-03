@@ -33,11 +33,23 @@ class SnapshotRoomDailyStatus extends Command
 
         Room::chunkById(100, function ($rooms) use ($snapshotDate) {
             foreach ($rooms as $room) {
+                // Capture the DISPLAY status - this is what the user sees in the interface
+                // This includes "Ocupada" when there's a reservation, even if status field is "Libre"
+                // This preserves exactly how the room appeared at the end of the day
                 $displayStatus = $room->getDisplayStatus($snapshotDate);
+                
+                // Capture the cleaning status at the end of the day
                 $cleaning = $room->cleaningStatus($snapshotDate);
 
-                $reservation = $room->getActiveReservation($snapshotDate);
-                if (!$reservation && $displayStatus === RoomStatus::PENDIENTE_CHECKOUT) {
+                // Get reservation info if exists (for historical reference)
+                $reservation = $room->reservations()
+                    ->where('check_in_date', '<=', $snapshotDate)
+                    ->where('check_out_date', '>', $snapshotDate)
+                    ->with('customer')
+                    ->first();
+
+                // If no active reservation, check for pending checkout
+                if (!$reservation) {
                     $reservation = $room->getPendingCheckoutReservation($snapshotDate);
                 }
 
@@ -47,11 +59,11 @@ class SnapshotRoomDailyStatus extends Command
                         'date' => $snapshotDate->toDateString(),
                     ],
                     [
-                        'status' => $displayStatus,
+                        'status' => $displayStatus, // Display status - what user sees (includes "Ocupada" from reservations)
                         'cleaning_status' => $cleaning['code'],
                         'reservation_id' => $reservation?->id,
-                        'guest_name' => $reservation?->customer?->name,
-                        'check_out_date' => $reservation?->check_out_date,
+                        'guest_name' => $reservation?->customer?->name ?? null,
+                        'check_out_date' => $reservation?->check_out_date ?? null,
                         'total_amount' => $reservation?->total_amount ?? 0,
                     ]
                 );

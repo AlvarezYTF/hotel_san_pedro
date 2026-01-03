@@ -10,6 +10,8 @@
      x-data="{ 
     quickRentModal: @entangle('quickRentModal'),
         roomDetailModal: @entangle('roomDetailModal'),
+        roomEditModal: @entangle('roomEditModal'),
+        createRoomModal: @entangle('createRoomModal'),
         actionsMenuOpen: null,
         init() {
             const handleScroll = () => {
@@ -91,7 +93,7 @@
     <!-- MODAL: ARRENDAMIENTO RÁPIDO -->
     <x-room-manager.quick-rent-modal 
         :rentForm="$rentForm" 
-        :additionalGuests="$additionalGuests"
+        :additionalGuests="$additionalGuests" 
         :checkInDate="$date"
     />
 
@@ -109,6 +111,18 @@
 
     <!-- MODAL: HUÉSPEDES -->
     <x-room-manager.guests-modal />
+
+    <!-- MODAL: CREAR HABITACIÓN -->
+    <x-room-manager.create-room-modal />
+
+    <!-- MODAL: EDITAR HABITACIÓN -->
+    @if($roomEditData)
+        <x-room-manager.room-edit-modal 
+            :room="$roomEditData['room']" 
+            :statuses="$roomEditData['statuses']"
+            :isOccupied="$roomEditData['isOccupied']"
+        />
+    @endif
 
     <!-- SCRIPTS -->
     <x-room-manager.scripts />

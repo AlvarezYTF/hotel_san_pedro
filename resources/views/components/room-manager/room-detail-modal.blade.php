@@ -10,7 +10,14 @@
                     <div class="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center">
                         <i class="fas fa-door-open"></i>
                     </div>
-                    <h3 class="text-xl font-bold text-gray-900">Habitación {{ $detailData['room']['room_number'] }}</h3>
+                    <div>
+                        <h3 class="text-xl font-bold text-gray-900">Habitación {{ $detailData['room']['room_number'] }}</h3>
+                        @if(isset($detailData['is_past_date']) && $detailData['is_past_date'])
+                            <p class="text-xs text-gray-500 mt-1">
+                                <i class="fas fa-history mr-1"></i> Vista histórica - Solo lectura
+                            </p>
+                        @endif
+                    </div>
                 </div>
                 <button @click="roomDetailModal = false" class="text-gray-400 hover:text-gray-900"><i class="fas fa-times text-xl"></i></button>
             </div>
@@ -27,9 +34,11 @@
                             <div class="p-4 bg-green-50 rounded-xl text-center relative group">
                                 <p class="text-[9px] font-bold text-green-600 uppercase mb-1">Abono</p>
                                 <p class="text-sm font-bold text-green-700">${{ number_format($detailData['abono_realizado'], 0, ',', '.') }}</p>
-                                <button @click="editDeposit({{ $detailData['reservation']['id'] }}, {{ $detailData['abono_realizado'] }})" class="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity text-green-600 hover:text-green-800">
-                                    <i class="fas fa-edit text-[10px]"></i>
-                                </button>
+                                @if(!isset($detailData['is_past_date']) || !$detailData['is_past_date'])
+                                    <button @click="editDeposit({{ $detailData['reservation']['id'] }}, {{ $detailData['abono_realizado'] }})" class="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity text-green-600 hover:text-green-800">
+                                        <i class="fas fa-edit text-[10px]"></i>
+                                    </button>
+                                @endif
                             </div>
                             <div class="p-4 bg-gray-50 rounded-xl text-center">
                                 <p class="text-[9px] font-bold text-gray-400 uppercase mb-1">Consumos</p>
@@ -46,7 +55,7 @@
                                 <p class="text-sm font-black {{ $isCredit ? 'text-blue-700' : 'text-red-700' }}">
                                     ${{ number_format(abs($totalDebt), 0, ',', '.') }}
                                 </p>
-                                @if($isCredit && isset($detailData['reservation']['id']))
+                                @if($isCredit && isset($detailData['reservation']['id']) && (!isset($detailData['is_past_date']) || !$detailData['is_past_date']))
                                     <button 
                                         type="button"
                                         @click.stop="confirmRefund({{ $detailData['reservation']['id'] }}, {{ abs($totalDebt) }}, '{{ number_format(abs($totalDebt), 0, ',', '.') }}')"
@@ -62,7 +71,9 @@
                         <div class="space-y-4">
                             <div class="flex items-center justify-between pb-2 border-b border-gray-100">
                                 <h4 class="text-xs font-bold text-gray-900 uppercase tracking-widest">Detalle de Consumos</h4>
-                                <button wire:click="toggleAddSale" class="text-[10px] font-bold text-blue-600 uppercase">+ Agregar Consumo</button>
+                                @if(!isset($detailData['is_past_date']) || !$detailData['is_past_date'])
+                                    <button wire:click="toggleAddSale" class="text-[10px] font-bold text-blue-600 uppercase">+ Agregar Consumo</button>
+                                @endif
                             </div>
 
                             @if($showAddSale)
@@ -108,12 +119,16 @@
                                                     @if($sale['is_paid'])
                                                         <div class="flex flex-col items-center space-y-1">
                                                             <span class="text-[9px] font-bold uppercase text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full">{{ $sale['payment_method'] }}</span>
-                                                            <button @click="confirmRevertSale({{ $sale['id'] }})" class="text-[8px] font-bold text-gray-400 underline uppercase tracking-tighter hover:text-red-600 opacity-0 group-hover:opacity-100 transition-opacity">Anular Pago</button>
+                                                            @if(!isset($detailData['is_past_date']) || !$detailData['is_past_date'])
+                                                                <button @click="confirmRevertSale({{ $sale['id'] }})" class="text-[8px] font-bold text-gray-400 underline uppercase tracking-tighter hover:text-red-600 opacity-0 group-hover:opacity-100 transition-opacity">Anular Pago</button>
+                                                            @endif
                                                         </div>
                                                     @else
                                                         <div class="flex flex-col items-center space-y-1">
                                                             <span class="text-[9px] font-bold uppercase text-red-600 bg-red-50 px-2 py-0.5 rounded-full">Pendiente</span>
-                                                            <button @click="confirmPaySale({{ $sale['id'] }})" class="text-[8px] font-bold text-blue-600 underline uppercase tracking-tighter hover:text-blue-800">Marcar Pago</button>
+                                                            @if(!isset($detailData['is_past_date']) || !$detailData['is_past_date'])
+                                                                <button @click="confirmPaySale({{ $sale['id'] }})" class="text-[8px] font-bold text-blue-600 underline uppercase tracking-tighter hover:text-blue-800">Marcar Pago</button>
+                                                            @endif
                                                         </div>
                                                     @endif
                                                 </td>
@@ -159,7 +174,9 @@
                         <div class="space-y-4 pt-4 border-t border-gray-100">
                             <div class="flex items-center justify-between pb-2 border-b border-gray-100">
                                 <h4 class="text-xs font-bold text-gray-900 uppercase tracking-widest">Historial de Abonos</h4>
-                                <button wire:click="toggleAddDeposit" class="text-[10px] font-bold text-blue-600 uppercase">+ Agregar Abono</button>
+                                @if(!isset($detailData['is_past_date']) || !$detailData['is_past_date'])
+                                    <button wire:click="toggleAddDeposit" class="text-[10px] font-bold text-blue-600 uppercase">+ Agregar Abono</button>
+                                @endif
                             </div>
 
                             @if($showAddDeposit)
@@ -217,13 +234,15 @@
                                                 </td>
                                                 <td class="px-4 py-3 text-xs text-gray-500">{{ $deposit['notes'] ?? '-' }}</td>
                                                 <td class="px-4 py-3 text-center">
-                                                    <button 
-                                                        type="button"
-                                                        @click="confirmDeleteDeposit({{ $deposit['id'] }}, {{ $deposit['amount'] }}, '{{ number_format($deposit['amount'], 0, ',', '.') }}')"
-                                                        class="text-red-500 hover:text-red-700 opacity-0 group-hover:opacity-100 transition-opacity"
-                                                        title="Eliminar abono">
-                                                        <i class="fas fa-trash text-xs"></i>
-                                                    </button>
+                                                    @if(!isset($detailData['is_past_date']) || !$detailData['is_past_date'])
+                                                        <button 
+                                                            type="button"
+                                                            @click="confirmDeleteDeposit({{ $deposit['id'] }}, {{ $deposit['amount'] }}, '{{ number_format($deposit['amount'], 0, ',', '.') }}')"
+                                                            class="text-red-500 hover:text-red-700 opacity-0 group-hover:opacity-100 transition-opacity"
+                                                            title="Eliminar abono">
+                                                            <i class="fas fa-trash text-xs"></i>
+                                                        </button>
+                                                    @endif
                                                 </td>
                                             </tr>
                                         @empty
@@ -259,12 +278,16 @@
                                                     @if($stay['is_paid'])
                                                         <div class="flex flex-col items-end space-y-1">
                                                             <span class="text-[9px] font-bold uppercase text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full">Pagado</span>
-                                                            <button @click="confirmRevertNight({{ $detailData['reservation']['id'] }}, {{ $stay['price'] }})" class="text-[8px] font-bold text-gray-400 underline uppercase tracking-tighter hover:text-red-600 opacity-0 group-hover:opacity-100 transition-opacity">Anular Pago</button>
+                                                            @if(!isset($detailData['is_past_date']) || !$detailData['is_past_date'])
+                                                                <button @click="confirmRevertNight({{ $detailData['reservation']['id'] }}, {{ $stay['price'] }})" class="text-[8px] font-bold text-gray-400 underline uppercase tracking-tighter hover:text-red-600 opacity-0 group-hover:opacity-100 transition-opacity">Anular Pago</button>
+                                                            @endif
                                                         </div>
                                                     @else
                                                         <div class="flex flex-col items-end space-y-1">
                                                             <span class="text-[9px] font-bold uppercase text-red-600 bg-red-50 px-2 py-0.5 rounded-full">Pendiente</span>
-                                                            <button @click="confirmPayStay({{ $detailData['reservation']['id'] }}, {{ $stay['price'] }})" class="text-[8px] font-bold text-blue-600 underline uppercase tracking-tighter hover:text-blue-800">Pagar Noche</button>
+                                                            @if(!isset($detailData['is_past_date']) || !$detailData['is_past_date'])
+                                                                <button @click="confirmPayStay({{ $detailData['reservation']['id'] }}, {{ $stay['price'] }})" class="text-[8px] font-bold text-blue-600 underline uppercase tracking-tighter hover:text-blue-800">Pagar Noche</button>
+                                                            @endif
                                                         </div>
                                                     @endif
                                                 </td>
