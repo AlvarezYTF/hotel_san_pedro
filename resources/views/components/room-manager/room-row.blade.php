@@ -1,6 +1,6 @@
 @props(['room', 'currentDate'])
 
-<tr class="{{ $room->display_status->cardBgColor() }} transition-colors duration-150 group" wire:key="room-{{ $room->id }}">
+<tr class="{{ $room->display_status->cardBgColor() }} transition-colors duration-150 group" wire:key="room-{{ $room->id }}" style="position: static;">
     <td class="px-6 py-4 whitespace-nowrap">
         <div class="flex items-center">
             <div class="h-10 w-10 rounded-lg bg-gray-100 flex items-center justify-center mr-3 text-gray-400 group-hover:bg-blue-50 group-hover:text-blue-600 transition-colors">
@@ -45,7 +45,7 @@
         <x-room-manager.room-payment-info :room="$room" />
     </td>
 
-    <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium" style="position: relative; overflow: visible;">
+    <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium" style="position: static;">
         @if($currentDate->isPast() && !$currentDate->isToday())
             <span class="text-xs text-gray-400 italic">Histórico</span>
         @else

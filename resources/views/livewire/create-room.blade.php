@@ -1,5 +1,6 @@
 <div class="p-6 space-y-4 sm:space-y-6">
-    <form wire:submit="store" class="space-y-4 sm:space-y-6">
+        <form wire:submit.prevent="store"
+            class="space-y-4 sm:space-y-6">
         <!-- Información Básica -->
         <div class="bg-white rounded-xl border border-gray-100 p-4 sm:p-6">
             <div class="flex items-center space-x-2 sm:space-x-3 mb-4 sm:mb-6">
@@ -191,6 +192,36 @@
             </div>
         </div>
 
+        <!-- Errores de Validación (se muestra sobre los botones) -->
+        @if ($errors->any())
+            <div wire:key="errors-{{ $errorFlash }}"
+                 x-data="{ show: true }"
+                 x-init="show = true; setTimeout(() => show = false, 4500)"
+                 x-show="show"
+                 x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0 translate-y-1"
+                 x-transition:enter-end="opacity-100 translate-y-0"
+                 x-transition:leave="transition ease-in duration-150" x-transition:leave-start="opacity-100"
+                 x-transition:leave-end="opacity-0"
+                 class="bg-red-50 border border-red-200 rounded-xl p-4 sm:p-5">
+                <div class="flex items-start gap-3">
+                    <div class="text-red-600 flex-shrink-0 mt-0.5">
+                        <i class="fas fa-exclamation-triangle text-lg"></i>
+                    </div>
+                    <div class="flex-1">
+                        <h3 class="text-sm font-semibold text-red-900 mb-2">Errores en el formulario</h3>
+                        <ul class="space-y-1">
+                            @foreach ($errors->all() as $error)
+                                <li class="text-xs text-red-700 flex items-center">
+                                    <i class="fas fa-check-circle mr-2 opacity-50"></i>
+                                    {{ $error }}
+                                </li>
+                            @endforeach
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        @endif
+
         <!-- Botones de Acción -->
         <div class="bg-white rounded-xl border border-gray-100 p-4 sm:p-6">
             <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -201,14 +232,17 @@
                 <div class="flex flex-col sm:flex-row sm:justify-end gap-3 sm:gap-3">
                     <button type="button"
                             @click="$dispatch('close-create-room-modal')"
-                            class="inline-flex items-center justify-center px-4 sm:px-6 py-2.5 rounded-xl border border-gray-300 text-sm font-semibold text-gray-700 bg-white hover:bg-gray-50 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500">
+                            wire:loading.attr="disabled"
+                            wire:target="store"
+                            class="inline-flex items-center justify-center px-4 sm:px-6 py-2.5 rounded-xl border border-gray-300 text-sm font-semibold text-gray-700 bg-white hover:bg-gray-50 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 disabled:opacity-50 disabled:cursor-not-allowed">
                         <i class="fas fa-times mr-2"></i>
                         Cancelar
                     </button>
 
                     <button type="submit"
                             wire:loading.attr="disabled"
-                            class="inline-flex items-center justify-center px-4 sm:px-6 py-2.5 rounded-xl border-2 border-emerald-600 bg-emerald-600 text-white text-sm font-semibold hover:bg-emerald-700 hover:border-emerald-700 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500 shadow-sm hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed">
+                            wire:target="store"
+                            class="inline-flex items-center justify-center px-4 sm:px-6 py-2.5 rounded-xl border-2 border-emerald-600 bg-emerald-600 text-white text-sm font-semibold hover:bg-emerald-700 hover:border-emerald-700 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500 shadow-sm hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-emerald-600">
                         <i class="fas fa-save mr-2" wire:loading.remove wire:target="store"></i>
                         <i class="fas fa-spinner fa-spin mr-2" wire:loading wire:target="store"></i>
                         <span wire:loading.remove wire:target="store">Guardar Habitación</span>

@@ -1,8 +1,8 @@
 @props(['rooms', 'currentDate'])
 
-<div class="bg-white rounded-xl border border-gray-100" style="overflow: visible !important;">
-    <div class="overflow-x-auto" style="overflow-y: visible !important;">
-        <table class="min-w-full divide-y divide-gray-100">
+<div class="bg-white rounded-xl border border-gray-100" style="overflow: visible;">
+    <div style="overflow: visible;">
+        <table class="min-w-full divide-y divide-gray-100" style="position: static;">
             <thead class="bg-gray-50">
                 <tr>
                     <th class="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Habitación</th>
@@ -14,7 +14,7 @@
                     <th class="px-6 py-4 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">Acciones</th>
                 </tr>
             </thead>
-            <tbody class="divide-y divide-gray-200">
+            <tbody class="divide-y divide-gray-200" style="position: static;">
                 @forelse($rooms as $room)
                     <x-room-manager.room-row :room="$room" :currentDate="$currentDate" wire:key="room-row-{{ $room->id }}" />
                 @empty

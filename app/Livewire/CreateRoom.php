@@ -6,7 +6,6 @@ use Livewire\Component;
 use App\Models\Room;
 use App\Enums\RoomStatus;
 use App\Enums\VentilationType;
-use Illuminate\Validation\ValidationException;
 
 class CreateRoom extends Component
 {
@@ -16,6 +15,10 @@ class CreateRoom extends Component
     public bool $auto_calculate = true;
     public string $ventilation_type = '';
     public array $occupancy_prices = [];
+    public int $errorFlash = 0;
+    
+    // Flag para prevenir doble envío
+    private bool $isProcessing = false;
 
     protected function rules(): array
     {
@@ -137,86 +140,112 @@ class CreateRoom extends Component
 
     public function store(): void
     {
-        // Asegurar que beds_count tenga un valor válido antes de validar
-        if (!isset($this->beds_count) || $this->beds_count === '' || $this->beds_count < 1) {
+        // Prevenir doble envío
+        if ($this->isProcessing) {
+            $this->dispatch('notify', type: 'warning', message: 'La solicitud está siendo procesada. Por favor espere.');
+            return;
+        }
+        
+        $this->isProcessing = true;
+
+        try {
+            // Asegurar que beds_count tenga un valor válido antes de validar
+            if (!isset($this->beds_count) || $this->beds_count === '' || $this->beds_count < 1) {
+                $this->beds_count = 1;
+            }
+
+            // Limitar a máximo 15
+            if ($this->beds_count > 15) {
+                $this->beds_count = 15;
+            }
+
+            // Validate that at least one price is set
+            $hasAtLeastOnePrice = false;
+            foreach ($this->occupancy_prices as $value) {
+                if ($value !== null && $value > 0) {
+                    $hasAtLeastOnePrice = true;
+                    break;
+                }
+            }
+
+            if (!$hasAtLeastOnePrice) {
+                $this->addError('occupancy_prices', 'Debe definir al menos un precio de ocupación.');
+                $this->dispatch('notify', type: 'error', message: 'Por favor revisa los errores en el formulario.');
+                $this->errorFlash++;
+                $this->isProcessing = false;
+                return;
+            }
+
+            // Convert null values for validation
+            $pricesForValidation = [];
+            foreach ($this->occupancy_prices as $key => $value) {
+                $pricesForValidation[$key] = $value !== null ? (int)$value : null;
+            }
+
+            // Temporarily set occupancy_prices for validation
+            $originalPrices = $this->occupancy_prices;
+            $this->occupancy_prices = $pricesForValidation;
+
+            // Validate all fields
+            try {
+                $this->validate();
+            } catch (\Illuminate\Validation\ValidationException $e) {
+                // Restore original prices before returning
+                $this->occupancy_prices = $originalPrices;
+                
+                // Dispatch error notification
+                $this->dispatch('notify', type: 'error', message: 'Por favor completa todos los campos requeridos.');
+                $this->errorFlash++;
+                $this->isProcessing = false;
+                return;
+            }
+
+            // Restore original prices
+            $this->occupancy_prices = $originalPrices;
+
+            // Filter out null values and convert to integers for storage
+            $validatedPrices = [];
+            foreach ($this->occupancy_prices as $key => $value) {
+                if ($value !== null && $value > 0) {
+                    $validatedPrices[$key] = (int)$value;
+                } else {
+                    $validatedPrices[$key] = 0;
+                }
+            }
+
+            $validated = [
+                'room_number' => $this->room_number,
+                'beds_count' => $this->beds_count,
+                'max_capacity' => $this->max_capacity,
+                'ventilation_type' => $this->ventilation_type,
+                'occupancy_prices' => $validatedPrices,
+                'status' => RoomStatus::LIBRE->value,
+                'last_cleaned_at' => now(),
+            ];
+
+            $validated['price_1_person'] = $validated['occupancy_prices'][1] ?? 0;
+            $validated['price_2_persons'] = $validated['occupancy_prices'][2] ?? 0;
+            $validated['price_per_night'] = $validated['price_2_persons'];
+
+            $room = Room::create($validated);
+
+            // Reset form with specific values to avoid property not found errors
+            $this->room_number = '';
             $this->beds_count = 1;
+            $this->max_capacity = 2;
+            $this->auto_calculate = true;
+            $this->ventilation_type = '';
+            $this->occupancy_prices = [];
+
+            // Re-initialize after reset
+            $this->updateCapacity();
+
+            // Dispatch events
+            $this->dispatch('room-created', roomId: $room->id);
+            $this->dispatch('notify', type: 'success', message: 'Habitación creada exitosamente.');
+        } finally {
+            $this->isProcessing = false;
         }
-
-        // Limitar a máximo 15
-        if ($this->beds_count > 15) {
-            $this->beds_count = 15;
-        }
-
-        // Validate that at least one price is set
-        $hasAtLeastOnePrice = false;
-        foreach ($this->occupancy_prices as $value) {
-            if ($value !== null && $value > 0) {
-                $hasAtLeastOnePrice = true;
-                break;
-            }
-        }
-
-        if (!$hasAtLeastOnePrice) {
-            throw ValidationException::withMessages([
-                'occupancy_prices' => 'Debe definir al menos un precio de ocupación.',
-            ]);
-        }
-
-        // Convert null values to 0 for validation
-        $pricesForValidation = [];
-        foreach ($this->occupancy_prices as $key => $value) {
-            $pricesForValidation[$key] = $value !== null ? (int)$value : null;
-        }
-
-        // Temporarily set occupancy_prices for validation
-        $originalPrices = $this->occupancy_prices;
-        $this->occupancy_prices = $pricesForValidation;
-
-        $this->validate();
-
-        // Restore original prices
-        $this->occupancy_prices = $originalPrices;
-
-        // Filter out null values and convert to integers for storage
-        $validatedPrices = [];
-        foreach ($this->occupancy_prices as $key => $value) {
-            if ($value !== null && $value > 0) {
-                $validatedPrices[$key] = (int)$value;
-            } else {
-                $validatedPrices[$key] = 0;
-            }
-        }
-
-        $validated = [
-            'room_number' => $this->room_number,
-            'beds_count' => $this->beds_count,
-            'max_capacity' => $this->max_capacity,
-            'ventilation_type' => $this->ventilation_type,
-            'occupancy_prices' => $validatedPrices,
-            'status' => RoomStatus::LIBRE->value,
-            'last_cleaned_at' => now(),
-        ];
-
-        $validated['price_1_person'] = $validated['occupancy_prices'][1] ?? 0;
-        $validated['price_2_persons'] = $validated['occupancy_prices'][2] ?? 0;
-        $validated['price_per_night'] = $validated['price_2_persons'];
-
-        $room = Room::create($validated);
-
-        // Reset form with specific values to avoid property not found errors
-        $this->room_number = '';
-        $this->beds_count = 1;
-        $this->max_capacity = 2;
-        $this->auto_calculate = true;
-        $this->ventilation_type = '';
-        $this->occupancy_prices = [];
-
-        // Re-initialize after reset
-        $this->updateCapacity();
-
-        // Dispatch events
-        $this->dispatch('room-created', roomId: $room->id);
-        $this->dispatch('notify', type: 'success', message: 'Habitación creada exitosamente.');
     }
 
     public function render()

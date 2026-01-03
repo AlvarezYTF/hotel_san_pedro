@@ -15,11 +15,13 @@
         <span class="sr-only">Acciones</span>
     </button>
 
-    <div x-show="actionsMenuOpen === {{ $room->id }}" 
+    <!-- Dropdown -->
+    <div x-show="actionsMenuOpen === {{ $room->id }}"
          x-transition
          @click.outside="closeActionsMenu()"
          @keydown.escape.window="closeActionsMenu()"
-         class="absolute right-0 top-full mt-2 w-56 rounded-lg bg-white shadow-xl ring-1 ring-gray-200 divide-y divide-gray-100 z-50"
+         class="absolute right-0 w-56 rounded-lg bg-white shadow-xl ring-1 ring-gray-200 divide-y divide-gray-100"
+         style="z-index: 50000; top: 100%; margin-top: 0.5rem;"
          x-cloak>
         <div class="py-1">
             @if(!$isFutureDate && !$isPastDate && $room->display_status !== \App\Enums\RoomStatus::OCUPADA && $room->display_status !== \App\Enums\RoomStatus::PENDIENTE_CHECKOUT)
