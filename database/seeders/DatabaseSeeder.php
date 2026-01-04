@@ -26,6 +26,13 @@ class DatabaseSeeder extends Seeder
             DianPaymentMethodSeeder::class,
             DianPaymentFormSeeder::class,
             DianProductStandardSeeder::class,
+            ReservationStatusSeeder::class,
+            StayStatusSeeder::class,
+            RoomCleaningTypeSeeder::class,
+            RoomStatusHistoryStatusSeeder::class,
+            PaymentTypeSeeder::class,
+            RoomMaintenanceBlockStatusSeeder::class,
+            
         ]);
     }
 }

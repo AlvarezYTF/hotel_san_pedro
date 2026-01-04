@@ -11,6 +11,12 @@ return new class extends Migration
      */
     public function up(): void
     {
+        // Evitar recrear si ya existe como tabla o vista (ej. tras conversión a vista)
+        $viewExists = DB::selectOne("SELECT TABLE_NAME FROM information_schema.VIEWS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'room_daily_statuses'");
+        if (Schema::hasTable('room_daily_statuses') || Schema::hasTable('room_daily_statuses_data') || $viewExists) {
+            return;
+        }
+
         Schema::create('room_daily_statuses', function (Blueprint $table) {
             $table->id();
             $table->foreignId('room_id')->constrained()->cascadeOnDelete();
