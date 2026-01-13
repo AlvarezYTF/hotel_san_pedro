@@ -1,10 +1,108 @@
 @push('scripts')
 <script src="https://cdn.jsdelivr.net/npm/tom-select@2.3.1/dist/js/tom-select.complete.min.js"></script>
 <script>
+    // Definir función global ANTES del listener de Livewire para que esté disponible inmediatamente
+    /**
+     * Abre el modal especializado para registrar un pago (abono).
+     * Usa payments como Single Source of Truth.
+     * 
+     * @param {number} reservationId ID de la reserva
+     * @param {number} nightPrice Precio de la noche (opcional, para botón rápido)
+     * @param {object} financialContext Contexto financiero opcional (totalAmount, paymentsTotal, balanceDue)
+     */
+    window.openRegisterPayment = function(reservationId, nightPrice = null, financialContext = null) {
+        console.log('openRegisterPayment called', { reservationId, nightPrice, financialContext });
+        if (!reservationId || reservationId === 0) {
+            console.error('reservationId inválido:', reservationId);
+            alert('Error: ID de reserva inválido');
+            return;
+        }
+        
+        // Si no se proporciona el contexto financiero, usar valores por defecto
+        // El contexto debería venir siempre desde room-detail-modal
+        if (!financialContext) {
+            financialContext = {
+                totalAmount: 0,
+                paymentsTotal: 0,
+                balanceDue: 0
+            };
+        }
+        
+        // Esperar a que Livewire esté inicializado si no lo está
+        if (typeof Livewire === 'undefined' || !Livewire.all) {
+            console.warn('Livewire no está inicializado, esperando...');
+            document.addEventListener('livewire:init', () => {
+                openPaymentModal(reservationId, nightPrice, financialContext);
+            });
+        } else {
+            openPaymentModal(reservationId, nightPrice, financialContext);
+        }
+    };
+    
+    /**
+     * Abre el modal de pago con los datos proporcionados
+     */
+    function openPaymentModal(reservationId, nightPrice, financialContext) {
+        window.dispatchEvent(new CustomEvent('open-payment-modal', {
+            detail: {
+                title: 'Registrar Pago',
+                reservationId: reservationId,
+                nightPrice: nightPrice || 0,
+                financialContext: financialContext || {
+                    totalAmount: 0,
+                    paymentsTotal: 0,
+                    balanceDue: 0
+                }
+            }
+        }));
+    }
+
     document.addEventListener('livewire:init', () => {
         let customerSelect = null;
         let additionalGuestSelect = null;
         let productSelect = null;
+        
+        // Escuchar evento personalizado para registrar pagos
+        window.addEventListener('register-payment-event', (event) => {
+            const paymentData = event.detail;
+            if (!paymentData) {
+                console.error('No se recibieron datos de pago');
+                return;
+            }
+            
+            // Obtener el componente RoomManager
+            const allComponents = Livewire.all();
+            if (allComponents.length === 0) {
+                console.error('No se encontraron componentes Livewire');
+                return;
+            }
+            
+            const component = allComponents[0];
+            if (!component) {
+                console.error('No se pudo obtener el componente');
+                return;
+            }
+            
+            // Llamar al método usando call() directamente del componente
+            try {
+                if (typeof component.call === 'function') {
+                    component.call(
+                        'registerPayment',
+                        paymentData.reservationId,
+                        paymentData.amount,
+                        paymentData.paymentMethod,
+                        paymentData.bankName || null,
+                        paymentData.reference || null
+                    ).catch(error => {
+                        console.error('Error calling registerPayment:', error);
+                    });
+                } else {
+                    console.error('El componente no tiene el método call disponible');
+                }
+            } catch (error) {
+                console.error('Error al llamar registerPayment:', error);
+            }
+        });
 
 
         // Toast notifications are handled by x-notifications.toast component
@@ -49,6 +147,8 @@
         Livewire.on('quickRentOpened', () => {
             setTimeout(() => {
                 if (customerSelect) customerSelect.destroy();
+                
+                // Inicializar TomSelect
                 customerSelect = new TomSelect('#quick_customer_id', {
                     valueField: 'id', 
                     labelField: 'name', 
@@ -61,17 +161,33 @@
                             .then(r => r.json())
                             .then(j => {
                                 const results = j.results || [];
-                                const noCustomersMsg = document.getElementById('no-customers-message');
-                                if (noCustomersMsg) {
-                                    if (results.length === 0) {
-                                        noCustomersMsg.classList.remove('hidden');
-                                    } else {
-                                        noCustomersMsg.classList.add('hidden');
+                                
+                                // Solo manejar el mensaje si es una búsqueda inicial (sin query)
+                                if (!query || query.trim() === '') {
+                                    const noCustomersMsg = document.getElementById('no-customers-message');
+                                    if (noCustomersMsg) {
+                                        if (results.length === 0) {
+                                            // No hay clientes: MOSTRAR el mensaje
+                                            console.log('No hay clientes, mostrando mensaje');
+                                            noCustomersMsg.classList.remove('hidden');
+                                        } else {
+                                            // Hay clientes: OCULTAR el mensaje
+                                            console.log('Hay clientes, ocultando mensaje');
+                                            noCustomersMsg.classList.add('hidden');
+                                        }
                                     }
                                 }
+                                
                                 callback(results);
                             })
-                            .catch(() => callback());
+                            .catch(() => {
+                                // En caso de error, ocultar el mensaje
+                                const noCustomersMsg = document.getElementById('no-customers-message');
+                                if (noCustomersMsg) {
+                                    noCustomersMsg.classList.add('hidden');
+                                }
+                                callback();
+                            });
                     },
                     onChange: (val) => { 
                         @this.set('rentForm.client_id', val || '');
@@ -93,7 +209,7 @@
                         }
                     }
                 });
-            }, 100);
+            }, 150);  // Aumenté el timeout a 150ms
         });
 
         // Listen for customer created event from the new modal
@@ -101,7 +217,17 @@
             const payload = Array.isArray(data) ? data[0] : data;
             const customerId = payload?.customerId || payload?.customer?.id;
             const customerData = payload?.customer;
+            const context = payload?.context || 'principal';
             
+            console.log('Cliente creado - Contexto:', context, 'ID:', customerId);
+            
+            // SIEMPRE ocultar el mensaje cuando se crea un cliente
+            const noCustomersMsg = document.getElementById('no-customers-message');
+            if (noCustomersMsg) {
+                noCustomersMsg.classList.add('hidden');
+            }
+            
+            // Si TomSelect está inicializado, actualizar la lista
             if (customerSelect && customerId) {
                 // Agregar el nuevo cliente a las opciones
                 if (customerData) {
@@ -113,17 +239,19 @@
                     });
                 }
                 
-                // Establecer el nuevo cliente como seleccionado
-                customerSelect.setValue(customerId);
-                
-                // Ocultar mensaje de no hay clientes si estaba visible
-                const noCustomersMsg = document.getElementById('no-customers-message');
-                if (noCustomersMsg) {
-                    noCustomersMsg.classList.add('hidden');
+                // Solo seleccionar como principal si el contexto es 'principal'
+                if (context === 'principal') {
+                    console.log('Asignando cliente como PRINCIPAL');
+                    customerSelect.setValue(customerId);
+                    // Actualizar también Livewire
+                    @this.set('rentForm.client_id', customerId);
+                } else {
+                    console.log('Cliente creado en contexto ADICIONAL, agregando a lista de huéspedes');
+                    // Agregar automáticamente como huésped adicional
+                    if (customerId) {
+                        @this.call('addGuestFromCustomerId', customerId);
+                    }
                 }
-                
-                // Actualizar también Livewire
-                @this.set('rentForm.client_id', customerId);
             }
         });
 
@@ -265,36 +393,7 @@
         }));
     }
 
-    function confirmPayStay(reservationId, amount) {
-        window.dispatchEvent(new CustomEvent('open-select-modal', {
-            detail: {
-                title: 'Pagar Noche de Hospedaje',
-                text: '¿Cómo desea registrar el pago de esta noche?',
-                options: [
-                    { label: 'Efectivo', value: 'efectivo', class: 'bg-emerald-600 hover:bg-emerald-700' },
-                    { label: 'Transferencia', value: 'transferencia', class: 'bg-blue-600 hover:bg-blue-700' }
-                ],
-                onSelect: (method) => {
-                    @this.payNight(reservationId, amount, method);
-                }
-            }
-        }));
-    }
-
-    function confirmRevertNight(reservationId, amount) {
-        window.dispatchEvent(new CustomEvent('open-confirm-modal', {
-            detail: {
-                title: 'Anular Pago de Noche',
-                text: '¿Desea descontar el valor de esta noche del abono total?',
-                icon: 'warning',
-                confirmText: 'Sí, anular',
-                confirmButtonClass: 'bg-red-600 hover:bg-red-700',
-                onConfirm: () => {
-                    @this.revertNightPayment(reservationId, amount);
-                }
-            }
-        }));
-    }
+    // Función confirmRevertNight eliminada - Los pagos se gestionan a través de la tabla payments;
 
     function confirmDeleteDeposit(depositId, amount, formattedAmount) {
         window.dispatchEvent(new CustomEvent('open-confirm-modal', {

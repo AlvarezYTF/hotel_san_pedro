@@ -1,17 +1,24 @@
 @props(['room', 'currentDate'])
 
 @php
+    // SINGLE SOURCE OF TRUTH: Estado operativo desde BD basado en stays y fecha seleccionada
     $isFutureDate = $currentDate->isFuture();
     $isPastDate = $currentDate->isPast() && !$currentDate->isToday();
-    $status = $room->display_status;
-    $isFreeAndClean = $status === \App\Enums\RoomDisplayStatus::LIBRE && 
-                      isset($room->cleaning_status) && 
-                      ($room->cleaning_status['code'] ?? null) === 'limpia';
+    $selectedDate = $currentDate instanceof \Carbon\Carbon ? $currentDate : \Carbon\Carbon::parse($currentDate);
+    $operationalStatus = $room->getOperationalStatus($selectedDate);
+    
+    // CRITICAL: isPendingCheckout() solo retorna true para HOY
+    // Nunca para fechas pasadas o futuras
+    $isPendingCheckout = $room->isPendingCheckout($selectedDate);
+    
+    // Solo permitir acciones en fecha actual (no históricas ni futuras)
+    $canPerformActions = !$isFutureDate && !$isPastDate;
 @endphp
 
 <div class="flex items-center justify-end gap-1.5">
-    {{-- Ocupar habitación --}}
-    @if(!$isFutureDate && !$isPastDate && !in_array($status, [\App\Enums\RoomDisplayStatus::OCUPADA, \App\Enums\RoomDisplayStatus::PENDIENTE_CHECKOUT]))
+    {{-- ESTADO: free_clean (Libre y limpia) --}}
+    @if($operationalStatus === 'free_clean' && $canPerformActions)
+        {{-- Ocupar habitación --}}
         <button type="button"
             wire:click="openQuickRent({{ $room->id }})"
             wire:loading.attr="disabled"
@@ -32,18 +39,57 @@
         </button>
     @endif
 
-    {{-- Liberar solo si está ocupada, pendiente checkout o reservada --}}
-    @if(!$isFutureDate && !$isPastDate && in_array($status, [\App\Enums\RoomDisplayStatus::OCUPADA, \App\Enums\RoomDisplayStatus::PENDIENTE_CHECKOUT, \App\Enums\RoomDisplayStatus::RESERVADA]))
+    {{-- ESTADO: occupied (Ocupada) --}}
+    @if($operationalStatus === 'occupied' && $canPerformActions)
+        {{-- Continuar Estadía y Cancelar Estadía: Solo si está pendiente de checkout (HOY) --}}
+        @if($isPendingCheckout)
+            <button type="button"
+                wire:click="continueStay({{ $room->id }})"
+                wire:loading.attr="disabled"
+                title="Continuar estadía"
+                class="inline-flex items-center justify-center w-8 h-8 rounded-lg border border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 hover:border-emerald-300 transition-colors focus:outline-none focus:ring-2 focus:ring-emerald-500 disabled:opacity-50">
+                <i class="fas fa-redo-alt text-sm"></i>
+                <span class="sr-only">Continuar</span>
+            </button>
+            
+            <button type="button"
+                wire:click="releaseRoom({{ $room->id }})"
+                wire:loading.attr="disabled"
+                title="Cancelar estadía"
+                class="inline-flex items-center justify-center w-8 h-8 rounded-lg border border-red-200 bg-red-50 text-red-700 hover:bg-red-100 hover:border-red-300 transition-colors focus:outline-none focus:ring-2 focus:ring-red-500 disabled:opacity-50">
+                <i class="fas fa-times text-sm"></i>
+                <span class="sr-only">Cancelar</span>
+            </button>
+        @else
+            {{-- Liberar: Solo si NO está pendiente de checkout Y es HOY --}}
+            @if($selectedDate->isToday())
+                <button type="button"
+                    @click="confirmRelease({{ $room->id }}, '{{ $room->room_number }}', 0, null, false);"
+                    title="Liberar"
+                    class="inline-flex items-center justify-center w-8 h-8 rounded-lg border border-yellow-200 bg-yellow-50 text-yellow-600 hover:bg-yellow-100 hover:border-yellow-300 transition-colors focus:outline-none focus:ring-2 focus:ring-yellow-500">
+                    <i class="fas fa-door-open text-sm"></i>
+                    <span class="sr-only">Liberar</span>
+                </button>
+            @endif
+        @endif
+    @endif
+
+    {{-- ESTADO: pending_cleaning (Pendiente por aseo) --}}
+    @if($operationalStatus === 'pending_cleaning' && $canPerformActions && $selectedDate->isToday())
+        {{-- Marcar como limpia: Solo si es HOY --}}
         <button type="button"
-            @click="confirmRelease({{ $room->id }}, '{{ $room->room_number }}', {{ $room->total_debt ?? 0 }}, {{ $room->current_reservation->id ?? 'null' }});"
-            title="Liberar"
-            class="inline-flex items-center justify-center w-8 h-8 rounded-lg border border-yellow-200 bg-yellow-50 text-yellow-600 hover:bg-yellow-100 hover:border-yellow-300 transition-colors focus:outline-none focus:ring-2 focus:ring-yellow-500">
-            <i class="fas fa-door-open text-sm"></i>
-            <span class="sr-only">Liberar</span>
+            wire:click="markRoomAsClean({{ $room->id }})"
+            wire:loading.attr="disabled"
+            title="Marcar como limpia"
+            class="inline-flex items-center justify-center w-8 h-8 rounded-lg border border-green-200 bg-green-50 text-green-600 hover:bg-green-100 hover:border-green-300 transition-colors focus:outline-none focus:ring-2 focus:ring-green-500 disabled:opacity-50">
+            <i class="fas fa-broom text-sm"></i>
+            <span class="sr-only">Marcar como limpia</span>
         </button>
     @endif
 
-    {{-- Editar habitación --}}
+    {{-- SIEMPRE VISIBLES (excepto fecha pasada para editar) --}}
+    
+    {{-- Editar habitación (no disponible en fechas pasadas) --}}
     @if(!$isPastDate)
         <button type="button"
             wire:click="openRoomEdit({{ $room->id }})"
@@ -55,7 +101,7 @@
         </button>
     @endif
 
-    {{-- Ver historial --}}
+    {{-- Ver historial (siempre disponible) --}}
     <button type="button"
         wire:click="openRoomDetail({{ $room->id }})"
         wire:loading.attr="disabled"
@@ -64,23 +110,4 @@
         <i class="fas fa-history text-sm"></i>
         <span class="sr-only">Ver historial</span>
     </button>
-
-    {{-- Botones especiales para pendiente de checkout --}}
-    @if(!$isFutureDate && !$isPastDate && $room->display_status === \App\Enums\RoomStatus::PENDIENTE_CHECKOUT && isset($room->current_reservation) && $room->current_reservation)
-        <button type="button"
-            wire:click="continueStay({{ $room->id }})"
-            wire:loading.attr="disabled"
-            title="Continuar estadía"
-            class="inline-flex items-center justify-center w-8 h-8 rounded-lg border border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 hover:border-emerald-300 transition-colors focus:outline-none focus:ring-2 focus:ring-emerald-500 disabled:opacity-50">
-            <i class="fas fa-redo-alt text-sm"></i>
-            <span class="sr-only">Continuar</span>
-        </button>
-        <button type="button"
-            @click="confirmRelease({{ $room->id }}, '{{ $room->room_number }}', {{ $room->total_debt ?? 0 }}, {{ $room->current_reservation->id ?? 'null' }}, true);"
-            title="Cancelar estadía"
-            class="inline-flex items-center justify-center w-8 h-8 rounded-lg border border-red-200 bg-red-50 text-red-700 hover:bg-red-100 hover:border-red-300 transition-colors focus:outline-none focus:ring-2 focus:ring-red-500">
-            <i class="fas fa-times text-sm"></i>
-            <span class="sr-only">Cancelar</span>
-        </button>
-    @endif
 </div>

@@ -5,12 +5,28 @@
         roomData: null,
         paymentConfirmed: false,
         refundConfirmed: false,
+        paymentMethod: '',
+        bankName: '',
+        reference: '',
+        isLoading: false,
+        resetState() {
+            this.roomData = null;
+            this.paymentConfirmed = false;
+            this.refundConfirmed = false;
+            this.paymentMethod = '';
+            this.bankName = '';
+            this.reference = '';
+            this.isLoading = false;
+        },
         init() {
             window.addEventListener('open-release-confirmation', (e) => {
+                this.resetState();
                 this.roomData = e.detail;
                 this.show = true;
-                this.paymentConfirmed = false;
-                this.refundConfirmed = false;
+            });
+            window.addEventListener('close-room-release-modal', () => {
+                this.show = false;
+                this.resetState();
             });
         }
      }" 
@@ -21,7 +37,7 @@
     
     <div class="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
         <!-- Overlay -->
-        <div x-show="show" 
+           <div x-show="show" 
              x-transition:enter="ease-out duration-300" 
              x-transition:enter-start="opacity-0" 
              x-transition:enter-end="opacity-100" 
@@ -29,7 +45,10 @@
              x-transition:leave-start="opacity-100" 
              x-transition:leave-end="opacity-0" 
              class="fixed inset-0 bg-gray-500/75 backdrop-blur-sm transition-opacity" 
-             @click="show = false"></div>
+               @click="
+                 show = false;
+                 if ($wire) { $wire.call('closeRoomReleaseConfirmation'); }
+               "></div>
 
         <span class="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
 
@@ -64,7 +83,10 @@
                                 </div>
                             </div>
                             <button type="button" 
-                                    @click="show = false"
+                                    @click="
+                                        show = false;
+                                        if ($wire) { $wire.call('closeRoomReleaseConfirmation'); }
+                                    "
                                     class="text-gray-400 hover:text-gray-900">
                                 <i class="fas fa-times text-xl"></i>
                             </button>
@@ -222,18 +244,57 @@
 
                             <!-- Advertencia si hay deuda -->
                             <template x-if="(roomData.total_debt || 0) > 0">
-                                <div class="bg-red-50 border-2 border-red-200 rounded-xl p-6">
+                                <div class="bg-red-50 border-2 border-red-200 rounded-xl p-6 space-y-4">
                                     <div class="flex items-start space-x-3">
                                         <div class="flex-shrink-0">
                                             <i class="fas fa-exclamation-triangle text-red-600 text-2xl"></i>
                                         </div>
-                                        <div class="flex-1">
-                                            <h5 class="text-sm font-black text-red-900 mb-2">¡Atención! La habitación tiene deuda pendiente</h5>
-                                            <p class="text-sm text-red-700 mb-4">
-                                                La habitación tiene una deuda de <strong x-text="'$' + new Intl.NumberFormat('es-CO', {minimumFractionDigits: 0, maximumFractionDigits: 0}).format(roomData.total_debt)"></strong>.
-                                                Debe confirmar que se realizó el pago antes de liberar la habitación.
+                                        <div class="flex-1 space-y-2">
+                                            <h5 class="text-sm font-black text-red-900">¡Atención! La habitación tiene deuda pendiente</h5>
+                                            <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+                                                <div class="p-3 bg-white rounded-lg border border-gray-200">
+                                                    <p class="text-[10px] font-bold text-gray-500 uppercase">Total Hospedaje</p>
+                                                    <p class="text-base font-black text-gray-900" x-text="'$' + new Intl.NumberFormat('es-CO', {minimumFractionDigits: 0, maximumFractionDigits: 0}).format(roomData.total_hospedaje || 0)"></p>
+                                                </div>
+                                                <div class="p-3 bg-white rounded-lg border border-gray-200">
+                                                    <p class="text-[10px] font-bold text-gray-500 uppercase">Abono Realizado</p>
+                                                    <p class="text-base font-black text-emerald-700" x-text="'$' + new Intl.NumberFormat('es-CO', {minimumFractionDigits: 0, maximumFractionDigits: 0}).format(roomData.abono_realizado || 0)"></p>
+                                                </div>
+                                                <div class="p-3 bg-white rounded-lg border border-gray-200">
+                                                    <p class="text-[10px] font-bold text-gray-500 uppercase">Saldo Pendiente</p>
+                                                    <p class="text-base font-black text-red-700" x-text="'$' + new Intl.NumberFormat('es-CO', {minimumFractionDigits: 0, maximumFractionDigits: 0}).format(roomData.total_debt || 0)"></p>
+                                                </div>
+                                            </div>
+                                            <p class="text-sm text-red-700">
+                                                Debe confirmar el pago y registrar el método antes de liberar la habitación.
                                             </p>
-                                            <label class="flex items-center space-x-2 cursor-pointer">
+
+                                            <!-- Método de pago -->
+                                            <div class="space-y-2">
+                                                <label class="text-[10px] font-bold text-red-800 uppercase tracking-widest">Método de pago del saldo</label>
+                                                <select x-model="paymentMethod"
+                                                        class="w-full bg-white border border-red-200 rounded-lg px-3 py-2 text-sm font-bold text-gray-900 focus:ring-2 focus:ring-red-400 focus:border-red-400">
+                                                    <option value="">Seleccione...</option>
+                                                    <option value="efectivo">Efectivo</option>
+                                                    <option value="transferencia">Transferencia</option>
+                                                </select>
+                                            </div>
+
+                                            <!-- Campos extra para transferencia -->
+                                            <template x-if="paymentMethod === 'transferencia'">
+                                                <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                                    <div class="space-y-1.5">
+                                                        <label class="text-[10px] font-bold text-gray-700 uppercase tracking-widest">Banco</label>
+                                                        <input type="text" x-model="bankName" placeholder="Ej: Bancolombia" class="w-full bg-white border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-red-300 focus:border-red-300">
+                                                    </div>
+                                                    <div class="space-y-1.5">
+                                                        <label class="text-[10px] font-bold text-gray-700 uppercase tracking-widest">Referencia / Comprobante</label>
+                                                        <input type="text" x-model="reference" placeholder="Ej: #123456" class="w-full bg-white border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-red-300 focus:border-red-300">
+                                                    </div>
+                                                </div>
+                                            </template>
+
+                                            <label class="flex items-center space-x-2 cursor-pointer pt-2">
                                                 <input type="checkbox" 
                                                        x-model="paymentConfirmed"
                                                        class="w-5 h-5 text-red-600 border-red-300 rounded focus:ring-red-500">
@@ -326,14 +387,16 @@
                     <div class="bg-gray-50 px-6 py-4 sm:px-8 sm:flex sm:flex-row-reverse gap-3 border-t border-gray-100">
                         <button type="button" 
                                 @click="
-                                    if ((roomData.total_debt || 0) > 0 && !paymentConfirmed) {
-                                        return;
+                                    if ((roomData.total_debt || 0) > 0) {
+                                        if (!paymentConfirmed) return;
+                                        if (!paymentMethod) return;
+                                        if (paymentMethod === 'transferencia' && !reference) return;
                                     }
                                     if ((roomData.total_debt || 0) < 0 && (!roomData.refunds_history || roomData.refunds_history.length === 0)) {
                                         return;
                                     }
+                                    isLoading = true;
                                     if (roomData.cancel_url) {
-                                        // Cancel reservation from reservations module
                                         const form = document.createElement('form');
                                         form.method = 'POST';
                                         form.action = roomData.cancel_url;
@@ -350,29 +413,33 @@
                                         document.body.appendChild(form);
                                         form.submit();
                                     } else if (roomData.is_cancellation) {
-                                        // Cancel reservation from room manager
                                         if ($wire) {
-                                            $wire.call('cancelReservation', roomData.room_id);
+                                            $wire.call('cancelReservation', roomData.room_id).finally(() => { isLoading = false; });
+                                        } else {
+                                            isLoading = false;
                                         }
                                     } else {
-                                        // Release room from room manager
                                         if ($wire) {
-                                            $wire.call('releaseRoom', roomData.room_id, 'libre');
+                                            $wire.call('releaseRoom', roomData.room_id, 'libre', paymentMethod, bankName, reference).finally(() => { isLoading = false; });
+                                        } else {
+                                            isLoading = false;
                                         }
                                     }
-                                    show = false;
                                 "
-                                :disabled="((roomData.total_debt || 0) > 0 && !paymentConfirmed) || ((roomData.total_debt || 0) < 0 && (!roomData.refunds_history || roomData.refunds_history.length === 0))"
-                                :class="((roomData.total_debt || 0) > 0 && !paymentConfirmed) || ((roomData.total_debt || 0) < 0 && (!roomData.refunds_history || roomData.refunds_history.length === 0))
+                                :disabled="isLoading || ((roomData.total_debt || 0) > 0 && (!paymentConfirmed || !paymentMethod || (paymentMethod === 'transferencia' && !reference))) || ((roomData.total_debt || 0) < 0 && (!roomData.refunds_history || roomData.refunds_history.length === 0))"
+                                :class="isLoading || ((roomData.total_debt || 0) > 0 && (!paymentConfirmed || !paymentMethod || (paymentMethod === 'transferencia' && !reference))) || ((roomData.total_debt || 0) < 0 && (!roomData.refunds_history || roomData.refunds_history.length === 0))
                                     ? 'bg-gray-400 cursor-not-allowed' 
                                     : 'bg-emerald-600 hover:bg-emerald-700'"
                                 class="w-full sm:w-auto inline-flex justify-center items-center px-8 py-3 rounded-xl border border-transparent shadow-sm text-sm font-bold text-white transition-all duration-200">
-                            <i class="fas fa-check mr-2"></i>
+                            <i class="fas fa-check mr-2" :class="isLoading ? 'animate-spin' : ''"></i>
                             <template x-if="roomData.cancel_url || roomData.is_cancellation">Confirmar Cancelación</template>
                             <template x-if="!roomData.cancel_url && !roomData.is_cancellation">Confirmar Liberación</template>
                         </button>
                         <button type="button" 
-                                @click="show = false"
+                                @click="
+                                    show = false;
+                                    if ($wire) { $wire.call('closeRoomReleaseConfirmation'); }
+                                "
                                 class="mt-3 sm:mt-0 w-full sm:w-auto inline-flex justify-center items-center px-6 py-3 rounded-xl border border-gray-200 shadow-sm text-sm font-bold text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 transition-all duration-200">
                             Cancelar
                         </button>

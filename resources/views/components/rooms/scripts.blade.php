@@ -135,36 +135,84 @@
             }));
         }
 
-        function confirmPayStay(reservationId, amount) {
-            window.dispatchEvent(new CustomEvent('open-select-modal', {
-                detail: {
-                    title: 'Pagar Noche de Hospedaje',
-                    text: '¿Cómo desea registrar el pago de esta noche?',
-                    options: [
-                        { label: 'Efectivo', value: 'efectivo', class: 'bg-emerald-600 hover:bg-emerald-700' },
-                        { label: 'Transferencia', value: 'transferencia', class: 'bg-blue-600 hover:bg-blue-700' }
-                    ],
-                    onSelect: (method) => {
-                        @this.payNight(reservationId, amount, method);
-                    }
-                }
-            }));
-        }
+        // Función confirmRevertNight eliminada - Los pagos se gestionan a través de la tabla payments
 
-        function confirmRevertNight(reservationId, amount) {
-            window.dispatchEvent(new CustomEvent('open-confirm-modal', {
+        /**
+         * Abre el modal para registrar un pago (abono).
+         * Usa payments como Single Source of Truth.
+         * 
+         * @param {number} reservationId ID de la reserva
+         * @param {number} amount Monto a pagar (precio de la noche)
+         */
+        window.openRegisterPayment = function(reservationId, amount) {
+            console.log('openRegisterPayment called', { reservationId, amount });
+            window.dispatchEvent(new CustomEvent('open-input-modal', {
                 detail: {
-                    title: 'Anular Pago de Noche',
-                    text: '¿Desea descontar el valor de esta noche del abono total?',
-                    icon: 'warning',
-                    confirmText: 'Sí, anular',
-                    confirmButtonClass: 'bg-red-600 hover:bg-red-700',
-                    onConfirm: () => {
-                        @this.revertNightPayment(reservationId, amount);
+                    title: 'Registrar Pago',
+                    fields: [
+                        {
+                            name: 'amount',
+                            label: 'Monto',
+                            type: 'number',
+                            value: amount || 0,
+                            placeholder: '0.00',
+                            min: 0,
+                            step: 0.01
+                        },
+                        {
+                            name: 'payment_method',
+                            label: 'Método de Pago',
+                            type: 'select',
+                            value: 'efectivo',
+                            options: [
+                                { value: 'efectivo', label: 'Efectivo' },
+                                { value: 'transferencia', label: 'Transferencia' }
+                            ]
+                        },
+                        {
+                            name: 'bank_name',
+                            label: 'Banco (solo transferencia)',
+                            type: 'text',
+                            value: '',
+                            placeholder: 'Nombre del banco',
+                            required: false
+                        },
+                        {
+                            name: 'reference',
+                            label: 'Referencia (solo transferencia)',
+                            type: 'text',
+                            value: '',
+                            placeholder: 'Número de referencia',
+                            required: false
+                        }
+                    ],
+                    confirmText: 'Registrar Pago',
+                    confirmButtonClass: 'bg-emerald-600 hover:bg-emerald-700',
+                    validator: (fields) => {
+                        const amount = parseFloat(fields[0]?.value || 0);
+                        if (!amount || amount <= 0) {
+                            return { valid: false, message: 'El monto debe ser mayor a 0' };
+                        }
+                        const paymentMethod = fields[1]?.value || 'efectivo';
+                        if (paymentMethod === 'transferencia') {
+                            const bankName = fields[2]?.value || '';
+                            if (!bankName || bankName.trim() === '') {
+                                return { valid: false, message: 'El nombre del banco es requerido para transferencias' };
+                            }
+                        }
+                        return { valid: true };
+                    },
+                    onConfirm: (values) => {
+                        const amount = parseFloat(values[0]?.value || 0);
+                        const paymentMethod = values[1]?.value || 'efectivo';
+                        const bankName = paymentMethod === 'transferencia' ? (values[2]?.value || null) : null;
+                        const reference = paymentMethod === 'transferencia' ? (values[3]?.value || null) : null;
+                        console.log('Calling registerPayment', { reservationId, amount, paymentMethod, bankName, reference });
+                        @this.registerPayment(reservationId, amount, paymentMethod, bankName, reference);
                     }
                 }
             }));
-        }
+        };
 
         function addDeposit(reservationId) {
             window.dispatchEvent(new CustomEvent('open-input-modal', {

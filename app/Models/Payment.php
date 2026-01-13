@@ -15,15 +15,20 @@ class Payment extends Model
         'payment_type_id',
         'source_id',
         'reference',
+        'bank_name',
         'paid_at',
         'created_by',
         'notes',
+        'created_at',
+        'updated_at',
     ];
 
     protected $casts = [
         'amount' => 'decimal:2',
         'paid_at' => 'datetime',
     ];
+
+    public $timestamps = true;
 
     /**
      * Get the reservation that owns the payment.

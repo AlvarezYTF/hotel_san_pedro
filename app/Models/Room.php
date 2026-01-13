@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use App\Enums\RoomDisplayStatus;
+use Carbon\Carbon;
 
 class Room extends Model
 {
@@ -70,6 +71,15 @@ class Room extends Model
     }
 
     /**
+     * Get the actual stays (occupations) for the room.
+     * CRITICAL: Stays determine if a room is OCCUPIED, not reservations.
+     */
+    public function stays()
+    {
+        return $this->hasMany(Stay::class);
+    }
+
+    /**
      * Get the maintenance blocks for the room.
      */
     public function maintenanceBlocks()
@@ -100,49 +110,48 @@ class Room extends Model
 
     /**
      * Check if the room is occupied on a specific date.
-     * OCCUPATION IS DERIVED FROM RESERVATIONS, NOT FROM room_statuses.
-     * This is the SINGLE SOURCE OF TRUTH for occupancy.
-     *
-     * Enhanced with validation to ensure only valid reservations are considered.
+     * DEPRECATED: Use RoomAvailabilityService instead for correct interval logic.
+     * 
+     * This method is kept for backward compatibility only.
+     * It will be removed in a future version.
      *
      * @param \Carbon\Carbon|null $date Date to check. Defaults to today.
      * @return bool True if room has an active reservation on the given date.
      */
     public function isOccupied(?\Carbon\Carbon $date = null): bool
     {
-        $date = $date ?? \Carbon\Carbon::today();
+        return $this->isOccupiedOn($date ?? Carbon::today());
+    }
 
-        // Normalize date to start of day for consistent comparison
-        $normalizedDate = $date->copy()->startOfDay();
+    /**
+     * SINGLE SOURCE OF TRUTH: determina si la habitación está ocupada en una fecha.
+     * Evalúa stays con lógica de intervalos: check_in <= endOfDay y (check_out NULL o > startOfDay).
+     */
+    public function isOccupiedOn(Carbon $date): bool
+    {
+        $startOfDay = $date->copy()->startOfDay();
+        $endOfDay = $date->copy()->endOfDay();
 
-        // Room is occupied if: check_in <= date AND check_out > date
-        // If checkout is today, room is NOT occupied (guest leaves today)
-        // Validate that checkout is after checkin (data integrity)
-        return $this->reservationRooms()
-            ->where('check_in_date', '<=', $normalizedDate->toDateString())
-            ->where('check_out_date', '>', $normalizedDate->toDateString())
-            ->whereColumn('check_out_date', '>', 'check_in_date')
+        return $this->stays()
+            ->where('check_in_at', '<=', $endOfDay)
+            ->where(function ($q) use ($startOfDay) {
+                $q->whereNull('check_out_at')
+                  ->orWhere('check_out_at', '>', $startOfDay);
+            })
+            ->where('status', '!=', 'finished')
             ->exists();
     }
 
     /**
      * Get the active reservation for a specific date.
+     * DEPRECATED: Use RoomAvailabilityService instead.
      *
      * @param \Carbon\Carbon|null $date Date to check. Defaults to today.
      * @return \App\Models\Reservation|null
      */
     public function getActiveReservation(?\Carbon\Carbon $date = null): ?\App\Models\Reservation
     {
-        $date = $date ?? \Carbon\Carbon::today();
-
-        $reservationRoom = $this->reservationRooms()
-            ->where('check_in_date', '<=', $date?->toDateString())
-            ->where('check_out_date', '>', $date?->toDateString())
-            ->orderBy('check_in_date', 'asc')
-            ->with('reservation')
-            ->first();
-
-        return $reservationRoom?->reservation;
+        return $this->getAvailabilityService()->getStayForDate($date)?->reservation;
     }
 
     /**
@@ -183,7 +192,91 @@ class Room extends Model
     public function cleaningStatus(?\Carbon\Carbon $date = null): array
     {
         $date = $date ?? \Carbon\Carbon::today();
+        $today = Carbon::today();
+        $queryDate = $date->copy()->startOfDay();
+        $endOfQueryDay = $queryDate->copy()->endOfDay();
+        $isPastDate = $queryDate->lt($today);
 
+        // CRITICAL: For PAST dates, use historical logic (immutable)
+        if ($isPastDate) {
+            return $this->calculateHistoricalCleaningStatus($date);
+        }
+
+        // For TODAY and FUTURE dates: use reactive logic
+        return $this->calculateCurrentCleaningStatus($date);
+    }
+
+    /**
+     * Calculate cleaning status for PAST dates (historical, immutable).
+     * 
+     * Uses ONLY information that existed ON or BEFORE the query date.
+     * Never uses current state or future events.
+     * 
+     * @param \Carbon\Carbon $date
+     * @return array
+     */
+    private function calculateHistoricalCleaningStatus(Carbon $date): array
+    {
+        $queryDate = $date->copy()->startOfDay();
+        $endOfQueryDay = $queryDate->copy()->endOfDay();
+
+        // Check if there was a stay active on this date
+        $stay = $this->getAvailabilityService()->getStayForDate($date);
+
+        if ($stay) {
+            // During an active stay, room is always considered clean
+            return $this->getCleanStatus();
+        }
+
+        // No stay on this date, check if a stay ended on or before this date
+        $lastStayBeforeDate = $this->stays()
+            ->whereNotNull('check_out_at')
+            ->where('check_out_at', '<=', $endOfQueryDay)
+            ->orderByDesc('check_out_at')
+            ->first();
+
+        if (!$lastStayBeforeDate) {
+            // No stay ever existed on or before this date → clean
+            return $this->getCleanStatus();
+        }
+
+        // There was a checkout on or before this date
+        // Check if it was cleaned by the end of this day
+        if (!$this->last_cleaned_at) {
+            // Never cleaned → pending_cleaning
+            return $this->getPendingCleaningStatus();
+        }
+
+        $cleaningDate = $this->last_cleaned_at instanceof \Carbon\Carbon
+            ? $this->last_cleaned_at
+            : \Carbon\Carbon::parse($this->last_cleaned_at);
+
+        // CRITICAL: Only consider cleaning if it happened on or before the query date
+        // If cleaning happened AFTER the query date, it doesn't affect the past
+        if ($cleaningDate->gt($endOfQueryDay)) {
+            // Cleaning happened AFTER this date → pending_cleaning on this date
+            return $this->getPendingCleaningStatus();
+        }
+
+        // Cleaning happened on or before this date
+        // Check if it was after the checkout
+        if ($cleaningDate->lt($lastStayBeforeDate->check_out_at)) {
+            // Cleaned before checkout → pending_cleaning
+            return $this->getPendingCleaningStatus();
+        }
+
+        // Cleaned after checkout and on or before query date → clean
+        return $this->getCleanStatus();
+    }
+
+    /**
+     * Calculate cleaning status for TODAY and FUTURE dates (reactive).
+     * 
+     * @param \Carbon\Carbon $date
+     * @return array
+     */
+    private function calculateCurrentCleaningStatus(Carbon $date): array
+    {
         // If never cleaned or explicitly marked as needing cleaning (last_cleaned_at is NULL)
         if (!$this->last_cleaned_at) {
             return $this->getPendingCleaningStatus();
@@ -268,92 +361,214 @@ class Room extends Model
     }
 
     /**
+     * SINGLE SOURCE OF TRUTH: Get operational status for room actions menu.
+     * 
+     * CRITICAL: For PAST dates, this method calculates the state based on what happened
+     * ON THAT SPECIFIC DATE, not the current state. Past dates are IMMUTABLE.
+     * 
+     * Returns the operational state of the room based on:
+     * - Active stays (occupied)
+     * - Last checkout + cleaning status (pending_cleaning)
+     * - Default state (free_clean)
+     * 
+     * This method drives the room-actions-menu buttons.
+     * 
+     * @param \Carbon\Carbon $date Date to check
+     * @return string 'occupied' | 'pending_cleaning' | 'free_clean'
+     */
+    public function getOperationalStatus(Carbon $date): string
+    {
+        $today = Carbon::today();
+        $queryDate = $date->copy()->startOfDay();
+        $endOfQueryDay = $queryDate->copy()->endOfDay();
+        $isPastDate = $queryDate->lt($today);
+
+        // CRITICAL: For PAST dates, use historical logic (immutable)
+        if ($isPastDate) {
+            return $this->calculateHistoricalOperationalStatus($date);
+        }
+
+        // For TODAY and FUTURE dates: use reactive logic
+        return $this->calculateCurrentOperationalStatus($date);
+    }
+
+    /**
+     * Calculate operational status for PAST dates (historical, immutable).
+     * 
+     * Uses ONLY information that existed ON or BEFORE the query date.
+     * Never uses current state or future events.
+     * 
+     * SINGLE SOURCE OF TRUTH: Based exclusively on stays, reservation_rooms.check_out_date,
+     * stays.check_out_at, last_cleaned_at, and the selected date.
+     * 
+     * @param \Carbon\Carbon $date
+     * @return string
+     */
+    private function calculateHistoricalOperationalStatus(Carbon $date): string
+    {
+        // Get stay that intersected this date
+        $stay = $this->getAvailabilityService()->getStayForDate($date);
+
+        // 1. OCCUPIED: If there was a stay active on this date (check_out_at is NULL or after this date)
+        if ($stay && (is_null($stay->check_out_at) || $stay->check_out_at->gt($date->copy()->endOfDay()))) {
+            return 'occupied';
+        }
+
+        // 2. PENDING_CLEANING: If there was a checkout on or before this date
+        // and it wasn't cleaned after checkout (by the end of this day)
+        $lastFinishedStay = $this->stays()
+            ->whereNotNull('check_out_at')
+            ->whereDate('check_out_at', '<=', $date)
+            ->latest('check_out_at')
+            ->first();
+
+        if ($lastFinishedStay) {
+            $endOfQueryDay = $date->copy()->endOfDay();
+            
+            // If never cleaned OR cleaned before checkout OR cleaned after the query date
+            if (!$this->last_cleaned_at) {
+                return 'pending_cleaning';
+            }
+
+            $cleaningDate = $this->last_cleaned_at instanceof \Carbon\Carbon
+                ? $this->last_cleaned_at
+                : \Carbon\Carbon::parse($this->last_cleaned_at);
+
+            // CRITICAL: Only consider cleaning if it happened on or before the query date
+            if ($cleaningDate->gt($endOfQueryDay)) {
+                // Cleaning happened AFTER this date → pending_cleaning on this date
+                return 'pending_cleaning';
+            }
+
+            // Check if cleaning was after checkout
+            if ($cleaningDate->lt($lastFinishedStay->check_out_at)) {
+                // Cleaned before checkout → pending_cleaning
+                return 'pending_cleaning';
+            }
+
+            // Cleaned after checkout and on or before query date → free_clean
+            return 'free_clean';
+        }
+
+        // 3. FREE_CLEAN: No stay ever existed on or before this date
+        return 'free_clean';
+    }
+
+    /**
+     * Check if room is pending checkout for a specific date.
+     * 
+     * CRITICAL: This can ONLY be true for TODAY, never for past or future dates.
+     * A room is pending checkout if:
+     * - There's an active stay (check_out_at is NULL)
+     * - The reservation_room.check_out_date is in the past (before today)
+     * - The date being queried is TODAY
+     * 
+     * @param \Carbon\Carbon $date Date to check
+     * @return bool True only if pending checkout TODAY
+     */
+    public function isPendingCheckout(Carbon $date): bool
+    {
+        // CRITICAL: Only check for TODAY, never for past or future dates
+        if (!$date->isToday()) {
+            return false;
+        }
+
+        // Get stay that intersects today
+        $stay = $this->getAvailabilityService()->getStayForDate($date);
+
+        if (!$stay) {
+            return false;
+        }
+
+        // Stay must be active (check_out_at is NULL)
+        if (!is_null($stay->check_out_at)) {
+            return false;
+        }
+
+        // Get reservation_room to check check_out_date
+        $reservation = $stay->reservation;
+        if (!$reservation) {
+            return false;
+        }
+
+        $reservationRoom = $reservation->reservationRooms
+            ->where('room_id', $this->id)
+            ->first();
+
+        if (!$reservationRoom || !$reservationRoom->check_out_date) {
+            return false;
+        }
+
+        // Check if check_out_date is in the past (before today)
+        $checkoutDate = \Carbon\Carbon::parse($reservationRoom->check_out_date)->startOfDay();
+        $today = Carbon::today();
+
+        // Pending checkout if check_out_date < today AND stay is still active
+        return $checkoutDate->lt($today);
+    }
+
+    /**
+     * Calculate operational status for TODAY and FUTURE dates (reactive).
+     * 
+     * SINGLE SOURCE OF TRUTH: Based exclusively on stays, reservation_rooms.check_out_date,
+     * stays.check_out_at, last_cleaned_at, and the selected date.
+     * 
+     * @param \Carbon\Carbon $date
+     * @return string
+     */
+    private function calculateCurrentOperationalStatus(Carbon $date): string
+    {
+        // Get stay that intersects this date
+        $stay = $this->getAvailabilityService()->getStayForDate($date);
+
+        // 1. OCCUPIED: If there's an active stay on this date (check_out_at is NULL)
+        if ($stay && is_null($stay->check_out_at)) {
+            return 'occupied';
+        }
+
+        // 2. PENDING_CLEANING: If there was a checkout before or on this date
+        // and it wasn't cleaned after checkout
+        $lastFinishedStay = $this->stays()
+            ->whereNotNull('check_out_at')
+            ->whereDate('check_out_at', '<=', $date)
+            ->latest('check_out_at')
+            ->first();
+
+        if ($lastFinishedStay) {
+            // If never cleaned OR cleaned before the checkout
+            if (!$this->last_cleaned_at || $this->last_cleaned_at->lt($lastFinishedStay->check_out_at)) {
+                return 'pending_cleaning';
+            }
+        }
+
+        // 3. FREE_CLEAN: Default state (free and clean)
+        return 'free_clean';
+    }
+
+    /**
      * Get the display status of the room for a specific date.
-     * SINGLE SOURCE OF TRUTH for room display status (ESTADO column).
-     * Returns a RoomStatus Enum based on business logic priority:
-     * 1. If room is in maintenance → MANTENIMIENTO
-     * 2. If room has active reservation → OCUPADA
-     * 3. If room status is SUCIA → SUCIA
-     * 4. If room has reservation ending today → PENDIENTE_CHECKOUT
-     * 5. Otherwise → LIBRE
-     *
-     * NOTE: Cleaning status (Pendiente por Aseo) is handled separately by cleaningStatus()
-     * and displayed in the "ESTADO DE LIMPIEZA" column, not in the "ESTADO" column.
+     * 
+     * DEPRECATED: Use RoomAvailabilityService->getDisplayStatusOn() instead.
+     * This method is kept for backward compatibility.
      *
      * @param \Carbon\Carbon|null $date Date to check. Defaults to today.
      * @return RoomDisplayStatus
      */
     public function getDisplayStatus(?\Carbon\Carbon $date = null): RoomDisplayStatus
     {
-        $date = $date ?? \Carbon\Carbon::today();
-        $normalizedDate = $date->copy()->startOfDay();
+        return $this->getAvailabilityService()->getDisplayStatusOn($date);
+    }
 
-        // Priority 1: Maintenance blocks everything
-        if ($this->isInMaintenance()) {
-            return RoomDisplayStatus::MANTENIMIENTO;
-        }
-
-        // Priority 2: Active stay/reservation means occupied
-        if ($this->isOccupied($normalizedDate)) {
-            return RoomDisplayStatus::OCUPADA;
-        }
-
-        // Priority 3: Check if reservation ends today or starts today (Pendiente Checkout)
-        $previousDay = $normalizedDate->copy()->subDay();
-        $tomorrow = $normalizedDate->copy()->addDay();
-        $wasOccupiedYesterday = $this->isOccupied($previousDay);
-
-        // Case 1: Was occupied yesterday, checkout today
-        if ($wasOccupiedYesterday) {
-            $reservationEndingToday = $this->reservationRooms()
-                ->where('check_in_date', '<=', $previousDay->toDateString())
-                ->where('check_out_date', '=', $date->toDateString())
-                ->exists();
-
-            if ($reservationEndingToday) {
-                return RoomDisplayStatus::PENDIENTE_CHECKOUT;
-            }
-        }
-
-        // Case 2: One-day reservation starting today
-        $oneDayReservationStartingToday = $this->reservationRooms()
-            ->where('check_in_date', '=', $normalizedDate->toDateString())
-            ->where('check_out_date', '=', $tomorrow->toDateString())
-            ->whereColumn('check_out_date', '>', 'check_in_date')
-            ->exists();
-
-        if ($oneDayReservationStartingToday) {
-            return RoomDisplayStatus::PENDIENTE_CHECKOUT;
-        }
-
-        // Case 3: Reservation ending tomorrow
-        $reservationEndingTomorrow = $this->reservationRooms()
-            ->where('check_in_date', '<=', $normalizedDate->toDateString())
-            ->where('check_out_date', '=', $tomorrow->toDateString())
-            ->whereColumn('check_out_date', '>', 'check_in_date')
-            ->exists();
-
-        if ($reservationEndingTomorrow) {
-            return RoomDisplayStatus::PENDIENTE_CHECKOUT;
-        }
-
-        // Priority 4: If room needs cleaning
-        $cleaningStatus = $this->cleaningStatus($date);
-        if ($cleaningStatus['code'] === 'needs_cleaning') {
-            return RoomDisplayStatus::SUCIA;
-        }
-
-        // Priority 5: Check if there's a future reservation (RESERVADA)
-        $hasFutureReservation = $this->reservationRooms()
-            ->where('check_in_date', '>', $normalizedDate->toDateString())
-            ->exists();
-
-        if ($hasFutureReservation) {
-            return RoomDisplayStatus::RESERVADA;
-        }
-
-        // Priority 6: Default to LIBRE (no stays, no reservations, no maintenance)
-        return RoomDisplayStatus::LIBRE;
+    /**
+     * Get the RoomAvailabilityService for this room.
+     * 
+     * Centralizes room availability logic and ensures correct interval-based calculations.
+     * 
+     * @return \App\Services\RoomAvailabilityService
+     */
+    public function getAvailabilityService(): \App\Services\RoomAvailabilityService
+    {
+        return new \App\Services\RoomAvailabilityService($this);
     }
 
     /**
@@ -367,7 +582,7 @@ class Room extends Model
         $date = $date ?? \Carbon\Carbon::today();
 
         // If not in Pendiente Checkout status, return null
-        if ($this->getDisplayStatus($date) !== RoomStatus::PENDIENTE_CHECKOUT) {
+        if ($this->getDisplayStatus($date) !== RoomDisplayStatus::PENDIENTE_CHECKOUT) {
             return null;
         }
 

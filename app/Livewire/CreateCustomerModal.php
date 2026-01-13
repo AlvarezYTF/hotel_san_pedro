@@ -16,6 +16,7 @@ use Illuminate\Support\Facades\Log;
 class CreateCustomerModal extends Component
 {
     public bool $isOpen = false;
+    public string $context = 'principal'; // 'principal' o 'additional'
     public array $formData = [
         'name' => '',
         'identification' => '',
@@ -47,6 +48,15 @@ class CreateCustomerModal extends Component
     #[On('open-create-customer-modal')]
     public function open(): void
     {
+        $this->context = 'principal';
+        $this->resetForm();
+        $this->isOpen = true;
+    }
+
+    #[On('open-create-customer-modal-for-additional')]
+    public function openForAdditional(): void
+    {
+        $this->context = 'additional';
         $this->resetForm();
         $this->isOpen = true;
     }
@@ -396,9 +406,9 @@ class CreateCustomerModal extends Component
                 'id' => $customer->id,
                 'name' => $customer->name,
                 'identification' => $this->formData['identification'],
-            ]);
+            ], context: $this->context);
 
-            Log::info('CreateCustomerModal: Events dispatched, closing modal');
+            Log::info('CreateCustomerModal: Events dispatched, closing modal', ['context' => $this->context]);
             $this->close();
             
             $this->dispatch('notify', [

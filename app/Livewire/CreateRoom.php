@@ -15,7 +15,7 @@ class CreateRoom extends Component
     public int $max_capacity = 2;
     public bool $auto_calculate = true;
     public ?int $room_type = null;
-    public int $ventilation_type = 1;
+    public ?int $ventilation_type = null;
     public array $occupancy_prices = [];
     public float $base_price_per_night = 0.0;
     public bool $is_active = true;
@@ -169,18 +169,20 @@ class CreateRoom extends Component
             }
 
             // Validate that at least one price is set
-            $hasAtLeastOnePrice = false;
-            foreach ($this->occupancy_prices as $value) {
-                if ($value !== null && $value > 0) {
-                    $hasAtLeastOnePrice = true;
-                    break;
+            // Filtrar valores vacíos, null y ceros
+            $validPrices = array_filter(
+                $this->occupancy_prices,
+                function($value) {
+                    if ($value === null || $value === '' || $value === '0' || $value === 0) {
+                        return false;
+                    }
+                    $numValue = is_string($value) ? (int)$value : $value;
+                    return $numValue > 0;
                 }
-            }
+            );
 
-            if (!$hasAtLeastOnePrice) {
+            if (empty($validPrices)) {
                 $this->addError('occupancy_prices', 'Debe definir al menos un precio de ocupación.');
-                $this->dispatch('notify', type: 'error', message: 'Por favor revisa los errores en el formulario.');
-                $this->errorFlash++;
                 $this->isProcessing = false;
                 return;
             }
@@ -188,29 +190,21 @@ class CreateRoom extends Component
             // Convert null values for validation
             $pricesForValidation = [];
             foreach ($this->occupancy_prices as $key => $value) {
-                $pricesForValidation[$key] = $value !== null ? (int)$value : null;
+                if ($value !== null && $value !== '' && (int)$value > 0) {
+                    $pricesForValidation[$key] = (int)$value;
+                } else {
+                    $pricesForValidation[$key] = null;
+                }
             }
 
             // Temporarily set occupancy_prices for validation
             $originalPrices = $this->occupancy_prices;
             $this->occupancy_prices = $pricesForValidation;
 
-            // Validate all fields
-            try {
-                $this->validate();
-            } catch (\Illuminate\Validation\ValidationException $e) {
-                // Restore original prices before returning
-                $this->occupancy_prices = $originalPrices;
-                
-                // Dispatch error notification
-                $this->dispatch('notify', type: 'error', message: 'Por favor completa todos los campos requeridos. 
-                ');
-                $this->errorFlash++;
-                $this->isProcessing = false;
-                return;
-            }
+            // Validate all fields - let Livewire handle validation errors
+            $this->validate();
 
-            // Restore original prices
+            // Restore original prices after successful validation
             $this->occupancy_prices = $originalPrices;
 
             // Filter out null values and convert to integers for storage
@@ -223,6 +217,7 @@ class CreateRoom extends Component
                 'max_capacity' => $this->max_capacity,
                 'base_price_per_night' => $this->base_price_per_night,
                 'is_active' => $this->is_active,
+                'last_cleaned_at' => now(), // Nueva habitación = limpia
             ]);
             
             $validatedPrices = [];
@@ -248,8 +243,8 @@ class CreateRoom extends Component
             $this->beds_count = 1;
             $this->max_capacity = 2;
             $this->auto_calculate = true;
-            $this->room_type = 0;
-            $this->ventilation_type = 0;
+            $this->room_type = null;
+            $this->ventilation_type = null;
             $this->occupancy_prices = [];
 
             // Re-initialize after reset

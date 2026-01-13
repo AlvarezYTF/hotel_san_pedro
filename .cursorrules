@@ -1,0 +1,253 @@
+# Reglas de Cursor para Hotel San Pedro
+
+## Contexto del Proyecto
+Este es un sistema de gestión hotelera desarrollado en Laravel 12. El proyecto utiliza:
+- Laravel 12 (PHP 8.3+)
+- Livewire 3 para componentes interactivos
+- Tailwind CSS 4 para estilos
+- Blade para plantillas
+- Spatie Laravel Permission para roles y permisos
+- PowerGrid para tablas de datos
+- Integración con API de Factus para facturación electrónica
+
+## Estándares de Código
+
+### PHP / Laravel
+- Seguir PSR-12 para estilo de código PHP
+- Usar type hints estrictos cuando sea posible
+- Preferir métodos con tipos de retorno explícitos
+- Usar Eloquent para acceso a base de datos
+- Implementar validación mediante Form Requests (app/Http/Requests)
+- Usar Servicios (app/Services) para lógica de negocio compleja
+- Usar Policies (app/Policies) para autorización cuando sea necesario
+- Comentarios y documentación en español (PHPDoc en inglés estándar)
+
+### Modelos Eloquent
+- Definir siempre `$fillable` o `$guarded`
+- Usar `$casts` para tipos de datos
+- Usar Attribute Casts cuando se necesite transformar datos (ej: uppercase, trim)
+- Nombrar relaciones en español cuando el dominio lo requiera (ej: `turnosEntregados()`, `reservaciones()`)
+- Usar scopes para consultas reutilizables
+- Usar SoftDeletes cuando sea apropiado
+
+### Controladores
+- Mantener controladores delgados, mover lógica a Servicios
+- Usar Form Requests para validación
+- Retornar respuestas JSON apropiadas para APIs
+- Usar inyección de dependencias
+
+### Livewire
+- Mantener componentes Livewire enfocados en una sola responsabilidad
+- Usar propiedades públicas solo cuando sea necesario
+- Preferir métodos computados (`computed`) para propiedades derivadas
+- Usar eventos de Livewire para comunicación entre componentes
+- Validar en el componente antes de persistir
+
+### Vistas Blade
+- Usar componentes Blade cuando sea posible (resources/views/components)
+- Mantener lógica mínima en las vistas
+- Usar directivas de Blade apropiadas (@if, @foreach, etc.)
+- Usar componentes de Livewire con nombres descriptivos
+
+### Tailwind CSS
+- Usar clases utilitarias de Tailwind
+- Seguir diseño consistente del sistema (colores, espaciado, tipografía)
+- Evitar estilos inline cuando sea posible
+- Usar componentes reutilizables para patrones comunes
+
+### Base de Datos
+- Crear migraciones con nombres descriptivos
+- Usar foreign keys con onDelete apropiado
+- Usar índices cuando sea necesario para rendimiento
+- Agregar timestamps (created_at, updated_at) a todas las tablas relevantes
+
+### Servicios
+- Ubicar lógica de negocio compleja en app/Services
+- Inyectar dependencias en el constructor
+- Métodos públicos deben tener responsabilidades claras
+- Manejar excepciones apropiadamente
+
+### Nombres y Convenciones
+- Usar español para nombres de dominio (modelos, relaciones cuando sea apropiado)
+- Usar inglés para código técnico estándar (métodos de framework, configuraciones)
+- Nombres de archivos en PascalCase para clases (UserController.php)
+- Nombres de métodos en camelCase
+- Nombres de tablas en snake_case y plural (customers, room_types)
+
+### Seguridad
+- Validar y sanitizar todas las entradas de usuario
+- Usar CSRF tokens en formularios
+- Implementar autorización mediante Policies o middleware
+- Usar prepared statements (Eloquent ya lo hace)
+- No exponer información sensible en respuestas
+
+### Testing
+- Escribir tests cuando sea crítico para el negocio
+- Usar factories para datos de prueba
+- Mantener tests actualizados
+
+### Documentación
+- Comentarios PHPDoc para clases y métodos públicos importantes
+- Documentación en español para el equipo
+- Mantener README actualizado
+
+## Patrones Específicos del Proyecto
+
+### Gestión de Habitaciones
+- Los estados de habitación usan Enums (RoomStatus, RoomDisplayStatus)
+- El servicio RoomAvailabilityService maneja disponibilidad
+- Los componentes Livewire para habitaciones están en app/Livewire/RoomManager.php
+
+### Facturación Electrónica
+- Servicios: FactusApiService, ElectronicInvoiceService
+- Modelos: ElectronicInvoice, ElectronicInvoiceItem
+- Integración con API de Factus configurada en config/factus.php
+
+### Roles y Permisos
+- Usar Spatie Laravel Permission
+- Roles principales: Administrador, Recepcionista Día, Recepcionista Noche
+- Verificar permisos antes de acciones sensibles
+
+### Turnos (Shifts)
+- Los turnos están relacionados con usuarios (recepcionistas)
+- El servicio ShiftLifecycleService maneja el ciclo de vida de turnos
+- Usar ShiftHandover para traspasos entre turnos
+
+## Principios de Desarrollo
+
+### SOLID
+- **S - Single Responsibility Principle**: Cada clase debe tener una única razón para cambiar
+  - Modelos: Solo lógica de dominio del modelo
+  - Controladores: Solo coordinación entre request/response y servicios
+  - Servicios: Una responsabilidad de negocio específica
+  - Componentes Livewire: Una funcionalidad específica de UI
+
+- **O - Open/Closed Principle**: Abierto para extensión, cerrado para modificación
+  - Usar interfaces y contratos cuando sea apropiado
+  - Extender funcionalidad mediante traits o composición
+  - Evitar modificar código existente que funciona
+
+- **L - Liskov Substitution Principle**: Los objetos derivados deben ser sustituibles por sus clases base
+  - Al implementar interfaces, cumplir el contrato completo
+  - Los tipos de retorno deben ser compatibles
+
+- **I - Interface Segregation Principle**: Muchas interfaces específicas son mejores que una general
+  - Crear interfaces pequeñas y enfocadas
+  - Evitar interfaces con métodos que no se usan
+
+- **D - Dependency Inversion Principle**: Depender de abstracciones, no de concreciones
+  - Inyectar dependencias en constructores
+  - Usar Service Container de Laravel para resolución de dependencias
+  - Preferir inyección de servicios sobre instanciación directa
+
+### DRY (Don't Repeat Yourself)
+- Extraer lógica repetida a métodos, servicios o traits
+- Usar scopes de Eloquent para consultas reutilizables
+- Crear componentes Blade reutilizables para UI repetida
+- Centralizar configuración en archivos de config
+- Usar Form Requests para validación repetida
+
+### KISS (Keep It Simple, Stupid)
+- Preferir soluciones simples y directas
+- Evitar abstracciones innecesarias
+- El código debe ser fácil de entender y mantener
+- Si una solución simple funciona, no complicarla
+
+### YAGNI (You Aren't Gonna Need It)
+- No implementar funcionalidad "por si acaso"
+- Enfocarse en lo que se necesita ahora
+- Evitar sobre-ingeniería
+- Agregar complejidad solo cuando sea necesario
+
+### Clean Code
+- **Nombres descriptivos**: Variables, métodos y clases deben explicar su propósito
+- **Funciones pequeñas**: Métodos deben hacer una cosa y hacerla bien
+- **Sin efectos secundarios**: Funciones deben hacer solo lo que su nombre indica
+- **Código auto-documentado**: El código debe ser claro sin necesidad de comentarios extensos
+- **Manejo de errores explícito**: Usar excepciones apropiadas, no valores mágicos
+- **Formato consistente**: Seguir PSR-12
+
+### Separation of Concerns (Separación de Responsabilidades)
+- **Vistas (Blade)**: Solo presentación, sin lógica de negocio
+- **Controladores**: Coordinación entre request/response y servicios
+- **Servicios**: Lógica de negocio
+- **Modelos**: Lógica de dominio y acceso a datos
+- **Repositorios**: Abstracción de acceso a datos (cuando sea necesario)
+
+### Tell, Don't Ask
+- Los objetos deben decirle a otros objetos qué hacer, no pedirles información para decidir
+- Encapsular lógica en los objetos apropiados
+- Preferir: `$room->checkIn($customer)` sobre `if ($room->isAvailable()) { $room->setCustomer($customer) }`
+
+### Fail Fast
+- Validar entradas lo antes posible (Form Requests)
+- Lanzar excepciones claras con mensajes descriptivos
+- No silenciar errores, manejarlos apropiadamente
+
+### Composition Over Inheritance
+- Preferir composición (usar otros objetos) sobre herencia
+- Usar traits cuando sea apropiado para compartir comportamiento
+- Evitar jerarquías profundas de herencia
+
+### Law of Demeter (Principio de Menor Conocimiento)
+- Un objeto solo debe comunicarse con objetos directamente relacionados
+- Evitar cadenas largas: `$a->b->c->d()` es una señal de alerta
+- Preferir delegación: hacer que el objeto intermedio exponga el método necesario
+
+### Don't Optimize Prematurely
+- Primero hacer que funcione, luego hacer que sea rápido
+- Medir antes de optimizar
+- Usar las características de Laravel (eager loading, caché, etc.) cuando sea apropiado
+- No optimizar código que no es un cuello de botella
+
+### Explicit Over Implicit
+- Ser explícito en nombres, tipos de retorno, y contratos
+- Evitar "magia" innecesaria
+- Usar type hints siempre que sea posible
+- Preferir código que sea obvio sobre código "inteligente"
+
+### Principle of Least Surprise
+- El código debe comportarse como los desarrolladores esperan
+- Seguir convenciones de Laravel
+- Nombrar cosas de manera predecible
+- Mantener consistencia con el código existente
+
+### Fail-Safe Defaults
+- Configurar valores por defecto seguros
+- Validar datos en múltiples capas (frontend y backend)
+- No confiar solo en validación del cliente
+- Asumir que las entradas pueden ser maliciosas
+
+### Complete Abstractions
+- Cuando se crea una abstracción, debe ser completa
+- Interfaces deben representar contratos completos
+- No exponer detalles de implementación innecesarios
+
+### Keep It DRY, But Not Too DRY
+- Balancear reutilización con claridad
+- A veces un poco de duplicación es mejor que abstracciones complejas
+- Si la duplicación es mínima y hace el código más claro, está bien
+
+### Prefer Explicit Dependencies
+- Declarar todas las dependencias en el constructor
+- Evitar usar facades cuando la inyección de dependencias es más clara
+- Facades están bien para vistas, pero en servicios/clases preferir inyección
+
+### Single Source of Truth
+- Datos deben tener una única fuente de verdad
+- Evitar duplicación de estado
+- Usar caché apropiadamente para datos derivados
+- Configuración centralizada en archivos de config
+
+## Cuándo Pedir Clarificación
+- Si hay ambigüedad en requerimientos de negocio
+- Si hay decisiones de diseño arquitectónicas importantes
+- Si hay conflictos con código existente
+- Si hay múltiples formas válidas de implementar algo y no está claro cuál preferir
+
+## Preferencias Generales
+- Priorizar claridad sobre optimización prematura
+- Mantener compatibilidad con código existente
+- Seguir patrones establecidos en el proyecto
+- Probar cambios antes de considerar completado
+- Cuando haya duda, preferir la solución más simple y mantenible

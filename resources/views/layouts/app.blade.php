@@ -357,6 +357,7 @@
     <x-notifications.confirm-modal />
     <x-notifications.select-modal />
     <x-notifications.input-modal />
+    <x-notifications.payment-modal />
 
     <!-- Modal de Verificación de PIN -->
     <div x-data="pinVerification()" 

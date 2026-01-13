@@ -1,4 +1,47 @@
 <div class="p-6 space-y-4 sm:space-y-6">
+        <!-- Alerta de Errores General -->
+        @if ($errors->any())
+            <div class="bg-red-50 border border-red-200 rounded-xl p-4 sm:p-5">
+                <div class="flex items-start">
+                    <div class="flex-shrink-0">
+                        <i class="fas fa-exclamation-circle text-red-600 text-lg"></i>
+                    </div>
+                    <div class="ml-3 flex-1">
+                        <h3 class="text-sm sm:text-base font-semibold text-red-800">
+                            Por favor completa todos los campos requeridos
+                        </h3>
+                        <ul class="mt-3 text-sm text-red-700 space-y-2">
+                            @php
+                                $fieldLabels = [
+                                    'room_number' => 'Número de habitación',
+                                    'room_type' => 'Tipo de habitación',
+                                    'ventilation_type' => 'Tipo de ventilación',
+                                    'beds_count' => 'Número de camas',
+                                    'max_capacity' => 'Capacidad máxima',
+                                    'base_price_per_night' => 'Precio base por noche',
+                                    'occupancy_prices' => 'Precios de ocupación',
+                                ];
+                            @endphp
+                            @foreach ($errors->getMessages() as $field => $messages)
+                                @php
+                                    $label = $fieldLabels[$field] ?? ucfirst(str_replace('_', ' ', $field));
+                                @endphp
+                                @foreach ($messages as $message)
+                                    <li class="flex items-start">
+                                        <i class="fas fa-circle text-red-600 text-xs mt-1.5 mr-2 flex-shrink-0"></i>
+                                        <div>
+                                            <span class="font-semibold">{{ $label }}:</span>
+                                            {{ $message }}
+                                        </div>
+                                    </li>
+                                @endforeach
+                            @endforeach
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        @endif
+
         <form wire:submit.prevent="store"
             class="space-y-4 sm:space-y-6">
         <!-- Información Básica -->
@@ -78,8 +121,8 @@
                         </div>
                         <select
                             id="ventilation_type"
-                            wire:model.blur="ventilation_type_id"
-                            class="block w-full pl-10 sm:pl-11 pr-10 py-2.5 border border-gray-300 rounded-xl text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent appearance-none bg-white @error('ventilation_type_id') border-red-300 focus:ring-red-500 @enderror"
+                            wire:model.blur="ventilation_type"
+                            class="block w-full pl-10 sm:pl-11 pr-10 py-2.5 border border-gray-300 rounded-xl text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent appearance-none bg-white @error('ventilation_type') border-red-300 focus:ring-red-500 @enderror"
                         >
                             <option value="">Seleccionar...</option>
                             @foreach($ventilationTypes as $type)

@@ -270,19 +270,18 @@
                                                             <div class="flex flex-col items-end space-y-1">
                                                                 <span
                                                                     class="text-[9px] font-bold uppercase text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full">Pagado</span>
-                                                                <button
-                                                                    @click="confirmRevertNight({{ $detailData['reservation']['id'] }}, {{ $stay['price'] }})"
-                                                                    class="text-[8px] font-bold text-gray-400 underline uppercase tracking-tighter hover:text-red-600 opacity-0 group-hover:opacity-100 transition-opacity">Anular
-                                                                    Pago</button>
+                                                                <span class="text-[8px] text-gray-400 italic">Gestionar en pagos</span>
                                                             </div>
                                                         @else
                                                             <div class="flex flex-col items-end space-y-1">
                                                                 <span
                                                                     class="text-[9px] font-bold uppercase text-red-600 bg-red-50 px-2 py-0.5 rounded-full">Pendiente</span>
                                                                 <button
-                                                                    @click="confirmPayStay({{ $detailData['reservation']['id'] }}, {{ $stay['price'] }})"
-                                                                    class="text-[8px] font-bold text-blue-600 underline uppercase tracking-tighter hover:text-blue-800">Pagar
-                                                                    Noche</button>
+                                                                    type="button"
+                                                                    @click="window.openRegisterPayment({{ $detailData['reservation']['id'] }}, {{ $stay['price'] }})"
+                                                                    class="text-[8px] font-bold text-blue-600 underline uppercase tracking-tighter hover:text-blue-800">
+                                                                    Pagar noche
+                                                                </button>
                                                             </div>
                                                         @endif
                                                     </td>

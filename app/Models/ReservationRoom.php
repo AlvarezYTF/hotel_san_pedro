@@ -41,12 +41,44 @@ class ReservationRoom extends Model
 
     /**
      * Get the guests assigned to this specific room in the reservation.
+     * 
+     * Estructura de BD:
+     * - reservation_room_guests.reservation_guest_id -> reservation_guests.id
+     * - reservation_guests.guest_id -> customers.id
+     * 
+     * Relación personalizada usando subquery para acceder a customers
+     * a través de reservation_room_guests -> reservation_guests.
+     * 
+     * NOTA: Esta relación retorna un Builder, no una relación Eloquent estándar.
+     * Para usar con eager loading, cargar manualmente o usar el método getGuests().
      */
     public function guests()
     {
-        return $this->belongsToMany(Customer::class, 'reservation_room_guests', 'reservation_room_id', 'customer_id')
-                    ->withTimestamps()
-                    ->withTrashed();
+        return Customer::query()
+            ->whereIn('id', function ($query) {
+                $query->select('reservation_guests.guest_id')
+                    ->from('reservation_room_guests')
+                    ->join('reservation_guests', 'reservation_room_guests.reservation_guest_id', '=', 'reservation_guests.id')
+                    ->where('reservation_room_guests.reservation_room_id', $this->getKey())
+                    ->whereNotNull('reservation_guests.guest_id');
+            })
+            ->withTrashed();
+    }
+    
+    /**
+     * Get guests as a collection (helper method for easier usage).
+     */
+    public function getGuests()
+    {
+        try {
+            return $this->guests()->get();
+        } catch (\Exception $e) {
+            \Log::warning('Error loading guests for ReservationRoom', [
+                'reservation_room_id' => $this->id,
+                'error' => $e->getMessage()
+            ]);
+            return collect();
+        }
     }
 }
 

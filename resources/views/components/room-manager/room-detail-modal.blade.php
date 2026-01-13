@@ -279,14 +279,33 @@
                                                         <div class="flex flex-col items-end space-y-1">
                                                             <span class="text-[9px] font-bold uppercase text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full">Pagado</span>
                                                             @if(!isset($detailData['is_past_date']) || !$detailData['is_past_date'])
-                                                                <button @click="confirmRevertNight({{ $detailData['reservation']['id'] }}, {{ $stay['price'] }})" class="text-[8px] font-bold text-gray-400 underline uppercase tracking-tighter hover:text-red-600 opacity-0 group-hover:opacity-100 transition-opacity">Anular Pago</button>
+                                                                <span class="text-[8px] text-gray-400 italic">Gestionar en pagos</span>
                                                             @endif
                                                         </div>
                                                     @else
                                                         <div class="flex flex-col items-end space-y-1">
                                                             <span class="text-[9px] font-bold uppercase text-red-600 bg-red-50 px-2 py-0.5 rounded-full">Pendiente</span>
                                                             @if(!isset($detailData['is_past_date']) || !$detailData['is_past_date'])
-                                                                <button @click="confirmPayStay({{ $detailData['reservation']['id'] }}, {{ $stay['price'] }})" class="text-[8px] font-bold text-blue-600 underline uppercase tracking-tighter hover:text-blue-800">Pagar Noche</button>
+                                                                <button 
+                                                                    type="button"
+                                                                    x-data
+                                                                    @click="
+                                                                        const reservationId = {{ $detailData['reservation']['id'] ?? 0 }};
+                                                                        const nightPrice = {{ $stay['price'] ?? 0 }};
+                                                                        const financialContext = {
+                                                                            totalAmount: {{ $detailData['total_hospedaje'] ?? 0 }},
+                                                                            paymentsTotal: {{ $detailData['abono_realizado'] ?? 0 }},
+                                                                            balanceDue: {{ $detailData['total_debt'] ?? 0 }}
+                                                                        };
+                                                                        if (typeof window.openRegisterPayment === 'function') {
+                                                                            window.openRegisterPayment(reservationId, nightPrice, financialContext);
+                                                                        } else {
+                                                                            console.error('openRegisterPayment no está disponible');
+                                                                        }
+                                                                    " 
+                                                                    class="text-[8px] font-bold text-blue-600 underline uppercase tracking-tighter hover:text-blue-800 cursor-pointer">
+                                                                    Pagar noche
+                                                                </button>
                                                             @endif
                                                         </div>
                                                     @endif

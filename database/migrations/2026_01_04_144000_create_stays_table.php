@@ -32,8 +32,7 @@ return new class extends Migration
                 $table->foreignId('room_id')->constrained('rooms')->cascadeOnDelete();
                 $table->dateTime('check_in_at');
                 $table->dateTime('check_out_at')->nullable();
-                $table->foreignId('status_id')->constrained('stay_statuses');
-                $table->timestamp('created_at')->useCurrent();
+                $table->string('status')->default('active'); // active, pending_checkout, finished
             });
         }
     }

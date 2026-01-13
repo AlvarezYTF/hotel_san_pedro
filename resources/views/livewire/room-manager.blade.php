@@ -89,6 +89,9 @@
         :showAddSale="$showAddSale"
         :showAddDeposit="$showAddDeposit"
     />
+    
+    <!-- MODAL: REGISTRAR PAGO (dentro del contexto del componente para usar @this) -->
+    <x-notifications.payment-modal />
 
     <!-- MODAL: ARRENDAMIENTO RÁPIDO -->
     <x-room-manager.quick-rent-modal 

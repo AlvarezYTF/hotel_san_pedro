@@ -21,7 +21,7 @@ return new class extends Migration
         // Agregar source_id a stays
         if (Schema::hasTable('stays') && !Schema::hasColumn('stays', 'source_id')) {
             Schema::table('stays', function (Blueprint $table) {
-                $table->foreignId('source_id')->nullable()->after('status_id')->constrained('stay_sources');
+                $table->foreignId('source_id')->nullable()->after('status')->constrained('stay_sources');
             });
         }
     }

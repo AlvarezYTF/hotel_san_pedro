@@ -1,6 +1,101 @@
 @props(['room', 'currentDate'])
 
-<tr class="{{ $room->display_status->cardBgColor() }} transition-colors duration-150 group" wire:key="room-{{ $room->id }}" style="position: static;">
+@php
+    $selectedDate = $currentDate instanceof \Carbon\Carbon ? $currentDate : \Carbon\Carbon::parse($currentDate);
+    $today = \Carbon\Carbon::today();
+    $isPastDate = $selectedDate->copy()->startOfDay()->lt($today);
+    
+    // SINGLE SOURCE OF TRUTH: Usar solo getOperationalStatus()
+    // Para fechas pasadas, este método retorna el estado histórico (inmutable)
+    $operationalStatus = $room->getOperationalStatus($selectedDate);
+    
+    // SINGLE SOURCE OF TRUTH: Obtener stay UNA SOLA VEZ para la fecha seleccionada
+    // Esta stay se pasa a los componentes hijos para evitar duplicación de lógica
+    // Para fechas pasadas, retorna la stay que existía ese día (histórica)
+    $stay = $room->getAvailabilityService()->getStayForDate($selectedDate);
+    
+    // Eager loading de relaciones necesarias para evitar N+1 queries
+    if ($stay) {
+        $stay->loadMissing([
+            'reservation.customer',
+            'reservation.reservationRooms' => function ($query) use ($room) {
+                $query->where('room_id', $room->id);
+            }
+        ]);
+    }
+@endphp
+
+<tr
+    x-data="{
+        isReleasing: false,
+        recentlyReleased: false,
+        // Estado inicial desde BD (Single Source of Truth)
+        operationalStatus: '{{ $operationalStatus }}',
+        // Computed: Determina el estado visual a mostrar
+        get displayState() {
+            if (this.isReleasing) return 'releasing';
+            if (this.recentlyReleased) return 'released';
+            return this.operationalStatus;
+        },
+        // Computed: Determina si mostrar info de huésped y cuenta
+        get shouldShowGuestInfo() {
+            // Solo mostrar cuando NO está en proceso de liberación Y el estado operativo es 'occupied'
+            return !this.isReleasing && !this.recentlyReleased && this.operationalStatus === 'occupied';
+        },
+    }"
+    x-init="
+        // CRITICAL: Las fechas pasadas son INMUTABLES - NO escuchar eventos reactivos
+        // Solo hoy y fechas futuras pueden cambiar en tiempo real
+        const isPastDate = {{ $isPastDate ? 'true' : 'false' }};
+        
+        if (!isPastDate) {
+            // Listener: Inicio de liberación - Congela estado visual (solo para hoy/futuro)
+            window.addEventListener('room-release-start', e => {
+                if (e.detail?.roomId === {{ $room->id }}) {
+                    this.isReleasing = true;
+                    this.recentlyReleased = false;
+                    // Congelar el estado operativo actual
+                }
+            });
+            
+            // Listener: Finalización de liberación - Actualiza a pending_cleaning (solo para hoy/futuro)
+            window.addEventListener('room-release-finished', e => {
+                if (e.detail?.roomId === {{ $room->id }}) {
+                    this.isReleasing = false;
+                    this.recentlyReleased = true;
+                    // Actualizar estado operativo a pending_cleaning (estado real después del checkout)
+                    this.operationalStatus = 'pending_cleaning';
+                    // Mostrar confirmación visual por 2 segundos
+                    setTimeout(() => { 
+                        this.recentlyReleased = false;
+                        // El estado operativo ya está sincronizado a 'pending_cleaning'
+                        // y se sincronizará desde BD en el próximo render de Livewire
+                    }, 2000);
+                }
+            });
+            
+            // Listener: Habitación marcada como limpia - Actualiza a free_clean (solo para hoy/futuro)
+            window.addEventListener('room-marked-clean', e => {
+                if (e.detail?.roomId === {{ $room->id }}) {
+                    this.operationalStatus = 'free_clean';
+                    this.recentlyReleased = false;
+                    this.isReleasing = false;
+                }
+            });
+        }
+        
+        // Sincronizar estado después de wire:poll o refreshRooms
+        // Cuando Livewire re-renderiza, Alpine se reinicializa con el nuevo operationalStatus desde PHP
+        // Para fechas pasadas, el estado siempre viene desde BD y es inmutable
+    "
+    class="transition-colors duration-150 group"
+    :class="{
+        'bg-emerald-50': displayState === 'released',
+        'bg-red-50/40': displayState === 'occupied',
+        'bg-yellow-50/30': displayState === 'pending_cleaning',
+        'bg-emerald-50/30': displayState === 'free_clean'
+    }"
+    wire:key="room-{{ $room->id }}" style="position: static;">
     <td class="px-6 py-4 whitespace-nowrap">
         <div class="flex items-center">
             <div class="h-10 w-10 rounded-lg bg-gray-100 flex items-center justify-center mr-3 text-gray-400 group-hover:bg-blue-50 group-hover:text-blue-600 transition-colors">
@@ -16,14 +111,37 @@
     </td>
 
     <td class="px-6 py-4 whitespace-nowrap text-center">
-        <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold {{ $room->display_status->color() }}">
-            <span class="w-1.5 h-1.5 rounded-full mr-2" style="background-color: currentColor"></span>
-            {{ $room->display_status->label() }}
+        <span
+            class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold transition-colors duration-300"
+            :class="{
+                'bg-gray-100 text-gray-600': displayState === 'releasing',
+                'bg-emerald-100 text-emerald-700 border border-emerald-200': displayState === 'released',
+                'bg-red-100 text-red-700 border border-red-200': displayState === 'occupied',
+                'bg-yellow-100 text-yellow-700 border border-yellow-200': displayState === 'pending_cleaning',
+                'bg-emerald-100 text-emerald-700': displayState === 'free_clean'
+            }">
+            <span class="w-1.5 h-1.5 rounded-full mr-2" :class="displayState === 'releasing' ? 'animate-spin' : ''" style="background-color: currentColor"></span>
+            <template x-if="displayState === 'releasing'">
+                <span><i class="fas fa-spinner fa-spin mr-1"></i>Liberando...</span>
+            </template>
+            <template x-if="displayState === 'released'">
+                <span x-transition.opacity><i class="fas fa-check-circle mr-1"></i>Habitación liberada</span>
+            </template>
+            <template x-if="displayState === 'occupied'">
+                <span>Ocupada</span>
+            </template>
+            <template x-if="displayState === 'pending_cleaning'">
+                <span><i class="fas fa-broom mr-1"></i>Pendiente por aseo</span>
+            </template>
+            <template x-if="displayState === 'free_clean'">
+                <span>Libre</span>
+            </template>
         </span>
     </td>
 
-    <td class="px-6 py-4 whitespace-nowrap text-center" x-data="{ open: false }">
-        <x-room-manager.room-cleaning-status :room="$room" />
+    <td class="px-6 py-4 whitespace-nowrap text-center">
+        {{-- SINGLE SOURCE OF TRUTH: El estado de limpieza se calcula independientemente del estado operativo --}}
+        <x-room-manager.room-cleaning-status :room="$room" :selectedDate="$selectedDate" />
     </td>
 
     <td class="px-6 py-4 whitespace-nowrap text-center">
@@ -38,11 +156,43 @@
     </td>
 
     <td class="px-6 py-4 whitespace-nowrap">
-        <x-room-manager.room-guest-info :room="$room" />
+        {{-- Solo mostrar info de huésped cuando estado operativo es 'occupied' --}}
+        <div x-show="shouldShowGuestInfo">
+            {{-- SINGLE SOURCE OF TRUTH: Pasar $stay explícitamente al componente --}}
+            <x-room-manager.room-guest-info :room="$room" :stay="$stay" />
+        </div>
+        <div x-show="!shouldShowGuestInfo" x-cloak>
+            {{-- Mensaje específico según estado operativo --}}
+            <template x-if="operationalStatus === 'pending_cleaning'">
+                <span class="text-xs text-gray-500 italic">Checkout realizado</span>
+            </template>
+            <template x-if="operationalStatus !== 'pending_cleaning'">
+                <span class="text-xs text-gray-400 italic">Sin arrendatario</span>
+            </template>
+        </div>
     </td>
 
     <td class="px-6 py-4 whitespace-nowrap">
-        <x-room-manager.room-payment-info :room="$room" />
+        {{-- Solo mostrar cuenta cuando estado operativo es 'occupied' --}}
+        <div x-show="shouldShowGuestInfo">
+            {{-- SINGLE SOURCE OF TRUTH: Pasar $stay explícitamente al componente --}}
+            <x-room-manager.room-payment-info :room="$room" :stay="$stay" />
+        </div>
+        <div x-show="!shouldShowGuestInfo" x-cloak>
+            {{-- Mensaje según estado operativo --}}
+            <template x-if="operationalStatus === 'pending_cleaning'">
+                <div class="flex flex-col">
+                    <span class="text-xs text-gray-500 font-semibold">Cuenta cerrada</span>
+                    <span class="text-[10px] text-gray-400">Marcar como limpia para arrendar</span>
+                </div>
+            </template>
+            <template x-if="operationalStatus !== 'pending_cleaning'">
+                <div class="flex flex-col">
+                    <span class="text-sm font-semibold text-gray-900">${{ number_format($room->base_price_per_night ?? 0, 0, ',', '.') }}</span>
+                    <span class="text-xs text-gray-400">precio base</span>
+                </div>
+            </template>
+        </div>
     </td>
 
     <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium" style="position: static;">
