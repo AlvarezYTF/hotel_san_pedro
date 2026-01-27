@@ -289,6 +289,7 @@ function paymentModal() {
         paymentAmount: 0,
         paymentAmountDisplay: '',
         nightPrice: 0,
+        nightDate: null, // Fecha de la noche específica a pagar (YYYY-MM-DD)
         isCustomAmount: false,
         amountError: '',
         
@@ -315,6 +316,7 @@ function paymentModal() {
                 balanceDue: parseFloat(data.financialContext?.balanceDue || 0)
             };
             this.nightPrice = parseFloat(data.nightPrice || 0);
+            this.nightDate = data.nightDate || null; // Fecha de la noche específica
             this.reservationId = data.reservationId;
             this.onConfirm = data.onConfirm || null;
             
@@ -468,7 +470,8 @@ function paymentModal() {
                 amount: this.paymentAmount,
                 paymentMethod: this.paymentMethod,
                 bankName: this.paymentMethod === 'transferencia' ? this.bankName : null,
-                reference: this.paymentMethod === 'transferencia' ? this.reference : null
+                reference: this.paymentMethod === 'transferencia' ? this.reference : null,
+                nightDate: this.nightDate || null // Incluir fecha de noche si existe
             };
 
             console.log('[Payment Modal] Dispatching register-payment-event', paymentData);
@@ -481,7 +484,8 @@ function paymentModal() {
                         amount: paymentData.amount,
                         paymentMethod: paymentData.paymentMethod,
                         bankName: paymentData.bankName,
-                        reference: paymentData.reference
+                        reference: paymentData.reference,
+                        nightDate: paymentData.nightDate
                     }
                 }));
                 console.log('[Payment Modal] Payment event dispatched successfully');

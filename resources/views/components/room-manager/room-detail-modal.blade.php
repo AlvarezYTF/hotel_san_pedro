@@ -292,13 +292,14 @@
                                                                     @click="
                                                                         const reservationId = {{ $detailData['reservation']['id'] ?? 0 }};
                                                                         const nightPrice = {{ $stay['price'] ?? 0 }};
+                                                                        const nightDate = '{{ $stay['date'] ?? '' }}';
                                                                         const financialContext = {
                                                                             totalAmount: {{ $detailData['total_hospedaje'] ?? 0 }},
                                                                             paymentsTotal: {{ $detailData['abono_realizado'] ?? 0 }},
                                                                             balanceDue: {{ $detailData['total_debt'] ?? 0 }}
                                                                         };
                                                                         if (typeof window.openRegisterPayment === 'function') {
-                                                                            window.openRegisterPayment(reservationId, nightPrice, financialContext);
+                                                                            window.openRegisterPayment(reservationId, nightPrice, financialContext, nightDate);
                                                                         } else {
                                                                             console.error('openRegisterPayment no está disponible');
                                                                         }

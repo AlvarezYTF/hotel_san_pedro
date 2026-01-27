@@ -46,7 +46,7 @@
                     $rangeStart = null;
                     $rangeReservation = null;
                     $today = \Carbon\Carbon::today()->startOfDay();
-                    $roomStatusValue = $room->status->value ?? null;
+                    $roomStatusValue = $room->status?->value ?? null;
                     $isRoomOccupied = in_array($roomStatusValue, ['ocupada', 'pendiente_checkout']);
                     
                     foreach ($daysInMonth as $dayIndex => $day) {
@@ -63,7 +63,7 @@
                             
                             if ($snapshot) {
                                 // Use snapshot status (immutable historical data)
-                                $snapshotStatus = $snapshot->status->value ?? null;
+                                $snapshotStatus = $snapshot->status?->value ?? null;
                                 if ($snapshotStatus === 'ocupada') {
                                     $dayStatus = 'occupied';
                                     // Try to load reservation from snapshot if exists
@@ -119,9 +119,9 @@
                                 } else { // $dayNormalized == $checkOutDate
                                     $dayStatus = $now->lt($checkOutDateTime) ? 'pending_checkout' : 'free';
                                 }
-                            } elseif ($room->status->value === 'mantenimiento') {
+                            } elseif ($room->status && $room->status->value === 'mantenimiento') {
                                 $dayStatus = 'maintenance';
-                            } elseif ($room->status->value === 'limpieza') {
+                            } elseif ($room->status && $room->status->value === 'limpieza') {
                                 $dayStatus = 'cleaning';
                             }
                         }
@@ -165,7 +165,7 @@
                             $today = \Carbon\Carbon::today()->startOfDay();
                             $isPastDate = $dayNormalized->lt($today);
                             $reservation = null;
-                            $roomStatusValue = $room->status->value ?? null;
+                            $roomStatusValue = $room->status?->value ?? null;
                             $isRoomOccupied = in_array($roomStatusValue, ['ocupada', 'pendiente_checkout']);
                             
                             // For past dates, use immutable snapshots (RoomDailyStatus)
@@ -176,7 +176,7 @@
                                 
                                 if ($snapshot) {
                                     // Use snapshot status (immutable historical data)
-                                    $snapshotStatus = $snapshot->status->value ?? null;
+                                    $snapshotStatus = $snapshot->status?->value ?? null;
                                     if ($snapshotStatus === 'ocupada') {
                                         $status = 'occupied';
                                         // Try to load reservation from snapshot if exists
@@ -230,9 +230,9 @@
                                     } else { // $dayNormalized == $checkOutDate
                                         $status = $now->lt($checkOutDateTime) ? 'pending_checkout' : 'free';
                                     }
-                                } elseif ($room->status->value === 'mantenimiento') {
+                                } elseif ($room->status && $room->status->value === 'mantenimiento') {
                                     $status = 'maintenance';
-                                } elseif ($room->status->value === 'limpieza') {
+                                } elseif ($room->status && $room->status->value === 'limpieza') {
                                     $status = 'cleaning';
                                 }
                             }

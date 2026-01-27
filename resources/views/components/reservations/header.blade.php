@@ -53,11 +53,11 @@
                     <span>Exportar PDF</span>
                 </button>
             </form>
-            <a href="{{ route('reservations.create') }}"
+            <button type="button" onclick="openCreateReservationModal()"
                class="inline-flex items-center justify-center px-4 sm:px-5 py-2.5 rounded-xl border-2 border-emerald-600 bg-emerald-600 text-white text-sm font-semibold hover:bg-emerald-700 hover:border-emerald-700 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500 shadow-sm hover:shadow-md">
                 <i class="fas fa-plus mr-2"></i>
                 <span>Nueva Reserva</span>
-            </a>
+            </button>
         </div>
     </div>
 </div>

@@ -2278,6 +2278,23 @@ class ReservationCreate extends Component
 
     private function isRoomAvailableForDates(int $roomId, Carbon $checkIn, Carbon $checkOut): bool
     {
+        // 🔥 AJUSTE CRÍTICO 1: Verificar stays activas (ocupación real)
+        // Una habitación NO está disponible si tiene una stay activa que intersecta el rango solicitado
+        $hasActiveStay = \App\Models\Stay::where('room_id', $roomId)
+            ->where('status', 'active')
+            ->where(function ($q) use ($checkIn, $checkOut) {
+                $q->where('check_in_at', '<', $checkOut->endOfDay())
+                  ->where(function ($q2) use ($checkIn) {
+                      $q2->whereNull('check_out_at')
+                         ->orWhere('check_out_at', '>', $checkIn->startOfDay());
+                  });
+            })
+            ->exists();
+
+        if ($hasActiveStay) {
+            return false; // ❌ Habitación ocupada por stay activa
+        }
+
         // Check in main reservations table (single room reservations)
         $existsInReservations = Reservation::where('room_id', $roomId)
             ->where(function ($query) use ($checkIn, $checkOut) {

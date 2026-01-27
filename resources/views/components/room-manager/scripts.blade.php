@@ -9,9 +9,10 @@
      * @param {number} reservationId ID de la reserva
      * @param {number} nightPrice Precio de la noche (opcional, para botón rápido)
      * @param {object} financialContext Contexto financiero opcional (totalAmount, paymentsTotal, balanceDue)
+     * @param {string} nightDate Fecha de la noche específica a pagar (opcional, formato YYYY-MM-DD)
      */
-    window.openRegisterPayment = function(reservationId, nightPrice = null, financialContext = null) {
-        console.log('openRegisterPayment called', { reservationId, nightPrice, financialContext });
+    window.openRegisterPayment = function(reservationId, nightPrice = null, financialContext = null, nightDate = null) {
+        console.log('openRegisterPayment called', { reservationId, nightPrice, financialContext, nightDate });
         if (!reservationId || reservationId === 0) {
             console.error('reservationId inválido:', reservationId);
             alert('Error: ID de reserva inválido');
@@ -32,22 +33,23 @@
         if (typeof Livewire === 'undefined' || !Livewire.all) {
             console.warn('Livewire no está inicializado, esperando...');
             document.addEventListener('livewire:init', () => {
-                openPaymentModal(reservationId, nightPrice, financialContext);
+                openPaymentModal(reservationId, nightPrice, financialContext, nightDate);
             });
         } else {
-            openPaymentModal(reservationId, nightPrice, financialContext);
+            openPaymentModal(reservationId, nightPrice, financialContext, nightDate);
         }
     };
     
     /**
      * Abre el modal de pago con los datos proporcionados
      */
-    function openPaymentModal(reservationId, nightPrice, financialContext) {
+    function openPaymentModal(reservationId, nightPrice, financialContext, nightDate) {
         window.dispatchEvent(new CustomEvent('open-payment-modal', {
             detail: {
                 title: 'Registrar Pago',
                 reservationId: reservationId,
                 nightPrice: nightPrice || 0,
+                nightDate: nightDate || null,
                 financialContext: financialContext || {
                     totalAmount: 0,
                     paymentsTotal: 0,
@@ -93,7 +95,8 @@
                 paymentData.amount,
                 paymentData.paymentMethod,
                 paymentData.bankName || null,
-                paymentData.reference || null
+                paymentData.reference || null,
+                paymentData.nightDate || null // Incluir fecha de noche si existe
             ]);
         });
 

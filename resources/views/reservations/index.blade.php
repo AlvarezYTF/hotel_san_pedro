@@ -24,6 +24,7 @@
 
 <x-reservations.detail-modal />
 <x-reservations.delete-modal />
+<x-reservations.create-modal />
 <x-room-manager.room-release-confirmation-modal />
 <x-reservations.calendar-scripts />
 @endsection

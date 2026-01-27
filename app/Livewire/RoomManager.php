@@ -762,6 +762,12 @@ class RoomManager extends Component
             $nightToCharge = $newCheckOutDate->copy()->subDay();
             $this->ensureNightForDate($stay, $nightToCharge);
 
+            // 🔐 REGLA HOTELERA: Continuar estadía = habitación queda pendiente por aseo
+            // Toda extensión de estadía ensucia la habitación aunque el huésped continúe
+            $room->update([
+                'last_cleaned_at' => null
+            ]);
+
             // Refrescar vista
             $this->loadRooms();
 
@@ -1303,12 +1309,12 @@ class RoomManager extends Component
     }
 
     #[On('register-payment')]
-    public function handleRegisterPayment($reservationId, $amount, $paymentMethod, $bankName = null, $reference = null)
+    public function handleRegisterPayment($reservationId, $amount, $paymentMethod, $bankName = null, $reference = null, $nightDate = null)
     {
-        $this->registerPayment($reservationId, $amount, $paymentMethod, $bankName, $reference);
+        $this->registerPayment($reservationId, $amount, $paymentMethod, $bankName, $reference, null, $nightDate);
     }
 
-    public function registerPayment($reservationId, $amount, $paymentMethod, $bankName = null, $reference = null, $notes = null)
+    public function registerPayment($reservationId, $amount, $paymentMethod, $bankName = null, $reference = null, $notes = null, $nightDate = null)
     {
         \Log::info('registerPayment called', [
             'reservation_id' => $reservationId,
@@ -1522,6 +1528,38 @@ class RoomManager extends Component
                 ]);
                 $this->dispatch('reset-payment-modal-loading');
                 return false;
+            }
+
+            // 🔥 SI se proporcionó nightDate, marcar esa noche específica como pagada
+            if ($nightDate) {
+                try {
+                    $dateToMark = Carbon::parse($nightDate)->toDateString();
+                    $stayNight = \App\Models\StayNight::where('reservation_id', $reservation->id)
+                        ->whereDate('date', $dateToMark)
+                        ->first();
+                    
+                    if ($stayNight && !$stayNight->is_paid) {
+                        $stayNight->update(['is_paid' => true]);
+                        \Log::info('Night marked as paid', [
+                            'stay_night_id' => $stayNight->id,
+                            'reservation_id' => $reservation->id,
+                            'date' => $dateToMark,
+                            'payment_id' => $payment->id
+                        ]);
+                    } elseif (!$stayNight) {
+                        \Log::warning('Night not found for date when marking as paid', [
+                            'reservation_id' => $reservation->id,
+                            'date' => $dateToMark
+                        ]);
+                    }
+                } catch (\Exception $e) {
+                    // No crítico, solo log - el pago ya se registró
+                    \Log::warning('Error marking night as paid', [
+                        'reservation_id' => $reservation->id,
+                        'night_date' => $nightDate,
+                        'error' => $e->getMessage()
+                    ]);
+                }
             }
 
             // Recalcular balance_due de la reserva
@@ -3072,6 +3110,20 @@ class RoomManager extends Component
                 return;
             }
 
+            // Validar que no sea fecha histórica
+            $today = Carbon::today();
+            $selectedDate = $this->date ?? $today;
+            if ($selectedDate->copy()->startOfDay()->lt($today)) {
+                $this->dispatch('notify', type: 'error', message: 'No se pueden hacer cambios en fechas históricas.');
+                return;
+            }
+
+            // Validar que el estado sea válido
+            if (!in_array($status, ['limpia', 'pendiente'])) {
+                $this->dispatch('notify', type: 'error', message: 'Estado de limpieza inválido.');
+                return;
+            }
+
             // Update cleaning status based on the status parameter
             if ($status === 'limpia') {
                 $room->last_cleaned_at = now();
@@ -3082,8 +3134,16 @@ class RoomManager extends Component
                 $room->save();
                 $this->dispatch('notify', type: 'success', message: 'Habitación marcada como pendiente de limpieza.');
             }
+            
+            // Refrescar habitaciones para actualizar la vista
+            $this->loadRooms();
         } catch (\Exception $e) {
             $this->dispatch('notify', type: 'error', message: 'Error al actualizar estado de limpieza: ' . $e->getMessage());
+            \Log::error('Error updating cleaning status', [
+                'room_id' => $roomId,
+                'status' => $status,
+                'error' => $e->getMessage()
+            ]);
         }
     }
 

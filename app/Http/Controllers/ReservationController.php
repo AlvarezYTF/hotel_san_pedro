@@ -101,13 +101,92 @@ class ReservationController extends Controller
 
         $reservations = Reservation::with(['customer', 'room'])->latest()->paginate(10);
 
-        return view('reservations.index', compact(
-            'reservations',
-            'rooms',
-            'daysInMonth',
-            'view',
-            'date'
-        ));
+        // Prepare data for create reservation modal
+        try {
+            $customers = Customer::withoutGlobalScopes()
+                ->with('taxProfile')
+                ->orderBy('name')
+                ->get();
+
+            $roomsForModal = Room::where('status', '!=', \App\Enums\RoomStatus::MANTENIMIENTO)->get();
+            $roomsData = $this->prepareRoomsData($roomsForModal);
+            $dianCatalogs = $this->getDianCatalogs();
+
+            // Prepare customers as simple array for Livewire
+            $customersArray = $customers->map(function ($customer) {
+                return [
+                    'id' => (int) $customer->id,
+                    'name' => (string) ($customer->name ?? ''),
+                    'phone' => (string) ($customer->phone ?? 'S/N'),
+                    'email' => $customer->email ? (string) $customer->email : null,
+                    'taxProfile' => $customer->taxProfile ? [
+                        'identification' => (string) ($customer->taxProfile->identification ?? 'S/N'),
+                        'dv' => $customer->taxProfile->dv ? (string) $customer->taxProfile->dv : null,
+                    ] : null,
+                ];
+            })->toArray();
+
+            // Prepare rooms as simple array for Livewire
+            $roomsArray = $roomsForModal->map(function ($room) {
+                return [
+                    'id' => (int) $room->id,
+                    'room_number' => (string) ($room->room_number ?? ''),
+                    'beds_count' => (int) ($room->beds_count ?? 0),
+                    'max_capacity' => (int) ($room->max_capacity ?? 0),
+                ];
+            })->toArray();
+
+            // Prepare DIAN catalogs as arrays
+            $dianCatalogsArray = [
+                'identificationDocuments' => $dianCatalogs['identificationDocuments']->toArray(),
+                'legalOrganizations' => $dianCatalogs['legalOrganizations']->toArray(),
+                'tributes' => $dianCatalogs['tributes']->toArray(),
+                'municipalities' => $dianCatalogs['municipalities']->toArray(),
+            ];
+
+            return view('reservations.index', array_merge(
+                compact(
+                    'reservations',
+                    'rooms',
+                    'daysInMonth',
+                    'view',
+                    'date'
+                ),
+                [
+                    'modalCustomers' => $customersArray,
+                    'modalRooms' => $roomsArray,
+                    'modalRoomsData' => $roomsData,
+                    'modalIdentificationDocuments' => $dianCatalogsArray['identificationDocuments'],
+                    'modalLegalOrganizations' => $dianCatalogsArray['legalOrganizations'],
+                    'modalTributes' => $dianCatalogsArray['tributes'],
+                    'modalMunicipalities' => $dianCatalogsArray['municipalities'],
+                ]
+            ));
+        } catch (\Exception $e) {
+            \Log::error('Error preparing modal data in ReservationController::index(): ' . $e->getMessage(), [
+                'exception' => $e,
+            ]);
+
+            // Return view with empty arrays for modal data
+            return view('reservations.index', array_merge(
+                compact(
+                    'reservations',
+                    'rooms',
+                    'daysInMonth',
+                    'view',
+                    'date'
+                ),
+                [
+                    'modalCustomers' => [],
+                    'modalRooms' => [],
+                    'modalRoomsData' => [],
+                    'modalIdentificationDocuments' => [],
+                    'modalLegalOrganizations' => [],
+                    'modalTributes' => [],
+                    'modalMunicipalities' => [],
+                ]
+            ));
+        }
     }
 
     /**
@@ -305,9 +384,27 @@ class ReservationController extends Controller
                 $this->assignGuestsToReservationLegacy($reservation, $request->guest_ids);
             }
 
-            // Mark rooms as occupied if check-in is today
+            // 🔥 AJUSTE CRÍTICO 1 y 2: Crear Stay y StayNight si check-in es HOY
             if ($checkInDate->isToday()) {
-                Room::whereIn('id', $roomIds)->update(['status' => \App\Enums\RoomStatus::OCUPADA]);
+                foreach ($roomIds as $roomId) {
+                    // Crear Stay activa (check-in inmediato)
+                    $stay = \App\Models\Stay::create([
+                        'reservation_id' => $reservation->id,
+                        'room_id' => $roomId,
+                        'check_in_at' => now(), // Check-in INMEDIATO (timestamp)
+                        'check_out_at' => null, // Se completará al checkout
+                        'status' => 'active', // Estados: active, pending_checkout, finished
+                    ]);
+
+                    // 🔥 Generar la primera noche (StayNight)
+                    $this->ensureNightForDate($stay, $checkInDate);
+
+                    // 🔥 AJUSTE CRÍTICO 3: Estado de limpieza pendiente_aseo
+                    // Poner last_cleaned_at = null para que quede en estado pendiente_aseo
+                    Room::where('id', $roomId)->update([
+                        'last_cleaned_at' => null, // Pendiente por aseo
+                    ]);
+                }
             }
 
             // Audit log for reservation creation
@@ -1161,6 +1258,23 @@ class ReservationController extends Controller
      */
     private function isRoomAvailable(int $roomId, Carbon $checkIn, Carbon $checkOut, ?int $excludeReservationId = null): bool
     {
+        // 🔥 AJUSTE CRÍTICO: Verificar stays activas (ocupación real)
+        // Una habitación NO está disponible si tiene una stay activa que intersecta el rango solicitado
+        $hasActiveStay = \App\Models\Stay::where('room_id', $roomId)
+            ->where('status', 'active')
+            ->where(function ($q) use ($checkIn, $checkOut) {
+                $q->where('check_in_at', '<', $checkOut->endOfDay())
+                  ->where(function ($q2) use ($checkIn) {
+                      $q2->whereNull('check_out_at')
+                         ->orWhere('check_out_at', '>', $checkIn->startOfDay());
+                  });
+            })
+            ->exists();
+
+        if ($hasActiveStay) {
+            return false; // ❌ Habitación ocupada por stay activa
+        }
+
         // Check in main reservations table (single room reservations)
         $existsInReservations = Reservation::where('room_id', $roomId)
             ->where(function ($query) use ($checkIn, $checkOut) {
@@ -1324,6 +1438,191 @@ class ReservationController extends Controller
                 'error' => $e->getMessage(),
                 'trace' => $e->getTraceAsString(),
             ]);
+        }
+    }
+
+    /**
+     * Find rate for a specific number of guests in a room.
+     * Similar to RoomManager::findRateForGuests().
+     */
+    private function findRateForGuests(Room $room, int $guests): float
+    {
+        // Validar entrada
+        if ($guests <= 0) {
+            \Log::warning('findRateForGuests: Invalid guests count', ['guests' => $guests, 'room_id' => $room->id]);
+            return (float)($room->base_price_per_night ?? 0);
+        }
+
+        $rates = $room->rates;
+
+        // Si hay tarifas configuradas, buscar coincidencia exacta
+        if ($rates && $rates->isNotEmpty()) {
+            foreach ($rates as $rate) {
+                $min = (int)($rate->min_guests ?? 0);
+                $max = (int)($rate->max_guests ?? 0);
+                
+                // Validar que min y max sean valores válidos
+                if ($min <= 0 || $max <= 0) {
+                    \Log::warning('findRateForGuests: Invalid rate range', [
+                        'rate_id' => $rate->id,
+                        'min_guests' => $rate->min_guests,
+                        'max_guests' => $rate->max_guests,
+                        'room_id' => $room->id,
+                    ]);
+                    continue; // Saltar tarifa inválida
+                }
+                
+                // Coincidencia: guests está dentro del rango [min, max]
+                if ($guests >= $min && $guests <= $max) {
+                    $price = (float)($rate->price_per_night ?? 0);
+                    if ($price > 0) {
+                        \Log::info('findRateForGuests: Rate found', [
+                            'room_id' => $room->id,
+                            'guests' => $guests,
+                            'rate_id' => $rate->id,
+                            'min' => $min,
+                            'max' => $max,
+                            'price_per_night' => $price,
+                        ]);
+                        return $price;
+                    }
+                }
+            }
+            
+            // No se encontró tarifa coincidente
+            \Log::warning('findRateForGuests: No matching rate found', [
+                'room_id' => $room->id,
+                'guests' => $guests,
+                'available_rates' => $rates->map(fn($r) => [
+                    'id' => $r->id,
+                    'min' => $r->min_guests,
+                    'max' => $r->max_guests,
+                    'price' => $r->price_per_night,
+                ])->toArray(),
+            ]);
+        } else {
+            \Log::warning('findRateForGuests: No rates configured', [
+                'room_id' => $room->id,
+                'guests' => $guests,
+            ]);
+        }
+
+        // Fallback: usar base_price_per_night
+        $basePrice = (float)($room->base_price_per_night ?? 0);
+        if ($basePrice > 0) {
+            \Log::info('findRateForGuests: Using base_price fallback', [
+                'room_id' => $room->id,
+                'guests' => $guests,
+                'base_price_per_night' => $basePrice,
+            ]);
+            return $basePrice;
+        }
+
+        // Último recurso: precio por defecto 0 (será detectado por validación)
+        \Log::error('findRateForGuests: No price found', [
+            'room_id' => $room->id,
+            'guests' => $guests,
+            'has_rates' => $rates && $rates->isNotEmpty(),
+            'base_price' => $room->base_price_per_night,
+        ]);
+        return 0.0;
+    }
+
+    /**
+     * Garantiza que exista un registro de noche para una fecha específica en una estadía.
+     * Similar a RoomManager::ensureNightForDate().
+     * 
+     * SINGLE SOURCE OF TRUTH para el cobro por noches:
+     * - Si ya existe una noche para esa fecha, no hace nada
+     * - Si no existe, crea una nueva noche con precio calculado desde tarifas
+     * - El precio se calcula basándose en la cantidad de huéspedes de la reserva
+     * 
+     * @param \App\Models\Stay $stay La estadía activa
+     * @param \Carbon\Carbon $date Fecha de la noche a crear
+     * @return \App\Models\StayNight|null La noche creada o existente, o null si falla
+     */
+    private function ensureNightForDate(\App\Models\Stay $stay, Carbon $date): ?\App\Models\StayNight
+    {
+        try {
+            // Verificar si ya existe una noche para esta fecha
+            $existingNight = \App\Models\StayNight::where('stay_id', $stay->id)
+                ->whereDate('date', $date->toDateString())
+                ->first();
+
+            if ($existingNight) {
+                // Ya existe, retornar sin crear
+                return $existingNight;
+            }
+
+            // Obtener reserva y habitación para calcular precio
+            $reservation = $stay->reservation;
+            $room = $stay->room;
+
+            if (!$reservation || !$room) {
+                \Log::error('ensureNightForDate: Missing reservation or room', [
+                    'stay_id' => $stay->id,
+                    'date' => $date->toDateString()
+                ]);
+                return null;
+            }
+
+            // Cargar tarifas de la habitación si no están cargadas
+            $room->loadMissing('rates');
+
+            // Calcular cantidad de huéspedes de la reserva
+            $totalGuests = (int)($reservation->total_guests ?? 1);
+            if ($totalGuests <= 0) {
+                $totalGuests = 1; // Mínimo 1 huésped
+            }
+
+            // Calcular precio usando findRateForGuests
+            $price = $this->findRateForGuests($room, $totalGuests);
+
+            // Si el precio es 0, usar el total_amount dividido entre noches como fallback
+            if ($price <= 0) {
+                $checkIn = Carbon::parse($reservation->check_in_date);
+                $checkOut = Carbon::parse($reservation->check_out_date);
+                $totalNights = max(1, $checkIn->diffInDays($checkOut));
+                $totalAmount = (float)($reservation->total_amount ?? 0);
+
+                if ($totalNights > 0 && $totalAmount > 0) {
+                    $price = round($totalAmount / $totalNights, 2);
+                }
+
+                // Si aún es 0, usar base_price_per_night como último recurso
+                if ($price <= 0) {
+                    $price = (float)($room->base_price_per_night ?? 0);
+                }
+            }
+
+            // Crear la noche
+            $stayNight = \App\Models\StayNight::create([
+                'stay_id' => $stay->id,
+                'reservation_id' => $reservation->id,
+                'room_id' => $room->id,
+                'date' => $date->toDateString(),
+                'price' => $price,
+                'is_paid' => false, // Por defecto, pendiente
+            ]);
+
+            \Log::info('ensureNightForDate: Night created', [
+                'stay_id' => $stay->id,
+                'reservation_id' => $reservation->id,
+                'room_id' => $room->id,
+                'date' => $date->toDateString(),
+                'price' => $price,
+                'guests' => $totalGuests
+            ]);
+
+            return $stayNight;
+        } catch (\Exception $e) {
+            \Log::error('ensureNightForDate: Error creating night', [
+                'stay_id' => $stay->id,
+                'date' => $date->toDateString(),
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            return null;
         }
     }
 
