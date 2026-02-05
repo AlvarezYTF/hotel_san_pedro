@@ -6,6 +6,11 @@
     
     // Inicializar items con valores por defecto si están vacíos
     init() {
+        // Asegurar que items sea un array
+        if (!Array.isArray(this.items) || this.items.length === 0) {
+            this.items = [];
+        }
+        
         this.items = this.items.map(item => ({
             name: item.name || '',
             quantity: parseFloat(item.quantity) || 1,
@@ -250,9 +255,9 @@
                                 <div class="md:col-span-2">
                                     <label class="block text-xs font-semibold text-gray-700 mb-2">Servicio <span class="text-red-500">*</span></label>
                                     <input type="text" 
-                                           x-model="items[{{ $index }}].name"
+                                           x-model="(items[{{ $index }}] && items[{{ $index }}].name) ? items[{{ $index }}].name : ''"
                                            @input="syncItem({{ $index }}, 'name', $event.target.value)"
-                                           @blur="if($event.target.value.trim() === '') { $event.target.value = items[{{ $index }}].name || 'Servicio ' + ({{ $index }} + 1); syncItem({{ $index }}, 'name', $event.target.value); }"
+                                           @blur="if($event.target.value.trim() === '') { $event.target.value = (items[{{ $index }}] && items[{{ $index }}].name) ? items[{{ $index }}].name : 'Servicio ' + ({{ $index }} + 1); syncItem({{ $index }}, 'name', $event.target.value); }"
                                            class="block w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                                            placeholder="Ej: Alojamiento, Alimentación, Servicios varios..."
                                            required>
@@ -263,7 +268,7 @@
                                 <div>
                                     <label class="block text-xs font-semibold text-gray-700 mb-2">Cantidad</label>
                                     <input type="number" 
-                                           x-model="items[{{ $index }}].quantity"
+                                           x-model="(items[{{ $index }}] && items[{{ $index }}].quantity) ? items[{{ $index }}].quantity : 1"
                                            @input="syncItem({{ $index }}, 'quantity', $event.target.value)"
                                            step="0.001" 
                                            min="0.001"
@@ -276,7 +281,7 @@
                                 <div>
                                     <label class="block text-xs font-semibold text-gray-700 mb-2">Precio</label>
                                     <input type="number" 
-                                           x-model="items[{{ $index }}].price"
+                                           x-model="(items[{{ $index }}] && items[{{ $index }}].price) ? items[{{ $index }}].price : 0"
                                            @input="syncItem({{ $index }}, 'price', $event.target.value)"
                                            step="0.01" 
                                            min="0"
@@ -289,7 +294,7 @@
                                 <div>
                                     <label class="block text-xs font-semibold text-gray-700 mb-2">Tasa Imp (%)</label>
                                     <input type="number" 
-                                           x-model="items[{{ $index }}].tax_rate"
+                                           x-model="(items[{{ $index }}] && items[{{ $index }}].tax_rate) ? items[{{ $index }}].tax_rate : 19"
                                            @input="syncItem({{ $index }}, 'tax_rate', $event.target.value)"
                                            step="0.01" 
                                            min="0" 
@@ -303,13 +308,13 @@
                                 <div>
                                     <label class="block text-xs font-semibold text-gray-700 mb-2">Subtotal</label>
                                     <div class="block w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm font-semibold">
-                                        $<span x-text="items[{{ $index }}].subtotal.toFixed(2)">0.00</span>
+                                        $<span x-text="(items[{{ $index }}] && items[{{ $index }}].subtotal) ? items[{{ $index }}].subtotal.toFixed(2) : '0.00'">0.00</span>
                                     </div>
                                 </div>
                                 <div>
                                     <label class="block text-xs font-semibold text-gray-700 mb-2">Total</label>
                                     <div class="block w-full px-3 py-2 bg-emerald-50 border border-emerald-200 rounded-lg text-sm font-semibold text-emerald-700">
-                                        $<span x-text="items[{{ $index }}].total.toFixed(2)">0.00</span>
+                                        $<span x-text="(items[{{ $index }}] && items[{{ $index }}].total) ? items[{{ $index }}].total.toFixed(2) : '0.00'">0.00</span>
                                     </div>
                                 </div>
                             </div>
@@ -341,15 +346,15 @@
                             <div class="space-y-1">
                                 <div class="flex justify-between text-sm">
                                     <span class="text-gray-600">Subtotal:</span>
-                                    <span class="font-medium text-gray-900">$<span x-text="totals.subtotal.toFixed(2)">0.00</span></span>
+                                    <span class="font-medium text-gray-900">$<span x-text="(totals && totals.subtotal) ? totals.subtotal.toFixed(2) : '0.00'">0.00</span></span>
                                 </div>
                                 <div class="flex justify-between text-sm">
                                     <span class="text-gray-600">Impuestos:</span>
-                                    <span class="font-medium text-gray-900">$<span x-text="totals.tax.toFixed(2)">0.00</span></span>
+                                    <span class="font-medium text-gray-900">$<span x-text="(totals && totals.tax) ? totals.tax.toFixed(2) : '0.00'">0.00</span></span>
                                 </div>
                                 <div class="flex justify-between text-base font-bold text-gray-900 pt-2 border-t border-gray-300">
                                     <span>Total:</span>
-                                    <span class="text-emerald-600">$<span x-text="totals.total.toFixed(2)">0.00</span></span>
+                                    <span class="text-emerald-600">$<span x-text="(totals && totals.total) ? totals.total.toFixed(2) : '0.00'">0.00</span></span>
                                 </div>
                             </div>
                         </div>

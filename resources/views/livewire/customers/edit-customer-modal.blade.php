@@ -311,20 +311,32 @@
                             </div>
 
                             <!-- Dígito Verificador -->
-                            <div wire:show="$this.requiresDV" class="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                            @if($this->requiresDV || (!empty($formData['dv']) && $this->isElectronicInvoiceCustomer()))
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-5">
                                 <div>
                                     <label class="block text-xs font-semibold text-gray-700 mb-2">
                                         Dígito Verificador (DV) <span class="text-red-500">*</span>
                                     </label>
                                     <input type="text" 
                                            wire:model="formData.dv"
-                                           readonly
-                                           class="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2.5 text-sm font-bold text-gray-600 cursor-not-allowed">
-                                    <p class="mt-1 text-xs text-blue-600">
-                                        <i class="fas fa-magic mr-1"></i> Calculado automáticamente
+                                           maxlength="1"
+                                           pattern="[0-9]"
+                                           oninput="this.value = this.value.replace(/\D/g, '');"
+                                           class="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent {{ isset($errors['dv']) ? 'border-red-300 focus:ring-red-500' : '' }}"
+                                           placeholder="0-9"
+                                           value="{{ $formData['dv'] }}">
+                                    <p class="mt-1 text-xs text-gray-600">
+                                        <i class="fas fa-info-circle mr-1"></i> Un solo dígito (0-9)
                                     </p>
+                                    @if(isset($errors['dv']))
+                                        <p class="mt-1 text-xs text-red-600 flex items-center">
+                                            <i class="fas fa-exclamation-circle mr-1"></i>
+                                            {{ $errors['dv'] }}
+                                        </p>
+                                    @endif
                                 </div>
                             </div>
+                            @endif
 
                             <!-- Información Tributaria -->
                             <div class="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-5">

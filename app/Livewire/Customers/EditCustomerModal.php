@@ -114,12 +114,18 @@ class EditCustomerModal extends Component
         $this->updateRequiredFields();
     }
 
+    public function updatedFormDataName(): void
+    {
+        // Si es NIT y la razón social está vacía o es igual al nombre anterior, actualizarla
+        if ($this->isJuridicalPerson && (empty($this->formData['company']) || $this->formData['company'] === $this->customer->name)) {
+            $this->formData['company'] = $this->formData['name'];
+        }
+    }
+
     public function updatedFormDataIdentification(): void
     {
         $this->validateIdentification();
-        if ($this->isJuridicalPerson) {
-            $this->calculateDV();
-        }
+        // No calcular automáticamente el DV, permitir edición manual
     }
 
     private function checkIdentificationSync(): void
@@ -163,10 +169,15 @@ class EditCustomerModal extends Component
             $this->requiresDV = $document->requires_dv;
             $this->isJuridicalPerson = $document->code === 'NIT';
             
-            if ($this->isJuridicalPerson) {
-                $this->calculateDV();
-            } else {
+            // No calcular automáticamente el DV, permitir edición manual
+            // Solo limpiar el campo si no es NIT
+            if (!$this->isJuridicalPerson) {
                 $this->formData['dv'] = '';
+            }
+            
+            // Autocompletar razón social con el nombre del cliente si es NIT y está vacía
+            if ($this->isJuridicalPerson && empty($this->formData['company'])) {
+                $this->formData['company'] = $this->formData['name'] ?? '';
             }
         }
     }
@@ -265,8 +276,18 @@ class EditCustomerModal extends Component
             if (empty($this->formData['municipality_id'])) {
                 $this->errors['municipality_id'] = 'El municipio es obligatorio para facturación electrónica.';
             }
-            if ($this->isJuridicalPerson && empty($this->formData['company'])) {
-                $this->errors['company'] = 'La razón social es obligatoria para NIT.';
+            // Validar razón social para NIT, pero permitir que esté autocompletada con el nombre
+            if ($this->isJuridicalPerson) {
+                if (empty($this->formData['company'])) {
+                    $this->formData['company'] = $this->formData['name']; // Autocompletar con el nombre
+                }
+            }
+            // Validar DV si es requerido
+            if ($this->requiresDV && empty($this->formData['dv'])) {
+                $this->errors['dv'] = 'El dígito verificador es obligatorio.';
+            }
+            if ($this->requiresDV && (!empty($this->formData['dv']) && !preg_match('/^[0-9]$/', $this->formData['dv']))) {
+                $this->errors['dv'] = 'El DV debe ser un solo dígito (0-9).';
             }
         }
 
@@ -282,6 +303,7 @@ class EditCustomerModal extends Component
                     'identification_document_id' => 'Tipo de documento',
                     'municipality_id' => 'Municipio',
                     'company' => 'Razón social',
+                    'dv' => 'Dígito Verificador',
                     default => ucfirst(str_replace('_', ' ', $key))
                 };
                 $errorMessages[] = "$fieldName: " . (is_array($value) ? implode(', ', $value) : $value);

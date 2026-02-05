@@ -55,6 +55,12 @@ class CreateElectronicInvoiceModal extends Component
         $this->reset();
         $this->resetValidation();
         $this->loadData();
+        
+        // Initialize with one empty item if no items exist
+        if (empty($this->items)) {
+            $this->addItem();
+        }
+        
         $this->isOpen = true;
     }
 

@@ -38,6 +38,20 @@ class DeleteCustomerModal extends Component
                 return;
             }
 
+            // Check if customer has electronic invoices
+            if ($this->customer->electronicInvoices()->exists()) {
+                $this->dispatch('notify', [
+                    'type' => 'error',
+                    'message' => 'No se puede eliminar el cliente porque tiene facturas electrónicas asociadas.'
+                ]);
+                return;
+            }
+
+            // Delete the customer's tax profile if it exists
+            if ($this->customer->taxProfile) {
+                $this->customer->taxProfile->delete();
+            }
+
             // Soft delete the customer
             $this->customer->delete();
 
@@ -46,7 +60,7 @@ class DeleteCustomerModal extends Component
             
             $this->dispatch('notify', [
                 'type' => 'success',
-                'message' => 'Cliente eliminado exitosamente.'
+                'message' => 'Cliente y su perfil fiscal eliminados exitosamente.'
             ]);
             
         } catch (\Exception $e) {

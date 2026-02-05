@@ -195,19 +195,148 @@
         </div>
     </div>
 
-    <!-- Paginación -->
+    <!-- Paginación Mejorada -->
     @if($invoices->hasPages())
-    <div class="bg-white rounded-xl border border-gray-100 px-4 py-3 flex items-center justify-between">
-        <div class="text-sm text-gray-700">
-            Mostrando 
-            <span class="font-medium">{{ $invoices->firstItem() }}</span> a 
-            <span class="font-medium">{{ $invoices->lastItem() }}</span> de 
-            <span class="font-medium">{{ $invoices->total() }}</span> resultados
+    <div class="bg-white rounded-xl border border-gray-100 px-4 sm:px-6 py-4">
+        <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <!-- Información de resultados -->
+            <div class="text-sm text-gray-700 order-2 sm:order-1">
+                <div class="flex items-center space-x-2">
+                    <span class="text-gray-500">Mostrando</span>
+                    <span class="font-semibold text-gray-900">{{ $invoices->firstItem() }}</span>
+                    <span class="text-gray-500">a</span>
+                    <span class="font-semibold text-gray-900">{{ $invoices->lastItem() }}</span>
+                    <span class="text-gray-500">de</span>
+                    <span class="font-semibold text-gray-900">{{ $invoices->total() }}</span>
+                    <span class="text-gray-500">resultados</span>
+                </div>
+                @if($invoices->lastPage() > 1)
+                <div class="text-xs text-gray-500 mt-1">
+                    Página <span class="font-medium">{{ $invoices->currentPage() }}</span> de <span class="font-medium">{{ $invoices->lastPage() }}</span>
+                </div>
+                @endif
+            </div>
+            
+            <!-- Controles de paginación -->
+            <div class="flex items-center space-x-1 order-1 sm:order-2">
+                {{-- Botón Anterior --}}
+                @if($invoices->onFirstPage())
+                    <button disabled 
+                            class="inline-flex items-center px-3 py-2 text-sm font-medium text-gray-300 bg-gray-50 border border-gray-200 rounded-lg cursor-not-allowed opacity-50"
+                            title="Primera página">
+                        <i class="fas fa-chevron-left mr-2"></i>
+                        Anterior
+                    </button>
+                @else
+                    <button wire:click="setPage({{ $invoices->currentPage() - 1 }})"
+                            class="inline-flex items-center px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 hover:border-gray-400 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                            title="Página anterior">
+                        <i class="fas fa-chevron-left mr-2"></i>
+                        Anterior
+                    </button>
+                @endif
+                
+                {{-- Números de página --}}
+                <div class="hidden sm:flex items-center space-x-1">
+                    {{-- Primera página --}}
+                    @if($invoices->currentPage() > 3)
+                        <button wire:click="setPage(1)"
+                                class="inline-flex items-center justify-center w-10 h-10 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 hover:border-gray-400 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                                title="Ir a la página 1">
+                            1
+                        </button>
+                        
+                        @if($invoices->currentPage() > 4)
+                            <span class="px-2 text-gray-400">...</span>
+                        @endif
+                    @endif
+                    
+                    {{-- Páginas anteriores --}}
+                    @for($i = max(1, $invoices->currentPage() - 2); $i < $invoices->currentPage(); $i++)
+                        <button wire:click="setPage({{ $i }})"
+                                class="inline-flex items-center justify-center w-10 h-10 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 hover:border-gray-400 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                                title="Ir a la página {{ $i }}">
+                            {{ $i }}
+                        </button>
+                    @endfor
+                    
+                    {{-- Página actual --}}
+                    <button disabled
+                            class="inline-flex items-center justify-center w-10 h-10 text-sm font-semibold text-white bg-blue-600 border border-blue-600 rounded-lg cursor-default"
+                            title="Página actual">
+                        {{ $invoices->currentPage() }}
+                    </button>
+                    
+                    {{-- Páginas siguientes --}}
+                    @for($i = $invoices->currentPage() + 1; $i <= min($invoices->lastPage(), $invoices->currentPage() + 2); $i++)
+                        <button wire:click="setPage({{ $i }})"
+                                class="inline-flex items-center justify-center w-10 h-10 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 hover:border-gray-400 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                                title="Ir a la página {{ $i }}">
+                            {{ $i }}
+                        </button>
+                    @endfor
+                    
+                    {{-- Última página --}}
+                    @if($invoices->currentPage() < $invoices->lastPage() - 2)
+                        @if($invoices->currentPage() < $invoices->lastPage() - 3)
+                            <span class="px-2 text-gray-400">...</span>
+                        @endif
+                        
+                        <button wire:click="setPage({{ $invoices->lastPage() }})"
+                                class="inline-flex items-center justify-center w-10 h-10 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 hover:border-gray-400 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                                title="Ir a la última página ({{ $invoices->lastPage() }})">
+                            {{ $invoices->lastPage() }}
+                        </button>
+                    @endif
+                </div>
+                
+                {{-- Paginación móvil simplificada --}}
+                <div class="sm:hidden">
+                    <span class="text-sm text-gray-600 font-medium">
+                        {{ $invoices->currentPage() }} / {{ $invoices->lastPage() }}
+                    </span>
+                </div>
+                
+                {{-- Botón Siguiente --}}
+                @if($invoices->hasMorePages())
+                    <button wire:click="setPage({{ $invoices->currentPage() + 1 }})"
+                            class="inline-flex items-center px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 hover:border-gray-400 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                            title="Página siguiente">
+                        Siguiente
+                        <i class="fas fa-chevron-right ml-2"></i>
+                    </button>
+                @else
+                    <button disabled 
+                            class="inline-flex items-center px-3 py-2 text-sm font-medium text-gray-300 bg-gray-50 border border-gray-200 rounded-lg cursor-not-allowed opacity-50"
+                            title="Última página">
+                        Siguiente
+                        <i class="fas fa-chevron-right ml-2"></i>
+                    </button>
+                @endif
+            </div>
         </div>
         
-        <div class="flex items-center space-x-2">
-            {{ $invoices->links() }}
+        {{-- Selector rápido de página (solo desktop) --}}
+        @if($invoices->lastPage() > 5)
+        <div class="mt-4 pt-4 border-t border-gray-100 hidden lg:block">
+            <div class="flex items-center justify-center space-x-3">
+                <span class="text-sm text-gray-600">Ir a la página:</span>
+                <div class="flex items-center space-x-2">
+                    <input type="number" 
+                           wire:model.live="goToPage"
+                           min="1" 
+                           max="{{ $invoices->lastPage() }}"
+                           class="w-20 px-3 py-1.5 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-center"
+                           placeholder="{{ $invoices->currentPage() }}">
+                    <button wire:click="setPage($goToPage ?? {{ $invoices->currentPage() }})"
+                            class="px-3 py-1.5 text-sm font-medium text-blue-600 bg-blue-50 border border-blue-200 rounded-lg hover:bg-blue-100 hover:border-blue-300 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                        Ir
+                    </button>
+                </div>
+                <span class="text-xs text-gray-500">(1-{{ $invoices->lastPage() }})</span>
+            </div>
         </div>
+        @endif
     </div>
     @endif
 </div>

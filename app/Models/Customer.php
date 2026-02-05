@@ -98,6 +98,14 @@ class Customer extends Model
     }
 
     /**
+     * Get the electronic invoices for the customer.
+     */
+    public function electronicInvoices(): HasMany
+    {
+        return $this->hasMany(ElectronicInvoice::class);
+    }
+
+    /**
      * Get the identification type for the customer.
      */
     public function identificationType()

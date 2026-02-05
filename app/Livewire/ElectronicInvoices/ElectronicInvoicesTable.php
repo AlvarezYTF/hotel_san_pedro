@@ -16,6 +16,7 @@ class ElectronicInvoicesTable extends Component
     public $status = '';
     public $perPage = 15;
     public $invoiceIdToDelete = null;
+    public $goToPage = null;
 
     protected $queryString = [
         'search' => ['except' => ''],
@@ -49,6 +50,18 @@ class ElectronicInvoicesTable extends Component
     public function updatedPerPage()
     {
         $this->resetPage();
+    }
+
+    public function updatedGoToPage()
+    {
+        if (is_numeric($this->goToPage) && $this->goToPage >= 1) {
+            // Validar que la página no exceda el máximo
+            $maxPage = $this->invoices->lastPage() ?? 1;
+            $this->goToPage = min($this->goToPage, $maxPage);
+            
+            // Usar el método nativo de Livewire
+            $this->setPage($this->goToPage);
+        }
     }
 
     public function render()
