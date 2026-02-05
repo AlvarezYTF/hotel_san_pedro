@@ -455,7 +455,7 @@ final class ReportService
                     'total_deposit' => $group->sum('deposit'),
                 ];
             })->values()->toArray(),
-            'customer' => $reservations->groupBy('customer_id')->map(function (Collection $group): array {
+            'customer' => $reservations->groupBy('client_id')->map(function (Collection $group): array {
                 $customer = $group->first()->customer;
                 return [
                     'id' => $customer->id,
@@ -589,7 +589,7 @@ final class ReportService
         return match ($entityType) {
             'sales' => ['receptionist_id', 'room_id', 'payment_method', 'debt_status'],
             'rooms' => ['status', 'room_id'],
-            'reservations' => ['room_id', 'customer_id', 'payment_status', 'payment_method'],
+            'reservations' => ['room_id', 'client_id', 'payment_status', 'payment_method'],
             'cleaning' => ['room_id'],
             'receptionists' => [],
             'customers' => ['is_active', 'requires_electronic_invoice'],

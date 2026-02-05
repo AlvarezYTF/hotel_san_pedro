@@ -141,9 +141,15 @@ class ElectronicInvoiceService
             
             // Crear los items con datos del formulario (no desde servicios)
             foreach ($data['items'] as $itemData) {
+                // Validar que el nombre del item no esté vacío
+                $itemName = trim($itemData['name']);
+                if (empty($itemName)) {
+                    throw new \Exception('El nombre del item es obligatorio y no puede estar vacío');
+                }
+                
                 ElectronicInvoiceItem::create([
                     'electronic_invoice_id' => $invoice->id,
-                    'name' => $itemData['name'],
+                    'name' => $itemName,
                     'quantity' => $itemData['quantity'],
                     'price' => $itemData['price'],
                     'tax_rate' => $itemData['tax_rate'],
@@ -159,14 +165,33 @@ class ElectronicInvoiceService
                 ]);
             }
             
-            // Enviar a Factus API
-            $this->sendToFactus($invoice);
-            
+            // Commit de la transacción de creación de factura
             DB::commit();
             
+            // Ahora intentar enviar a Factus API (fuera de la transacción)
+            try {
+                $this->sendToFactus($invoice);
+            } catch (\Exception $e) {
+                // Si falla el envío a Factus, la factura ya está guardada como 'pending'
+                Log::warning('Error sending invoice to Factus, keeping as pending:', [
+                    'invoice_id' => $invoice->id,
+                    'error' => $e->getMessage(),
+                    'reference_code' => $invoice->reference_code,
+                ]);
+                
+                // NO hacer rollback aquí - la factura ya está guardada y committed
+                // Solo lanzar el error para el usuario, pero la factura permanece en BD
+                throw $e;
+            }
+            
             return $invoice->fresh(['customer', 'items']);
+            
         } catch (\Exception $e) {
-            DB::rollBack();
+            // Solo hacer rollback si el error ocurrió antes del commit
+            if (DB::transactionLevel() > 0) {
+                DB::rollBack();
+            }
+            
             Log::error('Error creating electronic invoice from form', [
                 'error' => $e->getMessage(),
                 'data' => $data,
@@ -266,8 +291,8 @@ class ElectronicInvoiceService
             
             // Construir mensaje de error más detallado
             $detailedError = "Error en Factus API ({$statusCode}): {$errorDetails}";
-            if ($errorData && isset($errorData['errors'])) {
-                $detailedError .= ' | Errors: ' . json_encode($errorData['errors']);
+            if ($errorData && isset($errorData['data']['errors'])) {
+                $detailedError .= ' | Errores: ' . json_encode($errorData['data']['errors']);
             }
             
             throw new \Exception('Error al enviar la factura a Factus: ' . $detailedError);
@@ -287,6 +312,17 @@ class ElectronicInvoiceService
         $customer = $invoice->customer;
         $taxProfile = $customer->taxProfile;
         $identificationDocument = $taxProfile->identificationDocument;
+
+        // Debug logging al principio del método
+        Log::info('DV Debug - Inicio buildPayload:', [
+            'customer_id' => $customer->id,
+            'identification_document_id' => $identificationDocument->id,
+            'document_code' => $identificationDocument->code,
+            'requires_dv' => $identificationDocument->requires_dv,
+            'tax_profile_dv' => $taxProfile->dv,
+            'dv_type' => gettype($taxProfile->dv),
+            'tax_profile_id' => $taxProfile->id,
+        ]);
 
         // Obtener información de la empresa directamente desde la API de Factus
         try {
@@ -349,27 +385,71 @@ class ElectronicInvoiceService
         ];
 
         // Construir el cliente según la documentación de la API
+        $dvValue = null;
+        if ($identificationDocument->code === 'NIT' && !empty($taxProfile->dv)) {
+            // Usar el DV almacenado directamente sin recalcular
+            $dvValue = (string)$taxProfile->dv;
+            
+            Log::info('DV usando valor almacenado:', [
+                'identification' => $taxProfile->identification,
+                'stored_dv' => $taxProfile->dv,
+                'sent_dv' => $dvValue,
+            ]);
+        }
+        
         $customerData = [
             'identification_document_id' => $identificationDocument->id,
             'identification' => $taxProfile->identification,
-            'dv' => (!empty($taxProfile->dv) && $identificationDocument->code === 'NIT') ? (int)$taxProfile->dv : null,
+            'dv' => $dvValue,
             'municipality_id' => $taxProfile->municipality->factus_id, // Usar el factus_id del municipio del cliente
         ];
         
+        // Debug logging para DV
+        Log::info('DV Debug:', [
+            'customer_id' => $customer->id,
+            'identification_document_id' => $identificationDocument->id,
+            'document_code' => $identificationDocument->code,
+            'requires_dv' => $identificationDocument->requires_dv,
+            'tax_profile_dv' => $taxProfile->dv,
+            'dv_type' => gettype($taxProfile->dv),
+            'sent_dv' => $customerData['dv'],
+            'sent_dv_type' => gettype($customerData['dv']),
+        ]);
+        
+        // Debug logging completo del customer
+        Log::info('Customer Data Completo:', [
+            'customer_data' => $customerData,
+            'customer_names' => $customerNames,
+            'is_juridical_person' => $isJuridicalPerson,
+        ]);
+        
         // Add names or company according to document type
         if ($isJuridicalPerson) {
-            // Para personas jurídicas, usar company si existe, si no usar el nombre del cliente
+            // Para personas jurídicas, siempre enviar 'names' con el nombre de la empresa
+            if (!empty($taxProfile->company)) {
+                $customerData['names'] = $taxProfile->company;
+            } elseif (!empty($customer->name)) {
+                $customerData['names'] = $customer->name; // Usar nombre del cliente como razón social
+            } else {
+                $customerData['names'] = 'EMPRESA SIN NOMBRE'; // Valor por defecto
+            }
+            
+            // Para personas jurídicas, también enviar company si está disponible
             if (!empty($taxProfile->company)) {
                 $customerData['company'] = $taxProfile->company;
             } elseif (!empty($customer->name)) {
-                $customerData['company'] = $customer->name; // Usar nombre del cliente como razón social
-            }
-            if (!empty($taxProfile->trade_name)) {
-                $customerData['trade_name'] = $taxProfile->trade_name;
+                $customerData['company'] = $customer->name;
+            } else {
+                $customerData['company'] = 'EMPRESA SIN NOMBRE'; // Valor por defecto
             }
         } else {
-            if (!empty($customerNames)) {
-                $customerData['names'] = $customerNames;
+            // Para personas naturales, enviar names
+            if (!empty($taxProfile->names)) {
+                $customerData['names'] = $taxProfile->names;
+            } elseif (!empty($customer->name)) {
+                $customerData['names'] = $customer->name;
+            } else {
+                $customerData['names'] = 'CLIENTE SIN NOMBRE'; // Valor por defecto
             }
         }
         
@@ -394,10 +474,21 @@ class ElectronicInvoiceService
         
         // Construir los items del payload
         $items = $invoice->items->map(function($item) {
+            // Validar que el nombre del item no esté vacío
+            $itemName = trim($item->name);
+            if (empty($itemName)) {
+                Log::error('Item con nombre vacío:', [
+                    'item_id' => $item->id,
+                    'name' => $item->name,
+                    'invoice_id' => $invoice->id,
+                ]);
+                throw new \Exception('El nombre del item es obligatorio y no puede estar vacío');
+            }
+            
             // Usar IDs que sabemos que funcionan según la documentación de Factus
             $itemData = [
                 'code_reference' => $item->code_reference,
-                'name' => $item->name,
+                'name' => $itemName,
                 'quantity' => (int) $item->quantity,
                 'price' => (float) $item->price,
                 'unit_measure_id' => 70, // ID correcto según documentación
@@ -446,6 +537,18 @@ class ElectronicInvoiceService
             'items' => $items,
         ];
 
+        // Agregar related_documents solo si el document_type lo requiere (ej. nota crédito)
+        if ($invoice->documentType->code !== '01') {
+            // Para documentos diferentes a factura, agregar documentos relacionados
+            $payload['related_documents'] = [
+                [
+                    'code' => 'Factura electrónica de venta',
+                    'issue_date' => $invoice->created_at->format('Y-m-d'),
+                    'number' => $invoice->document,
+                ]
+            ];
+        }
+
         // Agregar descuentos o recargos si existen
         if ($invoice->allowance_charges && count($invoice->allowance_charges) > 0) {
             $payload['allowance_charges'] = $invoice->allowance_charges->map(function($charge) {
@@ -492,5 +595,214 @@ class ElectronicInvoiceService
     private function generateDocumentNumber(\App\Models\FactusNumberingRange $range): string
     {
         return $range->prefix . $range->current;
+    }
+
+    /**
+     * Elimina una factura no validada de Factus API y la marca como eliminada localmente
+     * 
+     * @param ElectronicInvoice $invoice
+     * @return void
+     * @throws \Exception
+     */
+    public function deleteInvoice(ElectronicInvoice $invoice): void
+    {
+        // Validaciones previas
+        if ($invoice->isAccepted()) {
+            throw new \Exception('No se puede eliminar una factura que ya ha sido validada por la DIAN. Las facturas aceptadas no se pueden eliminar.');
+        }
+
+        if ($invoice->status === 'deleted') {
+            throw new \Exception('La factura ya ha sido eliminada previamente.');
+        }
+
+        if (!$invoice->canBeDeleted()) {
+            throw new \Exception('Esta factura no se puede eliminar. Solo se pueden eliminar facturas con estado "Pendiente" o "Rechazada" que no hayan sido validadas por la DIAN.');
+        }
+
+        if (empty($invoice->reference_code)) {
+            throw new \Exception('La factura no tiene código de referencia, no se puede eliminar de Factus API.');
+        }
+
+        try {
+            Log::info('Intentando eliminar factura de Factus API:', [
+                'invoice_id' => $invoice->id,
+                'reference_code' => $invoice->reference_code,
+                'document' => $invoice->document,
+                'status' => $invoice->status,
+            ]);
+
+            // Eliminar de Factus API usando el reference_code
+            $response = $this->apiService->deleteBillByReference($invoice->reference_code);
+            
+            Log::info('Factura eliminada exitosamente de Factus API:', [
+                'invoice_id' => $invoice->id,
+                'reference_code' => $invoice->reference_code,
+                'response' => $response,
+            ]);
+
+            // Marcar como eliminada localmente
+            $invoice->update([
+                'status' => 'cancelled', // Usar 'cancelled' en lugar de 'deleted' por limitación de BD
+                'response_dian' => array_merge($invoice->response_dian ?? [], [
+                    'deleted_at' => now()->toISOString(),
+                    'delete_response' => $response,
+                    'delete_method' => 'reference_code_api',
+                    'original_status' => 'deleted', // Guardar el estado original que se quería
+                ])
+            ]);
+
+            Log::info('Factura marcada como eliminada en base de datos local:', [
+                'invoice_id' => $invoice->id,
+                'reference_code' => $invoice->reference_code,
+            ]);
+
+        } catch (FactusApiException $e) {
+            Log::error('Error al eliminar factura de Factus API:', [
+                'invoice_id' => $invoice->id,
+                'reference_code' => $invoice->reference_code,
+                'error' => $e->getMessage(),
+                'status_code' => $e->getStatusCode(),
+                'response_body' => $e->getResponseBody(),
+            ]);
+            
+            // Mensajes específicos según el código de estado
+            $userMessage = match($e->getStatusCode()) {
+                404 => 'La factura no se encuentra en Factus API. Esto puede ocurrir si la factura nunca fue enviada a Factus o ya fue eliminada previamente. La factura será marcada como eliminada localmente.',
+                403 => 'No tiene permisos para eliminar esta factura en Factus API.',
+                409 => 'La factura tiene un conflicto y no se puede eliminar en este momento.',
+                422 => 'La factura tiene errores de validación y no se puede eliminar.',
+                default => 'Error al eliminar la factura de Factus: ' . $e->getMessage(),
+            };
+            
+            // Si es 404, marcar como eliminada localmente de todas formas
+            if ($e->getStatusCode() === 404) {
+                Log::info('Factura no encontrada en Factus API, marcando como eliminada localmente:', [
+                    'invoice_id' => $invoice->id,
+                    'reference_code' => $invoice->reference_code,
+                ]);
+                
+                // Marcar como eliminada localmente
+                $invoice->update([
+                    'status' => 'cancelled', // Usar 'cancelled' en lugar de 'deleted' por limitación de BD
+                    'response_dian' => array_merge($invoice->response_dian ?? [], [
+                        'deleted_at' => now()->toISOString(),
+                        'delete_response' => $e->getResponseBody(),
+                        'delete_method' => 'local_only_not_in_factus',
+                        'delete_reason' => 'not_found_in_factus_api',
+                        'original_status' => 'deleted', // Guardar el estado original que se quería
+                    ])
+                ]);
+                
+                // No lanzar excepción, solo informar que se eliminó localmente
+                return;
+            }
+            
+            throw new \Exception($userMessage);
+        } catch (\Exception $e) {
+            Log::error('Error inesperado al eliminar factura:', [
+                'invoice_id' => $invoice->id,
+                'reference_code' => $invoice->reference_code,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+            
+            throw new \Exception('Error inesperado al eliminar la factura: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * Crea facturas pendientes en la base de datos desde códigos de referencia del log
+     * 
+     * @param array $referenceCodes Array de códigos de referencia
+     * @return array Resultados de la creación
+     */
+    public function createPendingInvoicesFromReferences(array $referenceCodes): array
+    {
+        $results = [];
+        
+        foreach ($referenceCodes as $referenceCode) {
+            try {
+                // Verificar si ya existe
+                $existing = ElectronicInvoice::where('reference_code', $referenceCode)->first();
+                if ($existing) {
+                    $results[$referenceCode] = [
+                        'success' => false,
+                        'message' => 'La factura ya existe en la base de datos',
+                        'invoice_id' => $existing->id
+                    ];
+                    continue;
+                }
+
+                // Crear factura pendiente con datos mínimos
+                $invoice = ElectronicInvoice::create([
+                    'customer_id' => 4, // Cliente por defecto (JEFERSON ALVAREZ)
+                    'factus_numbering_range_id' => 1274, // Rango por defecto
+                    'document_type_id' => 1, // Factura electrónica
+                    'operation_type_id' => 1, // Estándar
+                    'payment_method_code' => 71, // Efectivo
+                    'payment_form_code' => 1, // Contado
+                    'reference_code' => $referenceCode,
+                    'document' => 'TEMP-' . substr($referenceCode, -8), // Documento temporal
+                    'status' => 'pending',
+                    'gross_value' => 0,
+                    'tax_amount' => 0,
+                    'discount_amount' => 0,
+                    'total' => 0,
+                    'notes' => 'Factura creada desde log para eliminación - Error API: 409/422',
+                ]);
+
+                $results[$referenceCode] = [
+                    'success' => true,
+                    'message' => 'Factura pendiente creada exitosamente',
+                    'invoice_id' => $invoice->id
+                ];
+                
+            } catch (\Exception $e) {
+                $results[$referenceCode] = [
+                    'success' => false,
+                    'message' => 'Error al crear factura: ' . $e->getMessage(),
+                    'error' => $e->getMessage()
+                ];
+            }
+        }
+        
+        return $results;
+    }
+
+    /**
+     * Calcular dígito de verificación para NIT colombiano
+     */
+    private function calculateDV($nit): int
+    {
+        // Eliminar espacios y caracteres no numéricos
+        $nit = preg_replace('/[^0-9]/', '', $nit);
+        
+        // Si el NIT está vacío, retornar 0
+        if (empty($nit)) {
+            return 0;
+        }
+        
+        // Algoritmo para calcular DV de NIT en Colombia
+        $weights = [41, 37, 33, 29, 25, 23, 19, 17, 13, 11, 7, 3, 1];
+        $sum = 0;
+        
+        // Recorrer el NIT de derecha a izquierda
+        $nitReversed = strrev($nit);
+        $length = strlen($nitReversed);
+        
+        for ($i = 0; $i < $length && $i < 13; $i++) {
+            $digit = intval($nitReversed[$i]);
+            $sum += $digit * $weights[$i];
+        }
+        
+        // Calcular el módulo
+        $mod = $sum % 11;
+        
+        // Determinar el DV
+        if ($mod < 2) {
+            return $mod;
+        } else {
+            return 11 - $mod;
+        }
     }
 }

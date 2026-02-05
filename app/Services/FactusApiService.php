@@ -287,4 +287,93 @@ class FactusApiService
 
         return $response['data'];
     }
+
+    /**
+     * Elimina una factura no validada usando el código de referencia
+     * 
+     * @param string $referenceCode Código de referencia de la factura
+     * @return array Respuesta de la API
+     * @throws \Exception Si falla la petición
+     */
+    public function deleteBillByReference(string $referenceCode): array
+    {
+        if (empty($referenceCode)) {
+            throw new \InvalidArgumentException('El código de referencia no puede estar vacío.');
+        }
+
+        $token = $this->getAuthToken();
+
+        $httpClient = Http::withHeaders([
+            'Authorization' => "Bearer {$token}",
+            'Accept' => 'application/json',
+            'Content-Type' => 'application/json',
+        ]);
+        
+        if (!config('factus.verify_ssl', true)) {
+            $httpClient = $httpClient->withoutVerifying();
+        }
+
+        $url = "{$this->baseUrl}/v1/bills/destroy/reference/{$referenceCode}";
+        
+        Log::info('Eliminando factura de Factus API:', [
+            'reference_code' => $referenceCode,
+            'url' => $url,
+        ]);
+
+        $response = $httpClient->delete($url);
+
+        if (!$response->successful()) {
+            $errorData = $response->json();
+            Log::error('Error al eliminar factura en Factus API:', [
+                'reference_code' => $referenceCode,
+                'status_code' => $response->status(),
+                'response' => $errorData,
+            ]);
+            
+            throw new FactusApiException(
+                "Error al eliminar factura en Factus: " . ($errorData['message'] ?? $response->body()),
+                $response->status(),
+                $errorData
+            );
+        }
+
+        $responseData = $response->json();
+        
+        Log::info('Factura eliminada exitosamente de Factus API:', [
+            'reference_code' => $referenceCode,
+            'response' => $responseData,
+        ]);
+
+        return $responseData;
+    }
+
+    /**
+     * Elimina múltiples facturas pendientes por sus códigos de referencia
+     * 
+     * @param array $referenceCodes Array de códigos de referencia
+     * @return array Resultados de la eliminación
+     */
+    public function deletePendingBills(array $referenceCodes): array
+    {
+        $results = [];
+        
+        foreach ($referenceCodes as $referenceCode) {
+            try {
+                $response = $this->deleteBillByReference($referenceCode);
+                $results[$referenceCode] = [
+                    'success' => true,
+                    'message' => $response['message'] ?? 'Eliminada exitosamente',
+                    'response' => $response
+                ];
+            } catch (\Exception $e) {
+                $results[$referenceCode] = [
+                    'success' => false,
+                    'message' => $e->getMessage(),
+                    'error' => $e->getMessage()
+                ];
+            }
+        }
+        
+        return $results;
+    }
 }

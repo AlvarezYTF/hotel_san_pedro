@@ -57,6 +57,13 @@ class CustomerTaxProfile extends Model
         );
     }
 
+    protected function dv(): \Illuminate\Database\Eloquent\Casts\Attribute
+    {
+        return \Illuminate\Database\Eloquent\Casts\Attribute::make(
+            set: fn (?string $value) => $value !== null && $value !== '' ? (int)trim($value) : null,
+        );
+    }
+
     protected function company(): \Illuminate\Database\Eloquent\Casts\Attribute
     {
         return \Illuminate\Database\Eloquent\Casts\Attribute::make(

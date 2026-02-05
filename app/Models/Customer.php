@@ -94,7 +94,7 @@ class Customer extends Model
      */
     public function reservations(): HasMany
     {
-        return $this->hasMany(Reservation::class);
+        return $this->hasMany(Reservation::class, 'client_id');
     }
 
     /**

@@ -248,12 +248,13 @@
                         <div class="border border-gray-200 rounded-lg p-4">
                             <div class="grid grid-cols-1 md:grid-cols-6 gap-4">
                                 <div class="md:col-span-2">
-                                    <label class="block text-xs font-semibold text-gray-700 mb-2">Servicio</label>
+                                    <label class="block text-xs font-semibold text-gray-700 mb-2">Servicio <span class="text-red-500">*</span></label>
                                     <input type="text" 
                                            x-model="items[{{ $index }}].name"
                                            @input="syncItem({{ $index }}, 'name', $event.target.value)"
-                                           class="block w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
-                                           placeholder="Ej: Alojamiento, Alimentación, etc."
+                                           @blur="if($event.target.value.trim() === '') { $event.target.value = items[{{ $index }}].name || 'Servicio ' + ({{ $index }} + 1); syncItem({{ $index }}, 'name', $event.target.value); }"
+                                           class="block w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                           placeholder="Ej: Alojamiento, Alimentación, Servicios varios..."
                                            required>
                                     @error('items.' . $index . '.name')
                                         <p class="mt-1.5 text-xs text-red-600">{{ $message }}</p>

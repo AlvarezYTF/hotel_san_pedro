@@ -38,6 +38,7 @@ class CreateCustomerModal extends Component
         'municipality_id' => '',
         'legal_organization_id' => '',
         'tribute_id' => '',
+        'company' => '', // Campo company para personas jurídicas
     ];
     
     public array $errors = [];
@@ -101,6 +102,7 @@ class CreateCustomerModal extends Component
             'municipality_id' => '',
             'legal_organization_id' => '',
             'tribute_id' => '',
+            'company' => '', // Agregar campo company al reset
         ];
         
         $this->errors = [];
@@ -138,6 +140,16 @@ class CreateCustomerModal extends Component
     public function updatedDianDataIdentification(): void
     {
         $this->checkIdentificationExists($this->dianData['identification']);
+    }
+
+    public function updatedDianDataLegalOrganizationId(): void
+    {
+        // Si selecciona persona jurídica, autocompletar el campo company con el nombre
+        if ($this->dianData['legal_organization_id'] == 1) { // ID 1 = Persona Jurídica
+            $this->dianData['company'] = $this->dianData['name'];
+        } else {
+            $this->dianData['company'] = ''; // Limpiar si no es jurídica
+        }
     }
 
     private function checkIdentificationExists(string $identification): void
@@ -260,6 +272,11 @@ class CreateCustomerModal extends Component
         // Validar organización legal
         if (empty($this->dianData['legal_organization_id'])) {
             $errors['legal_organization_id'] = 'La organización legal es obligatoria.';
+        }
+        
+        // Validar company si es persona jurídica
+        if ($this->dianData['legal_organization_id'] == 1 && empty($this->dianData['company'])) {
+            $errors['company'] = 'La razón social es obligatoria para personas jurídicas.';
         }
         
         // Validar tributo
@@ -435,7 +452,7 @@ class CreateCustomerModal extends Component
                 'legal_organization_id' => $this->dianData['legal_organization_id'],
                 'tribute_id' => $this->dianData['tribute_id'],
                 'municipality_id' => $this->dianData['municipality_id'],
-                'company' => null,
+                'company' => !empty($this->dianData['company']) ? mb_strtoupper(trim($this->dianData['company'])) : null,
                 'trade_name' => null,
             ]);
 

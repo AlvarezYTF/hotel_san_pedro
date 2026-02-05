@@ -269,6 +269,8 @@ Route::middleware('auth')->group(function () {
             ->name('electronic-invoices.refresh-status');
         Route::get('/electronic-invoices/{electronicInvoice}/download-pdf', [\App\Http\Controllers\ElectronicInvoiceController::class, 'downloadPdf'])
             ->name('electronic-invoices.download-pdf');
+        Route::delete('/electronic-invoices/{electronicInvoice}', [\App\Http\Controllers\ElectronicInvoiceController::class, 'destroy'])
+            ->name('electronic-invoices.destroy');
     });
 
     // Configuración Fiscal de la Empresa

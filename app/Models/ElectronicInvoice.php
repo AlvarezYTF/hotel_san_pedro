@@ -105,4 +105,44 @@ class ElectronicInvoice extends Model
     {
         return in_array($this->status, ['pending', 'sent', 'accepted']);
     }
+
+    public function canBeDeleted(): bool
+    {
+        // Solo se pueden eliminar facturas que no estén validadas por DIAN
+        return in_array($this->status, ['pending', 'rejected']) && !in_array($this->status, ['deleted', 'cancelled']);
+    }
+
+    public function isPending(): bool
+    {
+        return $this->status === 'pending';
+    }
+
+    public function isDeleted(): bool
+    {
+        return $this->status === 'deleted' || $this->status === 'cancelled';
+    }
+
+    public function getStatusLabel(): string
+    {
+        return match($this->status) {
+            'pending' => 'Pendiente',
+            'accepted' => 'Aceptada',
+            'rejected' => 'Rechazada',
+            'deleted' => 'Eliminada',
+            'cancelled' => 'Eliminada', // Mostrar 'Eliminada' para 'cancelled' también
+            default => ucfirst($this->status),
+        };
+    }
+
+    public function getStatusColor(): string
+    {
+        return match($this->status) {
+            'pending' => 'amber',
+            'accepted' => 'emerald',
+            'rejected' => 'red',
+            'deleted' => 'gray',
+            'cancelled' => 'gray', // Mismo color que 'deleted'
+            default => 'gray',
+        };
+    }
 }

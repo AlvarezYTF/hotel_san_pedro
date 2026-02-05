@@ -21,6 +21,11 @@
             </div>
             
             <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+                <button wire:click="refreshTable"
+                        class="inline-flex items-center justify-center px-4 sm:px-5 py-2.5 rounded-xl border border-gray-300 bg-white text-gray-700 text-sm font-semibold hover:bg-gray-50 hover:border-gray-400 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 shadow-sm">
+                    <i class="fas fa-sync-alt mr-2"></i>
+                    <span>Actualizar</span>
+                </button>
                 <button wire:click="$dispatch('open-create-electronic-invoice-modal')"
                         class="inline-flex items-center justify-center px-4 sm:px-5 py-2.5 rounded-xl border-2 border-emerald-600 bg-emerald-600 text-white text-sm font-semibold hover:bg-emerald-700 hover:border-emerald-700 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500 shadow-sm hover:shadow-md">
                     <i class="fas fa-plus mr-2"></i>
@@ -53,6 +58,7 @@
                     <option value="0">Pendientes</option>
                     <option value="sent">Enviadas</option>
                     <option value="rejected">Rechazadas</option>
+                    <option value="deleted">Eliminadas</option>
                 </select>
                 
                 <select wire:model.live="perPage"
@@ -159,10 +165,10 @@
                                 </a>
                                 @endif
                                 
-                                @if($invoice->status === 'pending')
-                                <button wire:click="deleteInvoice({{ $invoice->id }})"
-                                        wire:confirm="¿Está seguro de eliminar esta factura? Esta acción no se puede deshacer."
-                                        class="text-red-600 hover:text-red-900 font-medium">
+                                @if($invoice->canBeDeleted())
+                                <button wire:click="confirmDelete({{ $invoice->id }})"
+                                        class="text-red-600 hover:text-red-900 font-medium transition-colors duration-200"
+                                        title="Eliminar factura de Factus">
                                     <i class="fas fa-trash"></i>
                                 </button>
                                 @endif

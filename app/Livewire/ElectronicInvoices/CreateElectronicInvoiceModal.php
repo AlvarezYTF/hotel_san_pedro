@@ -160,7 +160,7 @@ class CreateElectronicInvoiceModal extends Component
     public function addItem(): void
     {
         $this->items[] = [
-            'name' => '',
+            'name' => 'Servicio ' . (count($this->items) + 1),
             'quantity' => 1,
             'price' => 0,
             'tax_rate' => 19,
@@ -232,7 +232,7 @@ class CreateElectronicInvoiceModal extends Component
         'formData.payment_form_id' => 'required|exists:dian_payment_forms,id',
         'formData.numbering_range_id' => 'required|exists:factus_numbering_ranges,id',
         'items' => 'required|array|min:1',
-        'items.*.name' => 'required|string|max:255',
+        'items.*.name' => 'required|string|max:255|min:1',
         'items.*.quantity' => 'required|numeric|min:0.001',
         'items.*.price' => 'required|numeric|min:0',
         'items.*.tax_rate' => 'required|numeric|min:0|max:100',
@@ -242,6 +242,17 @@ class CreateElectronicInvoiceModal extends Component
         $this->isCreating = true;
 
         try {
+            // Validación adicional para asegurar que los nombres no estén vacíos
+            foreach ($this->items as $index => $item) {
+                if (empty(trim($item['name']))) {
+                    $this->dispatch('notify', [
+                        'type' => 'error',
+                        'message' => "El nombre del servicio #{($index + 1)} es obligatorio y no puede estar vacío."
+                    ]);
+                    return;
+                }
+            }
+
             // Asegurar que operation_type_id tenga un valor por defecto si está vacío
             if (empty($this->formData['operation_type_id'])) {
                 $this->formData['operation_type_id'] = 1; // Estándar por defecto

@@ -13,6 +13,7 @@ use App\Models\ElectronicInvoice;
 use App\Models\Service;
 use App\Services\ElectronicInvoiceService;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Redirect;
 use Illuminate\View\View;
@@ -308,5 +309,21 @@ class ElectronicInvoiceController extends Controller
         return response($pdfContent, 200)
             ->header('Content-Type', 'application/pdf')
             ->header('Content-Disposition', 'attachment; filename="' . $fileName . '"');
+    }
+
+    /**
+     * Elimina una factura no validada de Factus API
+     */
+    public function destroy(ElectronicInvoice $electronicInvoice, \App\Services\ElectronicInvoiceService $invoiceService)
+    {
+        try {
+            $invoiceService->deleteInvoice($electronicInvoice);
+            
+            return redirect()->route('electronic-invoices.index')
+                ->with('success', 'Factura eliminada exitosamente de Factus');
+                
+        } catch (\Exception $e) {
+            return back()->with('error', 'Error al eliminar la factura: ' . $e->getMessage());
+        }
     }
 }
