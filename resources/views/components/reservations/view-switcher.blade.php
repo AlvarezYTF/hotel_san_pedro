@@ -14,23 +14,5 @@
             <i class="fas fa-list mr-2"></i>Vista Lista
         </a>
     </div>
-
-    @if($view === 'calendar')
-    <div class="flex items-center justify-between md:justify-end gap-4 min-w-[300px]">
-        <a href="{{ route('reservations.index', ['view' => 'calendar', 'month' => $date->copy()->subMonth()->format('Y-m')]) }}"
-           class="p-2.5 hover:bg-emerald-50 hover:text-emerald-600 rounded-xl text-gray-500 transition-all border border-transparent hover:border-emerald-100">
-            <i class="fas fa-chevron-left"></i>
-        </a>
-        <div class="text-center min-w-[150px]">
-            <h2 class="text-lg font-bold text-gray-900 capitalize tracking-tight">
-                {{ ucfirst($date->translatedFormat('F Y')) }}
-            </h2>
-        </div>
-        <a href="{{ route('reservations.index', ['view' => 'calendar', 'month' => $date->copy()->addMonth()->format('Y-m')]) }}"
-           class="p-2.5 hover:bg-emerald-50 hover:text-emerald-600 rounded-xl text-gray-500 transition-all border border-transparent hover:border-emerald-100">
-            <i class="fas fa-chevron-right"></i>
-        </a>
-    </div>
-    @endif
 </div>
 

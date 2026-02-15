@@ -23,6 +23,10 @@ class Reservation extends Model
         'source_id',
         'created_by',
         'notes',
+        'guests_document_path',
+        'guests_document_original_name',
+        'guests_document_mime_type',
+        'guests_document_size',
         'created_at',
         'updated_at',
         'deleted_at',
@@ -31,6 +35,10 @@ class Reservation extends Model
     protected $casts = [
         'total_amount' => 'decimal:2',
         'deposit_amount' => 'decimal:2',
+        'total_guests' => 'integer',
+        'adults' => 'integer',
+        'children' => 'integer',
+        'guests_document_size' => 'integer',
         'reservation_date' => 'date',
         'check_in_date' => 'date',
         'check_out_date' => 'date',
@@ -68,6 +76,14 @@ class Reservation extends Model
     public function reservationRooms()
     {
         return $this->hasMany(ReservationRoom::class);
+    }
+
+    /**
+     * Get stay records associated with this reservation.
+     */
+    public function stays()
+    {
+        return $this->hasMany(Stay::class);
     }
 
     /**
@@ -260,4 +276,3 @@ class Reservation extends Model
             ->where('check_out_date', '>=', $today);
     }
 }
-

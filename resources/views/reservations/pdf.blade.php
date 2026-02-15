@@ -1,102 +1,169 @@
-<!DOCTYPE html>
-<html>
+<!doctype html>
+<html lang="es">
 <head>
     <meta charset="utf-8">
-    <title>Soporte de Reserva #{{ $reservation->id }}</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Comprobante de Reserva {{ $reservation->reservation_code ?? ('#' . $reservation->id) }}</title>
     <style>
-        body { font-family: 'Helvetica', sans-serif; color: #333; line-height: 1.6; }
-        .header { text-align: center; border-bottom: 2px solid #10b981; padding-bottom: 20px; margin-bottom: 30px; }
-        .hotel-name { font-size: 24px; font-bold: true; color: #10b981; margin: 0; }
-        .document-type { font-size: 18px; color: #666; margin: 5px 0; }
-        .section-title { font-size: 14px; font-weight: bold; background: #f3f4f6; padding: 5px 10px; margin-bottom: 10px; border-left: 4px solid #10b981; }
-        .info-grid { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
-        .info-grid td { padding: 8px 10px; vertical-align: top; }
-        .label { font-weight: bold; color: #666; width: 30%; }
-        .footer { text-align: center; font-size: 10px; color: #999; margin-top: 50px; border-top: 1px solid #eee; padding-top: 20px; }
-        .amount-table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-        .amount-table th { background: #f3f4f6; text-align: left; padding: 10px; }
-        .amount-table td { padding: 10px; border-bottom: 1px solid #eee; }
-        .total-row { font-weight: bold; font-size: 16px; }
+        @page { margin: 24px; }
+        body { font-family: DejaVu Sans, sans-serif; font-size: 11px; color: #111827; line-height: 1.45; }
+        .header { border-bottom: 2px solid #0f766e; padding-bottom: 10px; margin-bottom: 12px; }
+        .header-table { width: 100%; border-collapse: collapse; }
+        .header-table td { vertical-align: top; }
+        .logo-cell { width: 84px; }
+        .logo { width: 70px; height: auto; }
+        .brand { margin: 0 0 2px; font-size: 18px; font-weight: 800; color: #0f766e; }
+        .doc-title { margin: 0; font-size: 15px; font-weight: 700; color: #111827; }
+        .doc-subtitle { margin: 3px 0 0; font-size: 10px; color: #4b5563; }
+        .meta-right { text-align: right; font-size: 10px; color: #4b5563; }
+        .meta-right p { margin: 0 0 3px; }
+        .section { border: 1px solid #e5e7eb; border-radius: 6px; padding: 10px; margin-bottom: 10px; }
+        .section-title { margin: 0 0 8px; font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: .05em; color: #111827; }
+        .meta { width: 100%; border-collapse: collapse; }
+        .meta td { padding: 4px 6px; vertical-align: top; }
+        .k { font-size: 9px; color: #6b7280; text-transform: uppercase; font-weight: 700; letter-spacing: .04em; margin-bottom: 2px; }
+        .v { font-size: 11px; color: #111827; font-weight: 700; }
+        table.table { width: 100%; border-collapse: collapse; }
+        table.table th, table.table td { border-bottom: 1px solid #e5e7eb; padding: 6px 5px; font-size: 10px; }
+        table.table th { background: #f3f4f6; text-transform: uppercase; letter-spacing: .04em; color: #374151; text-align: left; font-size: 9px; }
+        .text-right { text-align: right; }
+        .notes { border: 1px solid #e5e7eb; border-radius: 6px; padding: 8px; background: #f9fafb; font-size: 10px; }
+        .room-list { margin: 0; padding-left: 16px; }
+        .room-list li { margin-bottom: 3px; font-size: 10px; }
+        .v-green { color: #047857; }
+        .v-red { color: #b91c1c; }
+        .footer { margin-top: 12px; padding-top: 8px; border-top: 1px solid #e5e7eb; text-align: center; color: #6b7280; font-size: 9px; }
     </style>
 </head>
 <body>
+    @php
+        $logoDataUri = app(\App\Services\PdfBrandingService::class)->getHotelLogoDataUri();
+    @endphp
+
     <div class="header">
-        <h1 class="hotel-name">HOTEL SAN PEDRO</h1>
-        <p class="document-type">SOPORTE DE RESERVA #{{ $reservation->id }}</p>
-        <p style="font-size: 12px; color: #666;">Fecha de emisión: {{ date('d/m/Y H:i') }}</p>
+        <table class="header-table">
+            <tr>
+                <td class="logo-cell">
+                    @if($logoDataUri)
+                        <img src="{{ $logoDataUri }}" alt="Hotel San Pedro" class="logo">
+                    @endif
+                </td>
+                <td>
+                    <p class="brand">Hotel San Pedro</p>
+                    <p class="doc-title">Comprobante de Reserva</p>
+                    <p class="doc-subtitle">Codigo: {{ $reservation->reservation_code ?? ('RES-' . $reservation->id) }}</p>
+                </td>
+                <td class="meta-right">
+                    <p>Fecha emision: {{ ($issuedAt ?? now())->format('d/m/Y H:i') }}</p>
+                    <p>Reserva ID: #{{ $reservation->id }}</p>
+                </td>
+            </tr>
+        </table>
     </div>
 
-    <div class="section-title">DATOS DEL CLIENTE</div>
-    <table class="info-grid">
-        <tr>
-            <td class="label">Nombre:</td>
-            <td>{{ $reservation->customer->name }}</td>
-        </tr>
-        <tr>
-            <td class="label">Correo:</td>
-            <td>{{ $reservation->customer->email ?? 'N/A' }}</td>
-        </tr>
-        <tr>
-            <td class="label">Teléfono:</td>
-            <td>{{ $reservation->customer->phone ?? 'N/A' }}</td>
-        </tr>
-    </table>
-
-    <div class="section-title">DETALLES DE LA HABITACIÓN</div>
-    <table class="info-grid">
-        <tr>
-            <td class="label">Habitación:</td>
-            <td>{{ $reservation->room->room_number }} ({{ $reservation->room->beds_count }} {{ $reservation->room->beds_count == 1 ? 'Cama' : 'Camas' }})</td>
-        </tr>
-    </table>
-
-    <div class="section-title">FECHAS DE ESTADÍA</div>
-    <table class="info-grid">
-        <tr>
-            <td class="label">Fecha de Reserva:</td>
-            <td>{{ $reservation->reservation_date->format('d/m/Y') }}</td>
-        </tr>
-        <tr>
-            <td class="label">Check-in:</td>
-            <td>{{ $reservation->check_in_date->format('d/m/Y') }}</td>
-        </tr>
-        <tr>
-            <td class="label">Check-out:</td>
-            <td>{{ $reservation->check_out_date->format('d/m/Y') }}</td>
-        </tr>
-    </table>
-
-    <div class="section-title">RESUMEN ECONÓMICO</div>
-    <table class="amount-table">
-        <tr>
-            <th>Concepto</th>
-            <th style="text-align: right;">Monto</th>
-        </tr>
-        <tr>
-            <td>Valor Total de la Reserva</td>
-            <td style="text-align: right;">${{ number_format($reservation->total_amount, 0, ',', '.') }}</td>
-        </tr>
-        <tr>
-            <td>Abono Realizado</td>
-            <td style="text-align: right; color: #10b981;">-${{ number_format($reservation->deposit, 0, ',', '.') }}</td>
-        </tr>
-        <tr class="total-row">
-            <td>Saldo Pendiente</td>
-            <td style="text-align: right; color: #ef4444;">${{ number_format($reservation->total_amount - $reservation->deposit, 0, ',', '.') }}</td>
-        </tr>
-    </table>
-
-    @if($reservation->notes)
-    <div class="section-title" style="margin-top: 20px;">OBSERVACIONES</div>
-    <div style="font-size: 12px; padding: 10px; border: 1px solid #eee; border-radius: 5px;">
-        {{ $reservation->notes }}
+    <div class="section">
+        <div class="section-title">Datos del Cliente</div>
+        <table class="meta">
+            <tr>
+                <td style="width: 50%">
+                    <div class="k">Nombre</div>
+                    <div class="v">{{ $reservation->customer?->name ?? 'No disponible' }}</div>
+                </td>
+                <td style="width: 50%">
+                    <div class="k">Documento</div>
+                    <div class="v">{{ $reservation->customer?->taxProfile?->identification ?? 'No disponible' }}</div>
+                </td>
+            </tr>
+            <tr>
+                <td>
+                    <div class="k">Telefono</div>
+                    <div class="v">{{ $reservation->customer?->phone ?? 'No disponible' }}</div>
+                </td>
+                <td>
+                    <div class="k">Correo</div>
+                    <div class="v">{{ $reservation->customer?->email ?? 'No disponible' }}</div>
+                </td>
+            </tr>
+        </table>
     </div>
+
+    <div class="section">
+        <div class="section-title">Estancia</div>
+        <table class="meta">
+            <tr>
+                <td style="width: 25%">
+                    <div class="k">Check-in</div>
+                    <div class="v">{{ $checkInDate ? $checkInDate->format('d/m/Y') : 'No definido' }}{{ !empty($checkInTime) ? ' ' . $checkInTime : '' }}</div>
+                </td>
+                <td style="width: 25%">
+                    <div class="k">Check-out</div>
+                    <div class="v">{{ $checkOutDate ? $checkOutDate->format('d/m/Y') : 'No definido' }}</div>
+                </td>
+                <td style="width: 25%">
+                    <div class="k">Noches</div>
+                    <div class="v">{{ max(0, (int) ($nights ?? 0)) }}</div>
+                </td>
+                <td style="width: 25%">
+                    <div class="k">Huespedes</div>
+                    <div class="v">
+                        {{ (int) ($reservation->total_guests ?? 0) }}
+                        @if(!is_null($reservation->adults) || !is_null($reservation->children))
+                            (A: {{ (int) ($reservation->adults ?? 0) }}, N: {{ (int) ($reservation->children ?? 0) }})
+                        @endif
+                    </div>
+                </td>
+            </tr>
+        </table>
+    </div>
+
+    <div class="section">
+        <div class="section-title">Habitaciones</div>
+        @if(!empty($roomSummaries))
+            <ul class="room-list">
+                @foreach($roomSummaries as $roomSummary)
+                    <li>{{ $roomSummary }}</li>
+                @endforeach
+            </ul>
+        @else
+            <div class="v">No hay habitaciones asociadas en reservation_rooms.</div>
+        @endif
+    </div>
+
+    <div class="section">
+        <div class="section-title">Resumen Economico</div>
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>Concepto</th>
+                    <th class="text-right">Valor</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>Total reserva</td>
+                    <td class="text-right">${{ number_format((float) ($totalAmount ?? 0), 0, ',', '.') }}</td>
+                </tr>
+                <tr>
+                    <td>Abono</td>
+                    <td class="text-right v-green">-${{ number_format((float) ($depositAmount ?? 0), 0, ',', '.') }}</td>
+                </tr>
+                <tr>
+                    <td class="v-red">Saldo pendiente</td>
+                    <td class="text-right v-red">${{ number_format((float) ($balanceDue ?? 0), 0, ',', '.') }}</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    @if(!empty($reservation->notes))
+        <div class="section">
+            <div class="section-title">Observaciones</div>
+            <div class="notes">{{ $reservation->notes }}</div>
+        </div>
     @endif
 
     <div class="footer">
-        <p>Gracias por elegir Hotel San Pedro. Este documento es un soporte de su reserva.</p>
-        <p>© {{ date('Y') }} Hotel San Pedro - Todos los derechos reservados</p>
+        Este documento sirve como comprobante de la reserva generada en el sistema.
     </div>
 </body>
 </html>
-

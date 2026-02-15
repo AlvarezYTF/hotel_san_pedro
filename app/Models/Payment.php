@@ -69,4 +69,12 @@ class Payment extends Model
     {
         return $this->belongsTo(User::class, 'created_by');
     }
+
+    /**
+     * Backward-compatible alias used in RoomManager and other views.
+     */
+    public function createdBy()
+    {
+        return $this->belongsTo(User::class, 'created_by');
+    }
 }

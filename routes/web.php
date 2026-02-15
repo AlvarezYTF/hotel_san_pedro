@@ -55,8 +55,8 @@ Route::middleware('auth')->group(function () {
     Route::middleware('permission:view_shift_handovers|manage_shift_handovers')->group(function () {
         Route::get('/shift-handovers', [\App\Http\Controllers\ReceptionistDashboardController::class, 'index'])->name('shift-handovers.index');
         Route::get('/shift-handovers/receive', [\App\Http\Controllers\ReceptionistDashboardController::class, 'receiveShift'])->name('shift-handovers.receive');
-        Route::get('/shift-handovers/{id}/pdf', [\App\Http\Controllers\ReceptionistDashboardController::class, 'downloadHandoverPdf'])->name('shift-handovers.pdf');
-        Route::get('/shift-handovers/{id}', [\App\Http\Controllers\ReceptionistDashboardController::class, 'show'])->name('shift-handovers.show');
+        Route::get('/shift-handovers/{id}/pdf', [\App\Http\Controllers\ReceptionistDashboardController::class, 'downloadHandoverPdf'])->whereNumber('id')->name('shift-handovers.pdf');
+        Route::get('/shift-handovers/{id}', [\App\Http\Controllers\ReceptionistDashboardController::class, 'show'])->whereNumber('id')->name('shift-handovers.show');
     });
 
     // - Acciones (iniciar / entregar / crear acta / recibir)
@@ -64,12 +64,14 @@ Route::middleware('auth')->group(function () {
         Route::post('/shifts/start', [\App\Http\Controllers\ReceptionistDashboardController::class, 'startShift'])->name('shift.start');
         Route::post('/shifts/end', [\App\Http\Controllers\ReceptionistDashboardController::class, 'endShift'])->name('shift.end');
 
+        Route::get('/shift-handovers/deliver', [\App\Http\Controllers\ReceptionistDashboardController::class, 'deliverShift'])->name('shift-handovers.deliver');
         Route::get('/shift-handovers/create', [\App\Http\Controllers\ReceptionistDashboardController::class, 'createHandover'])->name('shift-handovers.create');
         Route::post('/shift-handovers', [\App\Http\Controllers\ReceptionistDashboardController::class, 'storeHandover'])->name('shift-handovers.store');
         Route::post('/shift-handovers/receive', [\App\Http\Controllers\ReceptionistDashboardController::class, 'storeReception'])->name('shift-handovers.store-reception');
 
         // Solo administradores: forzar cierre de turnos operativos atascados
         Route::post('/shifts/force-close', [\App\Http\Controllers\ReceptionistDashboardController::class, 'forceCloseOperational'])->middleware('role:Administrador')->name('shift.force-close');
+        Route::post('/shifts/operations/toggle', [\App\Http\Controllers\ReceptionistDashboardController::class, 'toggleShiftOperations'])->middleware('role:Administrador')->name('shift.operations.toggle');
     });
 
     // Salidas de Efectivo de Turno (Shift Cash Outs)
@@ -167,6 +169,8 @@ Route::middleware('auth')->group(function () {
     Route::middleware('permission:view_reservations')->group(function () {
         Route::get('/reservations', [ReservationController::class, 'index'])->name('reservations.index');
         Route::get('/reservations/{reservation}/download', [ReservationController::class, 'download'])->name('reservations.download');
+        Route::get('/reservations/{reservation}/guest-document', [ReservationController::class, 'viewGuestsDocument'])->name('reservations.guest-document.view');
+        Route::get('/reservations/{reservation}/guest-document/download', [ReservationController::class, 'downloadGuestsDocument'])->name('reservations.guest-document.download');
         Route::get('/reservations/export/monthly', [ReservationController::class, 'exportMonthlyReport'])->name('reservations.export.monthly');
         Route::get('/api/check-room-availability', [ReservationController::class, 'checkAvailability'])->name('api.check-availability');
         Route::get('/reservations/{reservation}/release-data', [ReservationController::class, 'getReleaseData'])->name('reservations.release-data');
@@ -180,6 +184,9 @@ Route::middleware('auth')->group(function () {
     Route::middleware('permission:edit_reservations')->group(function () {
         Route::get('/reservations/{reservation}/edit', [ReservationController::class, 'edit'])->name('reservations.edit');
         Route::put('/reservations/{reservation}', [ReservationController::class, 'update'])->name('reservations.update');
+        Route::post('/reservations/{reservation}/check-in', [ReservationController::class, 'checkIn'])->name('reservations.check-in');
+        Route::post('/reservations/{reservation}/payments', [ReservationController::class, 'registerPayment'])->name('reservations.register-payment');
+        Route::post('/reservations/{reservation}/payments/{payment}/cancel', [ReservationController::class, 'cancelPayment'])->name('reservations.cancel-payment');
     });
 
     Route::middleware('permission:delete_reservations')->group(function () {

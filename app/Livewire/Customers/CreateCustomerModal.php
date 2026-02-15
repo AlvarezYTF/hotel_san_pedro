@@ -355,7 +355,14 @@ class CreateCustomerModal extends Component
                 'trade_name' => null,
             ]);
 
-            $this->dispatch('customer-created');
+            $this->dispatch('customer-created', customerId: $customer->id, customerData: [
+                'id' => $customer->id,
+                'name' => $customer->name,
+                'phone' => $customer->phone,
+                'taxProfile' => [
+                    'identification' => trim($this->basicData['identification']),
+                ],
+            ]);
             $this->close();
             
             $this->dispatch('notify', [
@@ -456,7 +463,14 @@ class CreateCustomerModal extends Component
                 'trade_name' => null,
             ]);
 
-            $this->dispatch('customer-created');
+            $this->dispatch('customer-created', customerId: $customer->id, customerData: [
+                'id' => $customer->id,
+                'name' => $customer->name,
+                'phone' => $customer->phone,
+                'taxProfile' => [
+                    'identification' => trim($this->dianData['identification']),
+                ],
+            ]);
             $this->close();
             
             $this->dispatch('notify', [

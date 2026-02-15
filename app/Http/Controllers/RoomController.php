@@ -8,9 +8,15 @@ use Illuminate\Http\Request;
 use Illuminate\View\View;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Auth;
 
 class RoomController extends Controller
 {
+    private function ensureAdmin(): void
+    {
+        abort_unless(Auth::user()?->hasRole('Administrador'), 403);
+    }
+
     /**
      * Display a listing of the resource.
      */
@@ -24,6 +30,8 @@ class RoomController extends Controller
      */
     public function create(): View
     {
+        $this->ensureAdmin();
+
         $statuses = RoomStatus::cases();
         return view('rooms.create', compact('statuses'));
     }
@@ -33,6 +41,8 @@ class RoomController extends Controller
      */
     public function store(Request $request): RedirectResponse
     {
+        $this->ensureAdmin();
+
         $validated = $request->validate([
             'room_number' => 'required|string|unique:rooms,room_number',
             'beds_count' => 'required|integer|min:1|max:15',
@@ -81,6 +91,8 @@ class RoomController extends Controller
      */
     public function edit(Room $room): View
     {
+        $this->ensureAdmin();
+
         $statuses = RoomStatus::cases();
         $room->load('rates');
         
@@ -95,6 +107,8 @@ class RoomController extends Controller
      */
     public function storeRate(Request $request, Room $room): RedirectResponse
     {
+        $this->ensureAdmin();
+
         $validated = $request->validate([
             'start_date' => 'required|date',
             'end_date' => 'required|date|after_or_equal:start_date',
@@ -112,6 +126,8 @@ class RoomController extends Controller
      */
     public function destroyRate(Room $room, \App\Models\RoomRate $rate): RedirectResponse
     {
+        $this->ensureAdmin();
+
         $rate->delete();
         return back()->with('success', 'Tarifa especial eliminada.');
     }
@@ -121,6 +137,8 @@ class RoomController extends Controller
      */
     public function update(Request $request, Room $room): RedirectResponse
     {
+        $this->ensureAdmin();
+
         $validated = $request->validate([
             'room_number' => 'required|string|unique:rooms,room_number,' . $room->id,
             'beds_count' => 'required|integer|min:1|max:15',
@@ -162,6 +180,8 @@ class RoomController extends Controller
      */
     public function destroy(Room $room): RedirectResponse
     {
+        $this->ensureAdmin();
+
         if ($room->reservations()->exists()) {
             return back()->with('error', 'No se puede eliminar la habitación porque tiene reservas asociadas.');
         }

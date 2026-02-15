@@ -80,22 +80,36 @@ class CreateSale extends Component
     {
         $this->sale_date = now()->format('Y-m-d');
 
-        // Load only rooms with active reservations (Status: 'ocupada')
-        $this->rooms = Room::where('status', 'ocupada')
-            ->with(['reservations' => function($q) {
-                $q->where('check_in_date', '<=', now())
-                  ->where('check_out_date', '>=', now())
-                  ->with('customer')
-                  ->latest();
-            }])
+        // Cargar habitaciones ocupadas usando estado operacional (rooms.status ya no existe)
+        $today = Carbon::today();
+
+        $this->rooms = Room::query()
+            ->where('is_active', true)
+            ->with(['reservationRooms.reservation.customer'])
             ->get()
-            ->map(function($room) {
-                $room->current_reservation = $room->reservations->first();
+            ->map(function ($room) use ($today) {
+                $activeReservationRoom = $room->reservationRooms->first(function ($reservationRoom) use ($today) {
+                    if (empty($reservationRoom->check_in_date) || empty($reservationRoom->check_out_date)) {
+                        return false;
+                    }
+
+                    $checkIn = Carbon::parse($reservationRoom->check_in_date)->startOfDay();
+                    $checkOut = Carbon::parse($reservationRoom->check_out_date)->startOfDay();
+
+                    return $today->betweenIncluded($checkIn, $checkOut);
+                });
+
+                $room->current_reservation = $activeReservationRoom?->reservation;
+
                 return $room;
             })
-            ->filter(function($room) {
-                return $room->current_reservation !== null;
-            });
+            ->filter(function ($room) use ($today) {
+                $operationalStatus = $room->getOperationalStatus($today);
+
+                return in_array($operationalStatus, ['occupied', 'pending_checkout'], true)
+                    && $room->current_reservation !== null;
+            })
+            ->values();
 
         // Load only active products with stock that ARE NOT cleaning products
         $this->products = Product::where('status', 'active')

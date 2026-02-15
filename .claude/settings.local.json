@@ -1,0 +1,16 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(find:*)",
+      "Bash(php artisan livewire:check:*)",
+      "Bash(php artisan route:list:*)",
+      "Bash(php artisan view:clear:*)",
+      "Bash(php artisan tinker:*)",
+      "Bash(php artisan config:clear:*)",
+      "Bash(php artisan:*)",
+      "Bash(ls:*)",
+      "Read(//c/dev/hotel_san_pedro/**)",
+      "Bash(grep:*)"
+    ]
+  }
+}

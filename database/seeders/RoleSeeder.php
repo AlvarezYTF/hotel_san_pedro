@@ -95,8 +95,8 @@ class RoleSeeder extends Seeder
         // Asignar permisos al administrador (todos)
         $adminRole->givePermissionTo(Permission::all());
 
-        // Asignar permisos al Recepcionista Día
-        $receptionistDayRole->syncPermissions([
+        // Permisos comunes para recepcionistas
+        $receptionistPermissions = [
             'view_shifts',
             'view_customers',
             'create_customers',
@@ -112,25 +112,15 @@ class RoleSeeder extends Seeder
             'view_shift_handovers',
             'create_shift_cash_outs',
             'view_shift_cash_outs',
-        ]);
+            'view_products',
+            'generate_invoices',
+            'download_invoices',
+        ];
+
+        // Asignar permisos al Recepcionista Día
+        $receptionistDayRole->syncPermissions($receptionistPermissions);
 
         // Asignar permisos al Recepcionista Noche
-        $receptionistNightRole->syncPermissions([
-            'view_shifts',
-            'view_customers',
-            'create_customers',
-            'edit_customers',
-            'view_sales',
-            'create_sales',
-            'edit_sales',
-            'view_reservations',
-            'create_reservations',
-            'edit_reservations',
-            'manage_cash_outflows',
-            'manage_shift_handovers',
-            'view_shift_handovers',
-            'create_shift_cash_outs',
-            'view_shift_cash_outs',
-        ]);
+        $receptionistNightRole->syncPermissions($receptionistPermissions);
     }
 }
