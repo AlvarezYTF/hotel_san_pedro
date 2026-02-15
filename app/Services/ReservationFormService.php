@@ -6,7 +6,6 @@ namespace App\Services;
 
 use App\Models\Reservation;
 use Carbon\Carbon;
-use Illuminate\Support\Facades\DB;
 
 final class ReservationFormService
 {
@@ -41,35 +40,14 @@ final class ReservationFormService
         Carbon $checkOut,
         ?int $excludeReservationId
     ): bool {
-        $existsInReservations = Reservation::query()
-            ->where('room_id', $roomId)
-            ->where(static function ($query) use ($checkIn, $checkOut): void {
-                $query->where('check_in_date', '<', $checkOut)
-                    ->where('check_out_date', '>', $checkIn);
-            })
-            ->when($excludeReservationId !== null, static function ($q) use ($excludeReservationId): void {
-                $q->where('id', '!=', $excludeReservationId);
-            })
-            ->exists();
+        $availabilityService = new RoomAvailabilityService();
 
-        if ($existsInReservations) {
-            return false;
-        }
-
-        $existsInPivot = DB::table('reservation_rooms')
-            ->join('reservations', 'reservation_rooms.reservation_id', '=', 'reservations.id')
-            ->where('reservation_rooms.room_id', $roomId)
-            ->whereNull('reservations.deleted_at')
-            ->where(static function ($query) use ($checkIn, $checkOut): void {
-                $query->where('reservations.check_in_date', '<', $checkOut)
-                    ->where('reservations.check_out_date', '>', $checkIn);
-            })
-            ->when($excludeReservationId !== null, static function ($q) use ($excludeReservationId): void {
-                $q->where('reservations.id', '!=', $excludeReservationId);
-            })
-            ->exists();
-
-        return !$existsInPivot;
+        return $availabilityService->isRoomAvailableForDates(
+            $roomId,
+            $checkIn,
+            $checkOut,
+            $excludeReservationId
+        );
     }
 
     /**
@@ -167,6 +145,8 @@ final class ReservationFormService
      *   total: float,
      *   deposit: float,
      *   guestsCount: int,
+     *   adults: int,
+     *   children: int,
      *   notes: string,
      *   paymentMethod: string,
      *   showMultiRoomSelector: bool,
@@ -181,11 +161,23 @@ final class ReservationFormService
             'customer.taxProfile',
             'reservationRooms.room',
             'reservationRooms.guests.taxProfile',
-            'guests.taxProfile',
+            'payments',
         ]);
 
         $reservationRooms = $reservation->reservationRooms;
         $isMultiRoom = $reservationRooms->count() > 1;
+        $checkInDate = $reservationRooms->pluck('check_in_date')->filter()->sort()->first();
+        $checkOutDate = $reservationRooms->pluck('check_out_date')->filter()->sortDesc()->first();
+        $checkInTime = $reservationRooms->pluck('check_in_time')->filter()->first();
+
+        $reservationRoomsSubtotal = (float) $reservationRooms->sum(static fn ($room) => (float) ($room->subtotal ?? 0));
+        $enteredTotal = (float) ($reservation->total_amount ?? 0);
+        $totalAmount = $enteredTotal > 0 ? $enteredTotal : max(0, $reservationRoomsSubtotal);
+
+        $paymentsTotal = (float) ($reservation->payments->sum('amount') ?? 0);
+        $depositAmount = $paymentsTotal > 0
+            ? $paymentsTotal
+            : (float) ($reservation->deposit_amount ?? 0);
 
         $roomId = $this->resolveSingleRoomIdString($reservation, $reservationRooms, $isMultiRoom);
         $selectedRoomIds = $isMultiRoom
@@ -197,15 +189,17 @@ final class ReservationFormService
             : $this->buildRoomGuestsSingle($reservation, $reservationRooms, $roomId);
 
         return [
-            'customerId' => (string) $reservation->customer_id,
-            'checkIn' => $reservation->check_in_date?->format('Y-m-d') ?? '',
-            'checkOut' => $reservation->check_out_date?->format('Y-m-d') ?? '',
-            'checkInTime' => $this->normalizeTimeTo24h($reservation->check_in_time),
-            'total' => (float) $reservation->total_amount,
-            'deposit' => (float) $reservation->deposit,
-            'guestsCount' => (int) ($reservation->guests_count ?? 0),
+            'customerId' => (string) ($reservation->client_id ?? ''),
+            'checkIn' => $checkInDate ? Carbon::parse($checkInDate)->format('Y-m-d') : '',
+            'checkOut' => $checkOutDate ? Carbon::parse($checkOutDate)->format('Y-m-d') : '',
+            'checkInTime' => $this->normalizeTimeTo24h($checkInTime),
+            'total' => $totalAmount,
+            'deposit' => $depositAmount,
+            'guestsCount' => (int) ($reservation->total_guests ?? 0),
+            'adults' => (int) ($reservation->adults ?? 0),
+            'children' => (int) ($reservation->children ?? 0),
             'notes' => (string) ($reservation->notes ?? ''),
-            'paymentMethod' => (string) ($reservation->payment_method ?? 'efectivo'),
+            'paymentMethod' => 'efectivo',
             'showMultiRoomSelector' => $isMultiRoom,
             'roomId' => $roomId,
             'selectedRoomIds' => $selectedRoomIds,
@@ -255,10 +249,6 @@ final class ReservationFormService
             $reservationRoom = $reservationRooms->first();
             if ($reservationRoom !== null && $reservationRoom->guests->isNotEmpty()) {
                 $result[(int) $roomId] = $reservationRoom->guests->map(
-                    fn ($guest): array => $this->mapGuest($guest)
-                )->toArray();
-            } elseif ($reservation->guests->isNotEmpty()) {
-                $result[(int) $roomId] = $reservation->guests->map(
                     fn ($guest): array => $this->mapGuest($guest)
                 )->toArray();
             }
@@ -349,5 +339,3 @@ final class ReservationFormService
             . str_pad((string) $m, 2, '0', STR_PAD_LEFT);
     }
 }
-
-

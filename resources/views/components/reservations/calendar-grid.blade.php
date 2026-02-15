@@ -1,529 +1,748 @@
-<div class="bg-white rounded-xl border border-gray-200 shadow-lg overflow-hidden">
-    <div class="overflow-x-auto overflow-y-auto max-h-[calc(100vh-120px)] relative">
-        @php
-            $todayIndex = null;
-            foreach ($daysInMonth as $index => $day) {
-                if ($day->isToday()) {
-                    $todayIndex = $index;
-                    break;
-                }
+@php
+    $days = collect($daysInMonth ?? [])->values();
+    $calendarDate = $days->isNotEmpty()
+        ? $days->first()->copy()->startOfMonth()
+        : \Carbon\Carbon::today()->startOfMonth();
+
+    $today = \Carbon\Carbon::today()->startOfDay();
+    $sidebarWidthPx = 136;
+    $dayCellWidthPx = 56;
+    $todayIndex = $days->search(static fn ($day) => $day->isToday());
+    $todayLineLeft = $todayIndex !== false && $todayIndex !== null
+        ? $sidebarWidthPx + ($todayIndex * $dayCellWidthPx) + ($dayCellWidthPx / 2)
+        : null;
+    $canDoCheckIn = auth()->check() && auth()->user()->can('edit_reservations');
+    $canDoPayments = auth()->check() && auth()->user()->can('edit_reservations');
+
+    $formatRoomsInfo = static function ($reservation): string {
+        if (!$reservation || !isset($reservation->reservationRooms) || $reservation->reservationRooms->isEmpty()) {
+            return 'Sin habitaciones asignadas';
+        }
+
+        $roomNumbers = $reservation->reservationRooms
+            ->map(static fn ($reservationRoom) => $reservationRoom->room?->room_number)
+            ->filter()
+            ->values()
+            ->all();
+
+        return empty($roomNumbers) ? 'Sin habitaciones asignadas' : implode(', ', $roomNumbers);
+    };
+
+    $payloadsByReservationId = [];
+    $checkedInReservationIds = [];
+    $buildReservationPayload = static function ($reservation) use (&$payloadsByReservationId, $formatRoomsInfo, $canDoCheckIn, $canDoPayments) {
+        if (!$reservation || empty($reservation->id)) {
+            return null;
+        }
+
+        $reservationId = (int) $reservation->id;
+        if (isset($payloadsByReservationId[$reservationId])) {
+            return $payloadsByReservationId[$reservationId];
+        }
+
+        $firstReservationRoom = $reservation->reservationRooms?->first();
+        $checkInDate = $firstReservationRoom?->check_in_date;
+        $checkOutDate = $firstReservationRoom?->check_out_date;
+        $isCancelled = method_exists($reservation, 'trashed') && $reservation->trashed();
+        $hasOperationalStay = false;
+        $operationalStayStatuses = ['active', 'pending_checkout', 'finished'];
+
+        if (method_exists($reservation, 'relationLoaded') && $reservation->relationLoaded('stays')) {
+            $hasOperationalStay = $reservation->stays->contains(
+                static fn ($stay) => in_array((string) ($stay->status ?? ''), $operationalStayStatuses, true),
+            );
+        } elseif (method_exists($reservation, 'stays')) {
+            $hasOperationalStay = $reservation->stays()
+                ->whereIn('status', $operationalStayStatuses)
+                ->exists();
+        }
+
+        $stayNightsTotalRaw = (float) ($reservation->stay_nights_total ?? 0);
+        $reservationRoomsTotalRaw = isset($reservation->reservationRooms)
+            ? (float) $reservation->reservationRooms->sum(static fn ($item) => (float) ($item->subtotal ?? 0))
+            : 0.0;
+        $enteredReservationTotalRaw = (float) ($reservation->total_amount ?? 0);
+        $totalAmountRaw = $enteredReservationTotalRaw > 0
+            ? $enteredReservationTotalRaw
+            : max(0, $reservationRoomsTotalRaw, $stayNightsTotalRaw);
+        $paymentsTotalRaw = isset($reservation->payments)
+            ? (float) $reservation->payments->sum('amount')
+            : (float) ($reservation->deposit_amount ?? 0);
+        $balanceRaw = max(0, $totalAmountRaw - $paymentsTotalRaw);
+        $latestPositivePayment = null;
+        if (isset($reservation->payments)) {
+            $paymentsCollection = $reservation->payments;
+            $latestPositivePayment = $paymentsCollection
+                ->where('amount', '>', 0)
+                ->sortByDesc('id')
+                ->first(static function ($candidatePayment) use ($paymentsCollection) {
+                    $reversalReference = 'Anulacion de pago #' . (int) ($candidatePayment->id ?? 0);
+
+                    return !$paymentsCollection->contains(
+                        static fn ($existingPayment) => (float) ($existingPayment->amount ?? 0) < 0
+                            && (string) ($existingPayment->reference ?? '') === $reversalReference
+                    );
+                });
+        }
+
+        $payloadsByReservationId[$reservationId] = [
+            'id' => $reservationId,
+            'reservation_code' => (string) ($reservation->reservation_code ?? ''),
+            'customer_name' => $reservation->customer ? (string) ($reservation->customer->name ?? '') : 'Sin cliente asignado',
+            'customer_identification' => $reservation->customer
+                ? ($reservation->customer->identification_number
+                    ? ($reservation->customer->identificationType
+                        ? $reservation->customer->identificationType->name . ': ' . $reservation->customer->identification_number
+                        : $reservation->customer->identification_number)
+                    : '-')
+                : '-',
+            'customer_phone' => $reservation->customer ? (string) ($reservation->customer->phone ?? '-') : '-',
+            'rooms' => $formatRoomsInfo($reservation),
+            'check_in' => $checkInDate ? \Carbon\Carbon::parse($checkInDate)->format('d/m/Y') : 'N/A',
+            'check_out' => $checkOutDate ? \Carbon\Carbon::parse($checkOutDate)->format('d/m/Y') : 'N/A',
+            'check_in_time' => $reservation->check_in_time ? substr((string) $reservation->check_in_time, 0, 5) : 'N/A',
+            'guests_count' => (int) ($reservation->total_guests ?? 0),
+            'payment_method' => $reservation->payment_method ? (string) $reservation->payment_method : 'N/A',
+            'total' => number_format($totalAmountRaw, 0, ',', '.'),
+            'deposit' => number_format($paymentsTotalRaw, 0, ',', '.'),
+            'balance' => number_format($balanceRaw, 0, ',', '.'),
+            'total_amount_raw' => $totalAmountRaw,
+            'payments_total_raw' => $paymentsTotalRaw,
+            'balance_raw' => $balanceRaw,
+            'edit_url' => $isCancelled ? null : route('reservations.edit', $reservation),
+            'check_in_url' => !$isCancelled && $canDoCheckIn ? route('reservations.check-in', $reservation) : null,
+            'payment_url' => !$isCancelled && $canDoPayments ? route('reservations.register-payment', $reservation) : null,
+            'cancel_payment_url' => !$isCancelled && $canDoPayments && $latestPositivePayment
+                ? route('reservations.cancel-payment', ['reservation' => $reservation, 'payment' => $latestPositivePayment])
+                : null,
+            'pdf_url' => $isCancelled ? null : route('reservations.download', $reservation),
+            'guests_document_view_url' => !$isCancelled && !empty($reservation->guests_document_path)
+                ? route('reservations.guest-document.view', $reservation)
+                : null,
+            'guests_document_download_url' => !$isCancelled && !empty($reservation->guests_document_path)
+                ? route('reservations.guest-document.download', $reservation)
+                : null,
+            'notes' => $reservation->notes ?? 'Sin notas adicionales',
+            'status' => $isCancelled ? 'Cancelada' : ($reservation->status ?? 'Activa'),
+            'has_operational_stay' => $hasOperationalStay,
+            'can_cancel' => !$isCancelled && !$hasOperationalStay,
+            'can_checkin' => !$isCancelled && $canDoCheckIn,
+            'can_pay' => false,
+            'can_cancel_payment' => !$isCancelled && $canDoPayments && !empty($latestPositivePayment),
+            'last_payment_amount' => $latestPositivePayment ? (float) ($latestPositivePayment->amount ?? 0) : 0.0,
+            'cancelled_at' => $isCancelled && $reservation->deleted_at
+                ? $reservation->deleted_at->format('d/m/Y H:i')
+                : null,
+        ];
+
+        return $payloadsByReservationId[$reservationId];
+    };
+
+    $resolveStayCheckoutDate = static function ($stay, int $roomId): ?\Carbon\Carbon {
+        if (!empty($stay->check_out_at)) {
+            return \Carbon\Carbon::parse($stay->check_out_at)->startOfDay();
+        }
+
+        $reservation = $stay->reservation ?? null;
+        if (!$reservation || !isset($reservation->reservationRooms)) {
+            return null;
+        }
+
+        $reservationRoom = $reservation->reservationRooms->first(static function ($item) use ($roomId) {
+            return (int) ($item->room_id ?? 0) === $roomId && !empty($item->check_out_date);
+        });
+
+        if (!$reservationRoom) {
+            $reservationRoom = $reservation->reservationRooms->first(static fn ($item) => !empty($item->check_out_date));
+        }
+
+        if (!$reservationRoom || empty($reservationRoom->check_out_date)) {
+            return null;
+        }
+
+        return \Carbon\Carbon::parse($reservationRoom->check_out_date)->startOfDay();
+    };
+
+    $roomTimelines = [];
+
+    foreach ($rooms as $room) {
+        $ranges = [];
+        $dayCells = [];
+        $currentStatus = null;
+        $currentReservationId = null;
+        $rangeStart = null;
+        $rangeReservation = null;
+
+        $checkInByReservation = [];
+        $checkOutByReservation = [];
+
+        foreach ($room->reservationRooms as $reservationRoom) {
+            $reservationId = (int) ($reservationRoom->reservation_id ?? 0);
+            if ($reservationId <= 0) {
+                continue;
             }
 
-            /**
-             * Get formatted rooms information for a reservation
-             */
-            function getReservationRoomsInfo($reservation): string
-            {
-                if (
-                    !$reservation ||
-                    !isset($reservation->reservationRooms) ||
-                    $reservation->reservationRooms->isEmpty()
-                ) {
-                    return 'Sin habitaciones asignadas';
-                }
+            if (empty($reservationRoom->reservation)) {
+                continue;
+            }
 
-                $rooms = [];
-                foreach ($reservation->reservationRooms as $roomReservation) {
-                    if ($roomReservation->room) {
-                        $rooms[] = $roomReservation->room->room_number;
+            $isCancelledReservation = method_exists($reservationRoom->reservation, 'trashed')
+                && $reservationRoom->reservation->trashed();
+            if ($isCancelledReservation) {
+                continue;
+            }
+
+            if (!empty($reservationRoom->check_in_date)) {
+                $checkInByReservation[$reservationId][\Carbon\Carbon::parse($reservationRoom->check_in_date)->toDateString()] = true;
+            }
+
+            if (!empty($reservationRoom->check_out_date)) {
+                $checkOutByReservation[$reservationId][\Carbon\Carbon::parse($reservationRoom->check_out_date)->toDateString()] = true;
+            }
+        }
+
+        foreach ($days as $dayIndex => $day) {
+            $dayNormalized = $day->copy()->startOfDay();
+            $isPastDate = $dayNormalized->lt($today);
+            $dayStatus = 'free';
+            $dayReservation = null;
+
+            if ($isPastDate && isset($room->dailyStatuses)) {
+                $snapshot = $room->dailyStatuses->first(
+                    static fn ($item) => \Carbon\Carbon::parse($item->date)->startOfDay()->equalTo($dayNormalized),
+                );
+
+                if ($snapshot) {
+                    $snapshotStatus = (string) ($snapshot->status ?? 'free');
+                    $dayStatus = in_array(
+                        $snapshotStatus,
+                        ['free', 'reserved', 'occupied', 'maintenance', 'cleaning', 'checkout_day', 'pending_cleaning'],
+                        true,
+                    )
+                        ? $snapshotStatus
+                        : 'free';
+
+                    if ($dayStatus === 'pending_cleaning') {
+                        $dayStatus = 'cleaning';
+                    }
+
+                    $snapshotReservationId = (int) ($snapshot->reservation_id ?? 0);
+                    if ($snapshotReservationId > 0) {
+                        $snapshotReservationRoom = $room->reservationRooms
+                            ->firstWhere('reservation_id', $snapshotReservationId);
+                        $dayReservation = $snapshotReservationRoom?->reservation;
+
+                        if ($dayReservation && method_exists($dayReservation, 'trashed') && $dayReservation->trashed()) {
+                            $dayStatus = 'free';
+                            $dayReservation = null;
+                        }
+
+                        $hasTrackedStay = $room->stays->contains(
+                            static fn ($stay) => (int) ($stay->reservation_id ?? 0) === $snapshotReservationId
+                                && in_array((string) ($stay->status ?? ''), ['active', 'pending_checkout', 'finished'], true),
+                        );
+
+                        if ($hasTrackedStay) {
+                            $dayStatus = 'occupied';
+                            $dayReservation = null;
+                        }
                     }
                 }
+            } else {
+                $activeStay = $room->stays
+                    ->filter(static function ($stay) use ($dayNormalized, $room, $resolveStayCheckoutDate) {
+                        $status = (string) ($stay->status ?? '');
+                        if (!in_array($status, ['active', 'pending_checkout', 'finished'], true)) {
+                            return false;
+                        }
 
-                return empty($rooms) ? 'Sin habitaciones asignadas' : implode(', ', $rooms);
+                        if (empty($stay->check_in_at)) {
+                            return false;
+                        }
+
+                        $checkIn = \Carbon\Carbon::parse($stay->check_in_at)->startOfDay();
+                        $checkOut = $resolveStayCheckoutDate($stay, (int) $room->id);
+
+                        if ($status === 'pending_checkout') {
+                            return $checkOut && $dayNormalized->equalTo($checkOut);
+                        }
+
+                        if ($checkOut) {
+                            return $dayNormalized->gte($checkIn) && $dayNormalized->lt($checkOut);
+                        }
+
+                        // Fallback for active stays without checkout: keep room occupied from check-in forward.
+                        return $dayNormalized->gte($checkIn);
+                    })
+                    ->sortBy(static function ($stay): int {
+                        return match ((string) ($stay->status ?? '')) {
+                            'active' => 0,
+                            'pending_checkout' => 1,
+                            'finished' => 2,
+                            default => 3,
+                        };
+                    })
+                    ->first();
+
+                if ($activeStay) {
+                    $activeStayStatus = (string) ($activeStay->status ?? '');
+                    $dayReservation = $activeStay->reservation ?? null;
+
+                    if (in_array($activeStayStatus, ['active', 'pending_checkout'], true)) {
+                        $dayStatus = 'checked_in';
+                        if ($dayReservation && !empty($dayReservation->id)) {
+                            $checkedInReservationIds[(int) $dayReservation->id] = true;
+                        }
+                    } else {
+                        $dayStatus = 'occupied';
+                    }
+                } else {
+                    $reservationRoomMatcher = static function ($item) use ($dayNormalized) {
+                        if (empty($item->reservation) || empty($item->check_in_date) || empty($item->check_out_date)) {
+                            return false;
+                        }
+
+                        if (method_exists($item->reservation, 'trashed') && $item->reservation->trashed()) {
+                            return false;
+                        }
+
+                        $checkIn = \Carbon\Carbon::parse($item->check_in_date)->startOfDay();
+                        $checkOut = \Carbon\Carbon::parse($item->check_out_date)->startOfDay();
+
+                        return $dayNormalized->gte($checkIn) && $dayNormalized->lt($checkOut);
+                    };
+
+                    $reservationRoom = $room->reservationRooms
+                        ->filter(static fn ($item) => $reservationRoomMatcher($item))
+                        ->sort(static function ($a, $b): int {
+                            $aIsCancelled = method_exists($a->reservation, 'trashed') && $a->reservation->trashed() ? 1 : 0;
+                            $bIsCancelled = method_exists($b->reservation, 'trashed') && $b->reservation->trashed() ? 1 : 0;
+
+                            if ($aIsCancelled !== $bIsCancelled) {
+                                return $aIsCancelled <=> $bIsCancelled;
+                            }
+
+                            // If overlapping reservations exist, prefer the most recent one.
+                            return ((int) ($b->reservation_id ?? 0)) <=> ((int) ($a->reservation_id ?? 0));
+                        })
+                        ->first();
+
+                    if ($reservationRoom) {
+                        $dayReservation = $reservationRoom->reservation;
+                        $dayStatus = 'reserved';
+                    }
+                }
             }
-        @endphp
-        @if ($todayIndex !== null)
-            <div class="absolute top-0 bottom-0 w-0.5 bg-orange-500 z-25 pointer-events-none"
-                style="left: {{ 120 + $todayIndex * 45 + 22.5 }}px; margin-top: 40px;">
+
+            if ($dayStatus !== $currentStatus || ($dayReservation?->id) !== $currentReservationId) {
+                if ($currentStatus !== null && $rangeStart !== null) {
+                    $ranges[] = [
+                        'status' => $currentStatus,
+                        'start' => $rangeStart,
+                        'end' => $dayIndex - 1,
+                        'reservation' => $rangeReservation,
+                    ];
+                }
+
+                $currentStatus = $dayStatus;
+                $currentReservationId = $dayReservation?->id;
+                $rangeStart = $dayIndex;
+                $rangeReservation = $dayReservation;
+            }
+        }
+
+        if ($currentStatus !== null && $rangeStart !== null) {
+            $ranges[] = [
+                'status' => $currentStatus,
+                'start' => $rangeStart,
+                'end' => max(0, $days->count() - 1),
+                'reservation' => $rangeReservation,
+            ];
+        }
+
+        foreach ($ranges as $range) {
+            for ($index = $range['start']; $index <= $range['end']; $index++) {
+                if (!isset($days[$index])) {
+                    continue;
+                }
+
+                $reservation = $range['reservation'];
+                $reservationId = (int) ($reservation->id ?? 0);
+                $dayKey = $days[$index]->toDateString();
+
+                $dayCells[$index] = [
+                    'status' => (string) $range['status'],
+                    'reservation' => $reservation,
+                    'isRangeStart' => $index === $range['start'],
+                    'isRangeEnd' => $index === $range['end'],
+                    'isSingleDay' => $range['start'] === $range['end'],
+                    'isCheckIn' => $reservationId > 0 && isset($checkInByReservation[$reservationId][$dayKey]),
+                    'isCheckOut' => $reservationId > 0 && isset($checkOutByReservation[$reservationId][$dayKey]),
+                ];
+            }
+
+            if (
+                !empty($range['reservation'])
+                && !(method_exists($range['reservation'], 'trashed') && $range['reservation']->trashed())
+            ) {
+                $buildReservationPayload($range['reservation']);
+            }
+        }
+
+        $roomTimelines[(int) $room->id] = [
+            'ranges' => $ranges,
+            'dayCells' => $dayCells,
+        ];
+    }
+
+    foreach (array_keys($checkedInReservationIds) as $checkedInReservationId) {
+        if (!isset($payloadsByReservationId[$checkedInReservationId])) {
+            continue;
+        }
+
+        $payloadsByReservationId[$checkedInReservationId]['status'] = 'Llego';
+        $payloadsByReservationId[$checkedInReservationId]['can_checkin'] = false;
+        $payloadsByReservationId[$checkedInReservationId]['can_pay'] = !empty($payloadsByReservationId[$checkedInReservationId]['payment_url']);
+    }
+
+    $monthLabel = ucfirst($calendarDate->translatedFormat('F Y'));
+    $prevMonth = $calendarDate->copy()->subMonth()->format('Y-m');
+    $nextMonth = $calendarDate->copy()->addMonth()->format('Y-m');
+    $initialCalendarMode = request()->get('calendar_mode', 'month');
+    if (!in_array($initialCalendarMode, ['month', 'week', 'day'], true)) {
+        $initialCalendarMode = 'month';
+    }
+    $initialDayIndex = is_int($todayIndex) ? $todayIndex : 0;
+    $prevMonthUrl = route('reservations.index', ['view' => 'calendar', 'month' => $prevMonth, 'calendar_mode' => $initialCalendarMode]);
+    $nextMonthUrl = route('reservations.index', ['view' => 'calendar', 'month' => $nextMonth, 'calendar_mode' => $initialCalendarMode]);
+@endphp
+
+<div
+    x-data="reservationCalendarGrid({
+        initialMode: @js($initialCalendarMode),
+        initialDayIndex: {{ (int) $initialDayIndex }},
+        daysCount: {{ (int) $days->count() }},
+        prevMonthUrl: @js($prevMonthUrl),
+        nextMonthUrl: @js($nextMonthUrl),
+        monthLabel: @js($monthLabel),
+    })"
+    class="bg-gray-50 p-4 sm:p-6 rounded-2xl shadow-sm border border-gray-200">
+    <div class="flex flex-col md:flex-row md:items-center justify-between mb-6 gap-4">
+        <div class="flex items-center gap-4">
+            <h2 class="text-xl font-bold text-gray-800">Calendario de Ocupación</h2>
+            <div class="flex bg-white rounded-lg border border-gray-200 p-1 shadow-sm">
+                <button
+                    type="button"
+                    @click="setMode('month')"
+                    :class="isMode('month') ? 'bg-indigo-50 text-indigo-700' : 'text-gray-600 hover:bg-gray-50'"
+                    class="px-3 py-1.5 text-xs font-medium rounded-md transition-colors">
+                    Mes
+                </button>
+                <button
+                    type="button"
+                    @click="setMode('week')"
+                    :class="isMode('week') ? 'bg-indigo-50 text-indigo-700' : 'text-gray-600 hover:bg-gray-50'"
+                    class="px-3 py-1.5 text-xs font-medium rounded-md transition-colors">
+                    Semana
+                </button>
+                <button
+                    type="button"
+                    @click="setMode('day')"
+                    :class="isMode('day') ? 'bg-indigo-50 text-indigo-700' : 'text-gray-600 hover:bg-gray-50'"
+                    class="px-3 py-1.5 text-xs font-medium rounded-md transition-colors">
+                    Día
+                </button>
             </div>
-        @endif
+        </div>
 
-        <table class="w-full border-collapse">
-            <thead class="sticky top-0 z-20 bg-white border-b-2 border-gray-300">
-                <tr class="bg-gray-50/50">
-                    <th
-                        class="sticky left-0 z-30 bg-gray-50/50 px-4 py-2.5 text-left border-r-2 border-gray-300 shadow-[2px_0_4px_-2px_rgba(0,0,0,0.1)] min-w-[120px]">
-                        <div class="flex flex-col leading-tight">
-                            <span class="text-xs font-bold text-gray-700 uppercase tracking-tight">Habitación</span>
-                            <span class="text-[10px] font-medium text-gray-500 mt-0.5">Capacidad</span>
-                        </div>
-                    </th>
-                    @foreach ($daysInMonth as $day)
+        <div class="flex items-center gap-3">
+            <div class="flex items-center bg-white rounded-lg border border-gray-200 shadow-sm">
+                <button type="button" @click="navigate(-1)"
+                    class="p-2 hover:bg-gray-50 border-r border-gray-200" aria-label="Anterior">
+                    <svg class="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+                    </svg>
+                </button>
+                <span class="px-4 py-2 text-sm font-semibold text-gray-700 capitalize" x-text="periodLabel()">{{ $monthLabel }}</span>
+                <button type="button" @click="navigate(1)"
+                    class="p-2 hover:bg-gray-50 border-l border-gray-200" aria-label="Siguiente">
+                    <svg class="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                    </svg>
+                </button>
+            </div>
+
+            <button type="button" onclick="openCreateReservationModal()"
+                class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg text-sm font-semibold transition-all shadow-md flex items-center gap-2">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+                </svg>
+                Nueva Reserva
+            </button>
+        </div>
+    </div>
+
+    <div class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+        <div class="overflow-x-auto relative">
+            @if ($todayLineLeft !== null)
+                <div x-show="mode === 'month'" class="absolute top-0 bottom-0 w-px bg-orange-400 z-20 pointer-events-none"
+                    style="left: {{ $todayLineLeft }}px; margin-top: 52px;">
+                    <div
+                        class="bg-orange-400 text-white text-[10px] px-1.5 py-0.5 rounded-full absolute -top-6 -left-4 font-bold">
+                        HOY
+                    </div>
+                </div>
+            @endif
+
+            <table class="w-full border-separate border-spacing-0">
+                <thead>
+                    <tr class="bg-gray-50">
                         <th
-                            class="px-0 py-2.5 text-center border-r border-gray-200 w-[45px] min-w-[45px] bg-gray-50/50 {{ $day->isToday() ? 'bg-orange-50' : '' }}">
-                            <span
-                                class="block text-[9px] font-semibold text-gray-500 uppercase tracking-tight mb-0.5">{{ substr($day->translatedFormat('D'), 0, 1) }}</span>
-                            <span
-                                class="text-xs font-bold {{ $day->isToday() ? 'text-orange-600' : 'text-gray-700' }}">{{ $day->day }}</span>
+                            class="sticky left-0 z-30 bg-gray-50 p-3 text-left border-r border-b border-gray-200 min-w-[136px] w-[136px] shadow-[4px_0_6px_-4px_rgba(0,0,0,0.1)]">
+                            <span class="text-xs font-bold text-gray-500 uppercase tracking-wider">Habitación</span>
                         </th>
-                    @endforeach
-                </tr>
-            </thead>
-            <tbody class="bg-white">
-                @foreach ($rooms as $roomIndex => $room)
-                    @php
-                        // 🔥 DEBUG: Logs para identificar el problema
-                        \Log::error("=== PROCESANDO HABITACIÓN {$room->room_number} ===");
-                        \Log::error(
-                            'Reservation rooms cargadas: ' .
-                                ($room->reservationRooms ? $room->reservationRooms->count() : 'null'),
-                        );
-                        \Log::error(
-                            'Reservations cargadas: ' . ($room->reservations ? $room->reservations->count() : 'null'),
-                        );
-
-                        // 🔥 CORRECCIÓN CRÍTICA: Generar statusRanges desde reservation_rooms
-                        $statusRanges = [];
-                        $currentStatus = null;
-                        $currentReservationId = null;
-                        $rangeStart = null;
-                        $rangeReservation = null;
-
-                        \Log::error('🔥 INICIANDO BUCLE DE DÍAS - Total días: ' . count($daysInMonth));
-
-                        foreach ($daysInMonth as $dayIndex => $day) {
-                            $dayStatus = 'free';
-                            $dayNormalized = $day->copy()->startOfDay();
-                            $isPastDate = $dayNormalized->lt(\Carbon\Carbon::today()->startOfDay());
-                            $dayReservation = null;
-
-                            \Log::error(
-                                "Procesando día {$day->format('Y-m-d')} (index: {$dayIndex}) - isPast: " .
-                                    ($isPastDate ? 'YES' : 'NO'),
-                            );
-
-                            // For past dates, use immutable snapshots (RoomDailyStatus)
-                            if ($isPastDate && isset($room->dailyStatuses)) {
-                                $snapshot = $room->dailyStatuses->first(function ($snapshot) use ($dayNormalized) {
-                                    return \Carbon\Carbon::parse($snapshot->date)
-                                        ->startOfDay()
-                                        ->equalTo($dayNormalized);
-                                });
-
-                                if ($snapshot) {
-                                    $dayStatus = $snapshot->status;
-                                    if ($snapshot->reservation_id) {
-                                        $dayReservation = $room->reservations->first(function ($r) use ($snapshot) {
-                                            return $r->id === $snapshot->reservation_id;
-                                        });
-                                        
-                                        // 🔥 VERIFICAR SI LA RESERVATION TIENE STAY FINISHED
-                                        if ($dayReservation) {
-                                            $hasFinishedStay = $dayReservation->stays()
-                                                ->whereIn('status', ['active', 'pending_checkout', 'finished'])
-                                                ->exists();
-                                            
-                                            if ($hasFinishedStay) {
-                                                // Si tiene stay, marcar como ocupado (rojo) y ignorar reservation
-                                                $dayStatus = 'occupied';
-                                                $dayReservation = null;
-                                                \Log::error("  🏠 RESERVATION CON STAY ENCONTRADA - MARCANDO COMO OCUPADO - Reservation ID: {$snapshot->reservation_id}");
-                                            }
-                                        }
-                                    }
-                                } else {
-                                    $dayStatus = 'free';
-                                }
-                            } else {
-                                // For today and future dates: PRIORIZAR STAYS sobre reservation_rooms
-                                \Log::error(
-                                    "🔥 Buscando stays y reservas para habitación {$room->id} en día {$day->format('Y-m-d')}",
-                                );
-                                \Log::error(
-                                    '    Stays disponibles: ' . ($room->stays ? $room->stays->count() : 'null'),
-                                );
-                                \Log::error(
-                                    '    ReservationRooms disponibles: ' .
-                                        ($room->reservationRooms ? $room->reservationRooms->count() : 'null'),
-                                );
-
-                                $dayReservation = null;
-                                
-                                /*
-                                |--------------------------------------------------------------------------
-                                | 1. VERIFICAR STAY ACTIVO → OCUPADO (si hay stay, ignorar reservation)
-                                |--------------------------------------------------------------------------
-                                */
-                                $activeStay = $room->stays->first(function ($stay) use ($dayNormalized) {
-                                    // Si hay cualquier stay (active, pending_checkout, finished), ignorar reservation
-                                    if (!in_array($stay->status, ['active', 'pending_checkout', 'finished'])) {
-                                        return false;
-                                    }
-                                    
-                                    $checkIn = \Carbon\Carbon::parse($stay->check_in_at)->startOfDay();
-                                    $checkOut = $stay->check_out_at
-                                        ? \Carbon\Carbon::parse($stay->check_out_at)->startOfDay()
-                                        : null;
-
-                                    \Log::error("    🏠 Analizando Stay ID: {$stay->id}");
-                                    \Log::error("    📅 Stay Status: {$stay->status}");
-                                    \Log::error("    📅 Stay Check-in: {$checkIn->format('Y-m-d')}");
-                                    \Log::error("    📅 Stay Check-out: " . ($checkOut ? $checkOut->format('Y-m-d') : 'NULL'));
-                                    \Log::error("    📅 Día evaluado: {$dayNormalized->format('Y-m-d')}");
-
-                                    // Stay activo: ocupa desde check-in hasta checkout (con límite de 1 día si no hay checkout)
-                                    if ($stay->status === 'active') {
-                                        if ($checkOut) {
-                                            $affectsDay = $dayNormalized->gte($checkIn) && $dayNormalized->lt($checkOut);
-                                        } else {
-                                            // Si no hay checkout, solo afectar el día del check-in
-                                            $affectsDay = $dayNormalized->equalTo($checkIn);
-                                            \Log::error("    ⚠️ Stay sin checkout - solo afecta el día: {$checkIn->format('Y-m-d')}");
-                                        }
-                                        \Log::error("    🎯 ¿Stay afecta este día? " . ($affectsDay ? 'SÍ' : 'NO'));
-                                        return $affectsDay;
-                                    } elseif ($stay->status === 'pending_checkout') {
-                                        // Pendiente checkout: ocupa el día de checkout
-                                        $affectsDay = $checkOut && $dayNormalized->equalTo($checkOut);
-                                        \Log::error("    🎯 ¿Pending checkout afecta este día? " . ($affectsDay ? 'SÍ' : 'NO'));
-                                        return $affectsDay;
-                                    } elseif ($stay->status === 'finished') {
-                                        // Finished: solo afecta los días que realmente ocupó (con límite de 1 día si no hay checkout)
-                                        if ($checkOut) {
-                                            $affectsDay = $dayNormalized->gte($checkIn) && $dayNormalized->lt($checkOut);
-                                        } else {
-                                            // Si no hay checkout, solo afectar el día del check-in
-                                            $affectsDay = $dayNormalized->equalTo($checkIn);
-                                            \Log::error("    ⚠️ Stay finished sin checkout - solo afecta el día: {$checkIn->format('Y-m-d')}");
-                                        }
-                                        \Log::error("    🎯 ¿Finished stay afecta este día? " . ($affectsDay ? 'SÍ' : 'NO'));
-                                        return $affectsDay;
-                                    }
-                                    
-                                    return false;
-                                });
-
-                                if ($activeStay) {
-                                    // 🔥 Si hay stay activo, marcar como ocupado (rojo)
-                                    $dayStatus = 'occupied';
-                                    $dayReservation = null;
-                                    \Log::error("  🏠 STAY ACTIVO encontrado - MARCANDO COMO OCUPADO - Status: {$activeStay->status}");
-                                }
-                                /*
-                                |--------------------------------------------------------------------------
-                                | 2. RESERVATION ROOMS → RESERVADA (solo si NO hay stay activo)
-                                |--------------------------------------------------------------------------
-                                */
-                                else {
-                                    \Log::error("  🔥 PROCESANDO RESERVATION ROOMS - Total: " . ($room->reservationRooms ? $room->reservationRooms->count() : 0));
-                                    
-                                    $reservationRoom = $room->reservationRooms->first(function ($rr) use ($dayNormalized) {
-                                        \Log::error("    🔍 Analizando ReservationRoom ID: {$rr->id}");
-                                        \Log::error('    📅 check_in_date: ' . ($rr->check_in_date ?? 'NULL'));
-                                        \Log::error('    📅 check_out_date: ' . ($rr->check_out_date ?? 'NULL'));
-
-                                        if (!$rr->check_in_date || !$rr->check_out_date) {
-                                            \Log::error('    ❌ Fechas nulas - skip');
-                                            return false;
-                                        }
-                                        $checkIn = \Carbon\Carbon::parse($rr->check_in_date)->startOfDay();
-                                        $checkOut = \Carbon\Carbon::parse($rr->check_out_date)->startOfDay();
-
-                                        \Log::error("    📊 Rango reservation: {$checkIn->format('Y-m-d')} - {$checkOut->format('Y-m-d')}");
-                                        \Log::error("    📊 Día evaluado: {$dayNormalized->format('Y-m-d')}");
-
-                                        $isInRange = $dayNormalized->gte($checkIn) && $dayNormalized->lt($checkOut);
-                                        \Log::error("    🎯 ¿Día en rango? " . ($isInRange ? 'SÍ' : 'NO'));
-
-                                        return $isInRange;
-                                    });
-
-                                    if ($reservationRoom) {
-                                        $dayStatus = 'reserved';
-                                        $dayReservation = $reservationRoom->reservation;
-                                        \Log::error(
-                                            "  📋 ReservationRoom encontrado - Reserva: " .
-                                                ($dayReservation ? $dayReservation->id : 'null'),
-                                        );
-                                        \Log::error("  🔵 MARCANDO DÍA COMO 'RESERVED' (AZUL)");
-                                    } else {
-                                        // 2. LIBRE (sino hay reservation)
-                                        $dayStatus = 'free';
-                                        \Log::error("  🟢 No hay reservation - LIBRE");
-                                    }
-                                }
-
-                                \Log::error(
-                                    "🎯 Resultado final para día {$day->format('Y-m-d')}: " .
-                                        ($dayReservation ? "OCUPADA/RESERVADA (ID: {$dayReservation->id})" : 'LIBRE'),
-                                );
-                            }
-
-                            // 🔥 FIX: Cortar rango si cambia status O reserva
-                            if ($dayStatus !== $currentStatus || $dayReservation?->id !== $currentReservationId) {
-                                if ($currentStatus !== null && $rangeStart !== null) {
-                                    $statusRanges[] = [
-                                        'status' => $currentStatus,
-                                        'start' => $rangeStart,
-                                        'end' => $dayIndex - 1,
-                                        'reservation' => $rangeReservation,
-                                    ];
-                                }
-                                $currentStatus = $dayStatus;
-                                $currentReservationId = $dayReservation?->id;
-                                $rangeStart = $dayIndex;
-                                $rangeReservation = $dayReservation;
-                            }
-                        }
-
-                        // 🔥 Cerrar el último rango si existe
-                        if ($currentStatus !== null && $rangeStart !== null) {
-                            $lastDayIndex = count($daysInMonth) - 1;
-                            $statusRanges[] = [
-                                'status' => $currentStatus,
-                                'start' => $rangeStart,
-                                'end' => $lastDayIndex,
-                                'reservation' => $rangeReservation,
-                            ];
-                        }
-
-                        \Log::error("📊 StatusRanges generados para habitación {$room->room_number}:");
-                        \Log::error('  Total statusRanges: ' . count($statusRanges));
-                        foreach ($statusRanges as $i => $range) {
-                            \Log::error(
-                                "  [{$i}] {$range['status']} ({$range['start']} - {$range['end']}) - Reserva: " .
-                                    ($range['reservation'] ? $range['reservation']->id : 'null'),
-                            );
-                        }
-                        \Log::error("🔥 FIN PROCESAMIENTO HABITACIÓN {$room->room_number} ===");
-                    @endphp
-                    <tr
-                        class="group/row hover:bg-gray-50/30 transition-colors border-b border-gray-100 {{ $roomIndex % 2 === 0 ? 'bg-white' : 'bg-gray-50/30' }}">
-                        <td
-                            class="sticky left-0 z-30 bg-white group-hover/row:bg-gray-50/30 px-4 py-4 border-r-2 border-gray-300 shadow-[2px_0_4px_-2px_rgba(0,0,0,0.1)] min-w-[120px] transition-colors {{ $roomIndex % 2 === 0 ? '' : 'bg-gray-50/30' }}">
-                            <div class="flex flex-col leading-tight">
-                                <span class="text-sm font-semibold text-gray-900">{{ $room->room_number }}</span>
-                                <span class="text-[10px] font-medium text-gray-500 mt-0.5">{{ $room->beds_count }}
-                                    {{ $room->beds_count == 1 ? 'Cama' : 'Camas' }}</span>
-                            </div>
-                        </td>
-                        @foreach ($daysInMonth as $dayIndex => $day)
-                            @php
-                                // ✅ MVP: Usar solo statusRanges pre-calculados
-                                $rangeInfo = null;
-                                foreach ($statusRanges as $range) {
-                                    if ($dayIndex >= $range['start'] && $dayIndex <= $range['end']) {
-                                        $rangeInfo = $range;
-                                        break;
-                                    }
-                                }
-
-                                $status = $rangeInfo['status'] ?? 'free';
-                                $reservation = $rangeInfo['reservation'] ?? null;
-
-                                \Log::error(
-                                    "🎨 RENDER día {$day->format(
-        'Y-m-d',
-    )} (index: {$dayIndex}) - Status: {$status} - Reservation: " .
-                                        ($reservation ? $reservation->id : 'null'),
-                                );
-
-                                $isRangeStart = $rangeInfo && $dayIndex === $rangeInfo['start'];
-                                $isRangeEnd = $rangeInfo && $dayIndex === $rangeInfo['end'];
-                                $isSingleDay = $rangeInfo && $rangeInfo['start'] === $rangeInfo['end'];
-
-                                // ✅ MVP: Obtener fechas de reservation_rooms
-                                $isCheckIn = false;
-                                $isCheckOut = false;
-                                if ($reservation && isset($reservation->reservationRooms)) {
-                                    foreach ($reservation->reservationRooms as $rr) {
-                                        if (
-                                            $rr->check_in_date &&
-                                            $day->isSameDay(\Carbon\Carbon::parse($rr->check_in_date))
-                                        ) {
-                                            $isCheckIn = true;
-                                        }
-                                        if (
-                                            $rr->check_out_date &&
-                                            $day->isSameDay(\Carbon\Carbon::parse($rr->check_out_date))
-                                        ) {
-                                            $isCheckOut = true;
-                                        }
-                                    }
-                                }
-
-                                $colorClasses = [
-                                    'free' => 'bg-emerald-100 hover:bg-emerald-200',
-                                    'reserved' => 'bg-indigo-500 hover:bg-indigo-600',
-                                    'occupied' => 'bg-red-500 hover:bg-red-600',
-                                ];
-
-                                $roundedClass = '';
-                                if ($isSingleDay) {
-                                    $roundedClass = 'rounded-md';
-                                } elseif ($isRangeStart) {
-                                    $roundedClass = 'rounded-l-md';
-                                } elseif ($isRangeEnd) {
-                                    $roundedClass = 'rounded-r-md';
-                                }
-
-                                // Bordes para celdas
-                                $cellBorderClass = 'border-t border-b border-l border-gray-200';
-                                if ($isRangeStart || $isSingleDay) {
-                                    $cellBorderClass .= ' border-l border-gray-200';
-                                }
-                                if ($isRangeEnd || $isSingleDay) {
-                                    $cellBorderClass .= ' border-r border-gray-200';
-                                }
-
-                                $tooltipData = [
-                                    'room' => $room->room_number,
-                                    'beds' => $room->beds_count . ($room->beds_count == 1 ? ' Cama' : ' Camas'),
-                                    'date' => $day->format('d/m/Y'),
-                                    'status' => match ($status) {
-                                        'free' => 'Libre',
-                                        'reserved' => 'Reservada',
-                                        'occupied' => 'Ocupada',
-                                        default => 'Desconocido',
-                                    },
-                                ];
-
-                                if ($reservation && $reservation->customer) {
-                                    $tooltipData['customer'] = $reservation->customer->name;
-                                    // ✅ MVP: Obtener fechas de reservation_rooms
-                                    $checkInDate = null;
-                                    $checkOutDate = null;
-                                    if (
-                                        isset($reservation->reservationRooms) &&
-                                        $reservation->reservationRooms->isNotEmpty()
-                                    ) {
-                                        $firstRoom = $reservation->reservationRooms->first();
-                                        $checkInDate = $firstRoom->check_in_date;
-                                        $checkOutDate = $firstRoom->check_out_date;
-                                    }
-                                    $tooltipData['check_in'] = $checkInDate
-                                        ? \Carbon\Carbon::parse($checkInDate)->format('d/m/Y')
-                                        : 'N/A';
-                                    $tooltipData['check_out'] = $checkOutDate
-                                        ? \Carbon\Carbon::parse($checkOutDate)->format('d/m/Y')
-                                        : 'N/A';
-                                }
-
-                                // 🔥 DEBUG: Log del tooltip data
-                                \Log::error(
-                                    "🔍 Tooltip data para día {$day->format('Y-m-d')}: " . json_encode($tooltipData),
-                                );
-                            @endphp
-                            <td
-                                class="p-0.5 {{ $cellBorderClass }} relative group w-[45px] min-w-[45px] max-w-[45px] align-middle">
-                                @if ($status === 'checkout_day')
-                                    <div class="w-full h-full border-2 border-dashed border-blue-400 bg-blue-50 cursor-pointer transition-all duration-200 flex items-center justify-center overflow-hidden relative shadow-sm hover:shadow-md"
-                                        data-tooltip="{{ json_encode($tooltipData) }}"
-                                        @if ($reservation) onclick="console.log('🔥 Click detected on reservation'); openReservationDetail({{ json_encode([
-                                            'id' => $reservation->id,
-                                            'customer_name' => $reservation->customer ? $reservation->customer->name : 'Sin cliente asignado',
-                                            'customer_identification' => $reservation->customer
-                                                ? ($reservation->customer->identification_number
-                                                    ? ($reservation->customer->identificationType
-                                                        ? $reservation->customer->identificationType->name .
-                                                            ': ' .
-                                                            $reservation->customer->identification_number
-                                                        : $reservation->customer->identification_number)
-                                                    : '-')
-                                                : '-',
-                                            'customer_phone' => $reservation->customer ? $reservation->customer->phone ?? '-' : '-',
-                                            'rooms' => getReservationRoomsInfo($reservation),
-                                            'check_in' =>
-                                                isset($reservation->reservationRooms) && $reservation->reservationRooms->isNotEmpty()
-                                                    ? \Carbon\Carbon::parse($reservation->reservationRooms->first()->check_in_date)->format('d/m/Y')
-                                                    : 'N/A',
-                                            'check_out' =>
-                                                isset($reservation->reservationRooms) && $reservation->reservationRooms->isNotEmpty()
-                                                    ? \Carbon\Carbon::parse($reservation->reservationRooms->first()->check_out_date)->format('d/m/Y')
-                                                    : 'N/A',
-                                            'check_in_time' => $reservation->check_in_time ? substr((string) $reservation->check_in_time, 0, 5) : 'N/A',
-                                            'guests_count' => (int) ($reservation->total_guests ?? 0),
-                                            'payment_method' => $reservation->payment_method ? (string) $reservation->payment_method : 'N/A',
-                                            'total' => number_format($reservation->total_amount, 0, ',', '.'),
-                                            'deposit' => number_format($reservation->deposit_amount, 0, ',', '.'),
-                                            'balance' => number_format($reservation->total_amount - $reservation->deposit_amount, 0, ',', '.'),
-                                            'edit_url' => route('reservations.edit', $reservation),
-                                            'pdf_url' => route('reservations.download', $reservation),
-                                            'notes' => $reservation->notes ?? 'Sin notas adicionales',
-                                            'status' => $reservation->status ?? 'Activa',
-                                        ]) }})" @endif>
-                                        @if ($isRangeStart && $reservation)
-                                            <div class="absolute left-0 top-0 h-full w-[3px] bg-white/70"></div>
-                                        @endif
-                                        @if ($isRangeStart && $reservation && $reservation->customer)
-                                            <span class="text-[10px] font-bold text-blue-600 truncate px-1">
-                                                {{ \Illuminate\Support\Str::limit($reservation->customer->name ?? 'Reserva', 8) }}
-                                            </span>
-                                        @endif
-                                        @if ($isCheckOut)
-                                            <span
-                                                class="absolute right-1.5 top-0.5 text-blue-600 text-[10px] font-bold drop-shadow-md"
-                                                title="Check-out">⏹</span>
-                                        @endif
-                                        <i
-                                            class="fas fa-eye text-blue-600/70 text-xs opacity-0 group-hover:opacity-100 transition-opacity duration-200"></i>
-                                    </div>
-                                @else
-                                    <div class="w-full h-10 {{ $roundedClass }} {{ $colorClasses[$status] }} cursor-pointer transition-all duration-200 flex items-center justify-center overflow-hidden relative shadow-sm hover:shadow-md"
-                                        data-tooltip="{{ json_encode($tooltipData) }}"
-                                        style="min-height: 40px; width: calc(100% - 2px);"
-                                        @if ($reservation) onclick="console.log('🔥 Click detected on reservation'); openReservationDetail({{ json_encode([
-                                            'id' => $reservation->id,
-                                            'customer_name' => $reservation->customer ? $reservation->customer->name : 'Sin cliente asignado',
-                                            'customer_identification' => $reservation->customer
-                                                ? ($reservation->customer->identification_number
-                                                    ? ($reservation->customer->identificationType
-                                                        ? $reservation->customer->identificationType->name .
-                                                            ': ' .
-                                                            $reservation->customer->identification_number
-                                                        : $reservation->customer->identification_number)
-                                                    : '-')
-                                                : '-',
-                                            'customer_phone' => $reservation->customer ? $reservation->customer->phone ?? '-' : '-',
-                                            'rooms' => getReservationRoomsInfo($reservation),
-                                            'check_in' =>
-                                                isset($reservation->reservationRooms) && $reservation->reservationRooms->isNotEmpty()
-                                                    ? \Carbon\Carbon::parse($reservation->reservationRooms->first()->check_in_date)->format('d/m/Y')
-                                                    : 'N/A',
-                                            'check_out' =>
-                                                isset($reservation->reservationRooms) && $reservation->reservationRooms->isNotEmpty()
-                                                    ? \Carbon\Carbon::parse($reservation->reservationRooms->first()->check_out_date)->format('d/m/Y')
-                                                    : 'N/A',
-                                            'check_in_time' => $reservation->check_in_time ? substr((string) $reservation->check_in_time, 0, 5) : 'N/A',
-                                            'guests_count' => (int) ($reservation->total_guests ?? 0),
-                                            'payment_method' => $reservation->payment_method ? (string) $reservation->payment_method : 'N/A',
-                                            'total' => number_format($reservation->total_amount, 0, ',', '.'),
-                                            'deposit' => number_format($reservation->deposit_amount, 0, ',', '.'),
-                                            'balance' => number_format($reservation->total_amount - $reservation->deposit_amount, 0, ',', '.'),
-                                            'edit_url' => route('reservations.edit', $reservation),
-                                            'pdf_url' => route('reservations.download', $reservation),
-                                            'notes' => $reservation->notes ?? 'Sin notas adicionales',
-                                            'status' => $reservation->status ?? 'Activa',
-                                        ]) }})" @endif>
-                                        @if ($isRangeStart && $reservation)
-                                            <div class="absolute left-0 top-0 h-full w-[3px] bg-white/70"></div>
-                                        @endif
-                                        @if ($isRangeStart && $reservation && $reservation->customer)
-                                            <span class="text-[10px] font-bold text-white truncate px-1">
-                                                {{ \Illuminate\Support\Str::limit($reservation->customer->name ?? 'Reserva', 8) }}
-                                            </span>
-                                        @endif
-                                        @if ($reservation)
-                                            @if ($isCheckIn)
-                                                <span
-                                                    class="absolute left-1.5 top-0.5 text-white text-[10px] font-bold drop-shadow-md"
-                                                    title="Check-in">▶</span>
-                                            @endif
-                                            @if ($isCheckOut)
-                                                <span
-                                                    class="absolute right-1.5 top-0.5 text-white text-[10px] font-bold drop-shadow-md"
-                                                    title="Check-out">⏹</span>
-                                            @endif
-                                            <i
-                                                class="fas fa-eye text-white/70 text-xs opacity-0 group-hover:opacity-100 transition-opacity duration-200"></i>
-                                        @endif
-                                    </div>
-                                @endif
-                            </td>
+                        @foreach ($days as $dayIndex => $day)
+                            <th :class="{ 'hidden': !isVisibleDay({{ $dayIndex }}) }" class="border-b border-r border-gray-100 min-w-[56px] w-[56px] py-3 transition-colors {{ $day->isToday() ? 'bg-orange-50/50' : '' }}">
+                                <div class="flex flex-col items-center">
+                                    <span
+                                        class="text-[10px] font-bold text-gray-400 uppercase leading-none mb-1">{{ substr($day->translatedFormat('D'), 0, 1) }}</span>
+                                    <span
+                                        class="text-sm font-bold {{ $day->isToday() ? 'text-orange-600' : 'text-gray-700' }}">{{ $day->day }}</span>
+                                </div>
+                            </th>
                         @endforeach
                     </tr>
-                @endforeach
-            </tbody>
-        </table>
+                </thead>
+
+                <tbody>
+                    @forelse ($rooms as $room)
+                        @php
+                            $timeline = $roomTimelines[(int) $room->id] ?? ['dayCells' => []];
+                        @endphp
+                        <tr class="group hover:bg-gray-50/40 transition-colors">
+                            <td
+                                class="sticky left-0 z-30 bg-white group-hover:bg-gray-50/40 p-3 border-r border-b border-gray-100 min-w-[136px] w-[136px] shadow-[4px_0_6px_-4px_rgba(0,0,0,0.1)] transition-colors">
+                                <div class="flex flex-col">
+                                    <span class="text-sm font-bold text-gray-900 leading-tight">{{ $room->room_number }}</span>
+                                    <div class="flex items-center gap-1 mt-1">
+                                        <svg class="w-3 h-3 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
+                                            <path
+                                                d="M7 3a1 1 0 000 2h6a1 1 0 100-2H7zM4 7a1 1 0 011-1h10a1 1 0 110 2H5a1 1 0 01-1-1zM2 11a2 2 0 012-2h12a2 2 0 012 2v4a2 2 0 01-2 2H4a2 2 0 01-2-2v-4z" />
+                                        </svg>
+                                        <span class="text-[10px] font-medium text-gray-500 uppercase tracking-tight">
+                                            {{ (int) ($room->beds_count ?? 0) }} {{ (int) ($room->beds_count ?? 0) === 1 ? 'Cama' : 'Camas' }}
+                                        </span>
+                                    </div>
+                                </div>
+                            </td>
+
+                            @foreach ($days as $dayIndex => $day)
+                                @php
+                                    $cell = $timeline['dayCells'][$dayIndex] ?? [
+                                        'status' => 'free',
+                                        'reservation' => null,
+                                        'isRangeStart' => true,
+                                        'isRangeEnd' => true,
+                                        'isSingleDay' => true,
+                                        'isCheckIn' => false,
+                                        'isCheckOut' => false,
+                                    ];
+
+                                    $status = (string) ($cell['status'] ?? 'free');
+                                    $reservation = $cell['reservation'] ?? null;
+                                    $reservationId = (int) ($reservation->id ?? 0);
+                                    $payload = $reservationId > 0 ? ($payloadsByReservationId[$reservationId] ?? null) : null;
+
+                                    $statusLabel = match ($status) {
+                                        'checked_in' => 'Llego',
+                                        'reserved' => 'Reservada',
+                                        'occupied' => 'Ocupada',
+                                        'cancelled' => 'Cancelada',
+                                        'checkout_day' => 'Día de salida',
+                                        'maintenance' => 'Mantenimiento',
+                                        'cleaning' => 'Limpieza',
+                                        default => 'Disponible',
+                                    };
+
+                                    $tooltipData = [
+                                        'room' => (string) ($room->room_number ?? ''),
+                                        'beds' => (int) ($room->beds_count ?? 0) . ((int) ($room->beds_count ?? 0) === 1 ? ' Cama' : ' Camas'),
+                                        'date' => $day->format('d/m/Y'),
+                                        'status' => $statusLabel,
+                                    ];
+
+                                    if ($reservation && $reservation->customer) {
+                                        $tooltipData['customer'] = (string) ($reservation->customer->name ?? 'N/A');
+                                        $tooltipData['check_in'] = $payload['check_in'] ?? 'N/A';
+                                        $tooltipData['check_out'] = $payload['check_out'] ?? 'N/A';
+                                    }
+
+                                    $rounded = '';
+                                    if (!empty($cell['isSingleDay'])) {
+                                        $rounded = 'rounded-lg';
+                                    } elseif (!empty($cell['isRangeStart'])) {
+                                        $rounded = 'rounded-l-lg';
+                                    } elseif (!empty($cell['isRangeEnd'])) {
+                                        $rounded = 'rounded-r-lg';
+                                    }
+
+                                    $barClasses = match ($status) {
+                                        'checked_in' => 'bg-emerald-600 hover:bg-emerald-700 text-white',
+                                        'reserved' => 'bg-indigo-500 hover:bg-indigo-600 text-white',
+                                        'occupied' => 'bg-red-500 hover:bg-red-600 text-white',
+                                        'cancelled' => 'bg-slate-100 border border-dashed border-slate-300 hover:bg-slate-200 text-slate-600',
+                                        'checkout_day' => 'bg-blue-50 border-2 border-dashed border-blue-400 hover:bg-blue-100 text-blue-600',
+                                        'maintenance' => 'bg-yellow-400 hover:bg-yellow-500 text-white',
+                                        'cleaning' => 'bg-purple-400 hover:bg-purple-500 text-white',
+                                        default => 'bg-emerald-50 border border-emerald-100 hover:bg-emerald-100 text-emerald-500',
+                                    };
+                                @endphp
+
+                                <td :class="{ 'hidden': !isVisibleDay({{ $dayIndex }}) }" class="border-r border-b border-gray-50 p-0 relative h-14 min-w-[56px] w-[56px]">
+                                    @if ($status === 'free')
+                                        <div class="m-1 h-10 rounded-md {{ $barClasses }} transition-colors cursor-pointer group/cell flex items-center justify-center"
+                                            data-tooltip='@json($tooltipData)'>
+                                            <span class="opacity-0 group-hover/cell:opacity-100 text-xs font-bold">+</span>
+                                        </div>
+                                    @else
+                                        <div class="h-12 w-full {{ $rounded }} {{ $barClasses }} transition-all shadow-sm hover:brightness-110 {{ $payload ? 'cursor-pointer group/cell' : 'cursor-default' }}"
+                                            data-tooltip='@json($tooltipData)'
+                                            @if ($payload) onclick='openReservationDetail(@json($payload))' @endif>
+                                            <div class="relative h-full w-full flex items-center justify-center overflow-hidden px-1">
+                                                @if (!empty($cell['isRangeStart']) && $reservation && $reservation->customer)
+                                                    <span class="text-[10px] font-bold truncate px-1">
+                                                        {{ \Illuminate\Support\Str::limit((string) ($reservation->customer->name ?? 'Reserva'), 16) }}
+                                                    </span>
+                                                @endif
+
+                                                @if (!empty($cell['isCheckIn']) && $status !== 'cancelled')
+                                                    <i class="fas fa-sign-in-alt absolute left-1 top-1 text-[9px] opacity-80"></i>
+                                                @endif
+
+                                                @if (!empty($cell['isCheckOut']) && $status !== 'cancelled')
+                                                    <i class="fas fa-sign-out-alt absolute right-1 top-1 text-[9px] opacity-80"></i>
+                                                @endif
+
+                                                @if ($status === 'cancelled')
+                                                    <i class="fas fa-ban absolute left-1 bottom-1 text-[9px] opacity-80"></i>
+                                                @endif
+
+                                                @if ($status === 'checked_in')
+                                                    <i class="fas fa-check-circle absolute left-1 bottom-1 text-[9px] opacity-80"></i>
+                                                @endif
+
+                                                @if ($payload)
+                                                    <i
+                                                        class="fas fa-eye absolute bottom-1 right-1 text-[9px] opacity-0 group-hover/cell:opacity-90 transition-opacity"></i>
+                                                @endif
+                                            </div>
+                                        </div>
+                                    @endif
+                                </td>
+                            @endforeach
+                        </tr>
+                    @empty
+                        <tr>
+                            <td colspan="{{ 1 + $days->count() }}" class="p-10 text-center text-sm text-gray-500">
+                                No hay habitaciones configuradas para mostrar en el calendario.
+                            </td>
+                        </tr>
+                    @endforelse
+                </tbody>
+            </table>
+        </div>
     </div>
 </div>
+
+@once
+    @push('scripts')
+        <script>
+            if (typeof window.reservationCalendarGrid !== 'function') {
+                window.reservationCalendarGrid = function(config) {
+                    var safeDaysCount = Math.max(0, Number((config && config.daysCount) || 0));
+                    var maxIndex = Math.max(0, safeDaysCount - 1);
+                    var safeInitialIndex = Math.min(Math.max(Number((config && config.initialDayIndex) || 0), 0), maxIndex);
+                    var allowedModes = ['month', 'week', 'day'];
+                    var safeInitialMode = allowedModes.indexOf(config && config.initialMode) !== -1
+                        ? config.initialMode
+                        : 'month';
+
+                    return {
+                        mode: safeInitialMode,
+                        selectedDayIndex: safeInitialIndex,
+                        daysCount: safeDaysCount,
+                        monthLabel: (config && config.monthLabel) || '',
+                        prevMonthUrl: (config && config.prevMonthUrl) || window.location.href,
+                        nextMonthUrl: (config && config.nextMonthUrl) || window.location.href,
+
+                        isMode: function(mode) {
+                            return this.mode === mode;
+                        },
+
+                        setMode: function(mode) {
+                            if (allowedModes.indexOf(mode) === -1) {
+                                return;
+                            }
+
+                            this.mode = mode;
+                            if (this.selectedDayIndex > this.daysCount - 1) {
+                                this.selectedDayIndex = Math.max(0, this.daysCount - 1);
+                            }
+                        },
+
+                        getWeekStartIndex: function() {
+                            if (this.daysCount <= 0) {
+                                return 0;
+                            }
+
+                            return Math.floor(this.selectedDayIndex / 7) * 7;
+                        },
+
+                        isVisibleDay: function(index) {
+                            if (this.mode === 'month') {
+                                return true;
+                            }
+
+                            if (this.mode === 'week') {
+                                var start = this.getWeekStartIndex();
+                                return index >= start && index < (start + 7);
+                            }
+
+                            return index === this.selectedDayIndex;
+                        },
+
+                        navigate: function(direction) {
+                            if (this.mode === 'month') {
+                                window.location.assign(direction < 0 ? this.prevMonthUrl : this.nextMonthUrl);
+                                return;
+                            }
+
+                            var step = this.mode === 'week' ? 7 : 1;
+                            var nextIndex = this.selectedDayIndex + (direction * step);
+                            if (nextIndex >= 0 && nextIndex < this.daysCount) {
+                                this.selectedDayIndex = nextIndex;
+                                return;
+                            }
+
+                            window.location.assign(direction < 0 ? this.prevMonthUrl : this.nextMonthUrl);
+                        },
+
+                        periodLabel: function() {
+                            if (this.mode === 'month' || this.daysCount <= 0) {
+                                return this.monthLabel;
+                            }
+
+                            if (this.mode === 'week') {
+                                var start = this.getWeekStartIndex() + 1;
+                                var end = Math.min(this.getWeekStartIndex() + 7, this.daysCount);
+                                return 'Semana ' + start + ' - ' + end;
+                            }
+
+                            return 'Día ' + (this.selectedDayIndex + 1);
+                        },
+                    };
+                };
+            }
+        </script>
+    @endpush
+@endonce

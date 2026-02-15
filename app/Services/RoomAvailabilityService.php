@@ -4,13 +4,16 @@ namespace App\Services;
 
 use App\Models\Room;
 use App\Models\Stay;
+use App\Models\ReservationRoom;
 use App\Enums\RoomDisplayStatus;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 /**
  * RoomAvailabilityService
  * 
- * Determina el estado de una habitación en una fecha específica.
+ * Determina el estado de una habitación en una fecha específica o para un rango de fechas.
  * Implementa la regla de negocio: una ocupación es un INTERVALO DE TIEMPO.
  * 
  * Una habitación estuvo OCUPADA en una fecha X SÍ Y SOLO SÍ:
@@ -22,12 +25,13 @@ use Carbon\Carbon;
  * - Respetar que días pasados son históricos (solo lectura)
  * - No permitir modificaciones en días pasados
  * - Retornar un estado claro y bloquear acciones operativas si es necesario
+ * - MVP: Fase 1 - Soportar verificación de disponibilidad por rango de fechas
  */
 class RoomAvailabilityService
 {
-    private Room $room;
+    private ?Room $room;
 
-    public function __construct(Room $room)
+    public function __construct(?Room $room = null)
     {
         $this->room = $room;
     }
@@ -271,5 +275,330 @@ class RoomAvailabilityService
             'status' => $status,
             'reason' => $reason,
         ];
+    }
+
+    // ============================================================================
+    // FASE 1: MÉTODOS DE DISPONIBILIDAD POR RANGO DE FECHAS (MVP)
+    // ============================================================================
+
+    /**
+     * Verificar si una habitación está disponible para un rango de fechas
+     *
+     * MVP: Validación simplificada - verificar stays activas y reservaciones futuras
+     *
+     * @param int $roomId ID de la habitación
+     * @param Carbon $checkIn Fecha de entrada
+     * @param Carbon $checkOut Fecha de salida
+     * @return bool True si la habitación está disponible
+     */
+    public function isRoomAvailableForDates(
+        int $roomId,
+        Carbon $checkIn,
+        Carbon $checkOut,
+        ?int $excludeReservationId = null
+    ): bool
+    {
+        Log::debug('🔍 VERIFICANDO DISPONIBILIDAD DE HABITACIÓN', [
+            'roomId' => $roomId,
+            'checkIn' => $checkIn->format('Y-m-d'),
+            'checkOut' => $checkOut->format('Y-m-d')
+        ]);
+
+        try {
+            // 1. Verificar stays que intersectan el rango para esta habitación
+            $conflictingStay = $this->findConflictingStay($roomId, $checkIn, $checkOut, $excludeReservationId);
+            if ($conflictingStay) {
+                Log::debug("❌ Habitación {$roomId} NO disponible - Stay en conflicto", [
+                    'stayId' => $conflictingStay->id,
+                    'reservationId' => $conflictingStay->reservation_id,
+                    'stayStatus' => $conflictingStay->status,
+                    'stayCheckIn' => optional($conflictingStay->check_in_at)->format('Y-m-d H:i:s'),
+                    'stayCheckOut' => optional($conflictingStay->check_out_at)->format('Y-m-d H:i:s'),
+                ]);
+                return false;
+            }
+
+            // 2. Verificar reservation_rooms en conflicto sin stay para esa habitación
+            $conflictingReservationRoom = $this->findConflictingReservationRoom($roomId, $checkIn, $checkOut, false, $excludeReservationId);
+            if ($conflictingReservationRoom) {
+                Log::debug("❌ Habitación {$roomId} NO disponible - ReservationRoom en conflicto", [
+                    'reservationRoomId' => $conflictingReservationRoom->id,
+                    'reservationId' => $conflictingReservationRoom->reservation_id,
+                    'reservationCheckIn' => optional($conflictingReservationRoom->check_in_date)->format('Y-m-d'),
+                    'reservationCheckOut' => optional($conflictingReservationRoom->check_out_date)->format('Y-m-d'),
+                ]);
+                return false;
+            }
+
+            Log::debug("✅ Habitación {$roomId} disponible - Sin stays activas ni reservaciones");
+            return true;
+
+        } catch (\Exception $e) {
+            Log::error('❌ ERROR VERIFICANDO DISPONIBILIDAD:', [
+                'roomId' => $roomId,
+                'message' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            return false;
+        }
+    }
+
+    /**
+     * Obtener lista de habitaciones disponibles para un rango de fechas
+     *
+     * @param Carbon $checkIn Fecha de entrada
+     * @param Carbon $checkOut Fecha de salida
+     * @param array $rooms Lista completa de habitaciones (con datos de precios)
+     * @return array Habitaciones disponibles
+     */
+    public function getAvailableRooms(
+        Carbon $checkIn,
+        Carbon $checkOut,
+        array $rooms = [],
+        ?int $excludeReservationId = null
+    ): array
+    {
+        Log::info('📋 OBTENIENDO HABITACIONES DISPONIBLES', [
+            'checkIn' => $checkIn->format('Y-m-d'),
+            'checkOut' => $checkOut->format('Y-m-d'),
+            'totalRooms' => count($rooms)
+        ]);
+
+        try {
+            // Si no se proporcionan las habitaciones, obtenerlas de la BD
+            if (empty($rooms)) {
+                $rooms = Room::query()
+                    ->active()
+                    ->orderBy('room_number')
+                    ->get()
+                    ->map(fn($room) => [
+                        'id' => $room->id,
+                        'number' => $room->room_number,
+                        'room_number' => $room->room_number,
+                        'capacity' => $room->max_capacity,
+                        'max_capacity' => $room->max_capacity,
+                        'beds' => $room->beds_count,
+                    ])
+                    ->toArray();
+            }
+
+            // Validar rango de fechas
+            if ($checkOut->lte($checkIn)) {
+                Log::warning('⚠️ Rango de fechas inválido - checkOut <= checkIn');
+                return [];
+            }
+
+            $availableRooms = [];
+
+            foreach ($rooms as $room) {
+                if (!is_array($room) || empty($room['id'])) {
+                    Log::warning('⚠️ Habitación inválida o sin ID', ['room' => $room]);
+                    continue;
+                }
+
+                $roomId = (int)$room['id'];
+
+                // Verificar disponibilidad
+                if ($this->isRoomAvailableForDates($roomId, $checkIn, $checkOut, $excludeReservationId)) {
+                    $availableRooms[] = $room;
+                }
+            }
+
+            Log::info('✅ BÚSQUEDA COMPLETADA', [
+                'available' => count($availableRooms),
+                'total' => count($rooms)
+            ]);
+
+            return $availableRooms;
+
+        } catch (\Exception $e) {
+            Log::error('❌ ERROR OBTENIENDO HABITACIONES DISPONIBLES:', [
+                'message' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            return [];
+        }
+    }
+
+    /**
+     * Validar parámetros de disponibilidad
+     *
+     * @param string $checkIn Fecha de entrada (formato string)
+     * @param string $checkOut Fecha de salida (formato string)
+     * @return array ['isValid' => bool, 'errors' => array]
+     */
+    public function validateAvailabilityDates(string $checkIn, string $checkOut): array
+    {
+        $errors = [];
+
+        // Verificar que las fechas no estén vacías
+        if (empty($checkIn)) {
+            $errors['checkIn'] = 'La fecha de entrada es requerida.';
+        }
+
+        if (empty($checkOut)) {
+            $errors['checkOut'] = 'La fecha de salida es requerida.';
+        }
+
+        if (!empty($errors)) {
+            return ['isValid' => false, 'errors' => $errors];
+        }
+
+        try {
+            $checkInDate = Carbon::parse($checkIn)->startOfDay();
+            $checkOutDate = Carbon::parse($checkOut)->startOfDay();
+
+            // Verificar que check-out sea posterior a check-in
+            if ($checkOutDate->lte($checkInDate)) {
+                $errors['dates'] = 'La fecha de salida debe ser posterior a la fecha de entrada.';
+            }
+
+            // Verificar que check-in no sea en el pasado
+            if ($checkInDate < now()->startOfDay()) {
+                $errors['checkIn'] = 'La fecha de entrada no puede ser anterior a hoy.';
+            }
+
+        } catch (\Exception $e) {
+            Log::warning('⚠️ ERROR PARSEANDO FECHAS:', [
+                'checkIn' => $checkIn,
+                'checkOut' => $checkOut,
+                'message' => $e->getMessage()
+            ]);
+            $errors['dates'] = 'Formato de fecha inválido.';
+        }
+
+        return [
+            'isValid' => empty($errors),
+            'errors' => $errors
+        ];
+    }
+
+    /**
+     * Obtener habitaciones no disponibles para debugging
+     *
+     * @param Carbon $checkIn Fecha de entrada
+     * @param Carbon $checkOut Fecha de salida
+     * @return array Habitaciones no disponibles con razón
+     */
+    public function getUnavailableRooms(
+        Carbon $checkIn,
+        Carbon $checkOut,
+        ?int $excludeReservationId = null
+    ): array
+    {
+        $unavailable = [];
+
+        $allRooms = Room::query()
+            ->active()
+            ->orderBy('room_number')
+            ->get();
+
+        foreach ($allRooms as $room) {
+            $roomId = $room->id;
+
+            $conflictingStay = $this->findConflictingStay($roomId, $checkIn, $checkOut, $excludeReservationId);
+            if ($conflictingStay) {
+                $unavailable[] = [
+                    'roomId' => $roomId,
+                    'roomNumber' => $room->room_number,
+                    'reason' => 'stay_conflict',
+                    'details' => [
+                        'stayId' => $conflictingStay->id,
+                        'reservationId' => $conflictingStay->reservation_id,
+                        'status' => $conflictingStay->status,
+                        'checkInAt' => $conflictingStay->check_in_at?->format('Y-m-d H:i') ?? 'No definido',
+                        'checkOutAt' => $conflictingStay->check_out_at?->format('Y-m-d H:i') ?? 'No definido',
+                    ]
+                ];
+                continue;
+            }
+
+            $conflictingReservationRoom = $this->findConflictingReservationRoom($roomId, $checkIn, $checkOut, true, $excludeReservationId);
+            if ($conflictingReservationRoom) {
+                $unavailable[] = [
+                    'roomId' => $roomId,
+                    'roomNumber' => $room->room_number,
+                    'reason' => 'reservation_conflict',
+                    'details' => [
+                        'reservationRoomId' => $conflictingReservationRoom->id,
+                        'reservationId' => $conflictingReservationRoom->reservation_id,
+                        'reservationCode' => $conflictingReservationRoom->reservation?->reservation_code,
+                        'checkInDate' => optional($conflictingReservationRoom->check_in_date)->format('Y-m-d'),
+                        'checkOutDate' => optional($conflictingReservationRoom->check_out_date)->format('Y-m-d'),
+                    ]
+                ];
+            }
+        }
+
+        return $unavailable;
+    }
+
+    /**
+     * Busca stays en conflicto para una habitación y rango.
+     * Incluye fallback a reservation_rooms.check_out_date si check_out_at es null.
+     */
+    private function findConflictingStay(
+        int $roomId,
+        Carbon $checkIn,
+        Carbon $checkOut,
+        ?int $excludeReservationId = null
+    ): ?Stay
+    {
+        $query = Stay::query()
+            ->where('room_id', $roomId)
+            ->whereIn('status', ['active', 'pending_checkout'])
+            ->where('check_in_at', '<', $checkOut)
+            ->where(function ($q) use ($checkIn, $roomId) {
+                $q->where(function ($q2) use ($checkIn) {
+                    $q2->whereNotNull('check_out_at')
+                        ->where('check_out_at', '>', $checkIn);
+                })->orWhere(function ($q2) use ($checkIn, $roomId) {
+                    $q2->whereNull('check_out_at')
+                        // Regla de negocio temporal:
+                        // Si check_out_at es NULL, tratar la stay como de 1 noche.
+                        ->whereRaw('DATE_ADD(check_in_at, INTERVAL 1 DAY) > ?', [$checkIn->toDateTimeString()]);
+                });
+            })
+            ->orderByDesc('check_in_at');
+
+        if (!empty($excludeReservationId)) {
+            $query->where('reservation_id', '!=', (int)$excludeReservationId);
+        }
+
+        return $query->first();
+    }
+
+    /**
+     * Busca reservation_rooms en conflicto que aún no tienen stay en esa misma habitación.
+     */
+    private function findConflictingReservationRoom(
+        int $roomId,
+        Carbon $checkIn,
+        Carbon $checkOut,
+        bool $withReservation = false,
+        ?int $excludeReservationId = null
+    ): ?ReservationRoom {
+        $query = ReservationRoom::query()
+            ->where('room_id', $roomId)
+            ->whereDate('check_in_date', '<', $checkOut->toDateString())
+            ->whereDate('check_out_date', '>', $checkIn->toDateString())
+            ->whereHas('reservation', fn ($q) => $q->whereNull('deleted_at'))
+            ->whereNotExists(function ($sub) use ($roomId) {
+                $sub->select(DB::raw(1))
+                    ->from('stays')
+                    ->whereColumn('stays.reservation_id', 'reservation_rooms.reservation_id')
+                    ->whereColumn('stays.room_id', 'reservation_rooms.room_id')
+                    ->where('stays.room_id', $roomId);
+            });
+
+        if (!empty($excludeReservationId)) {
+            $query->where('reservation_id', '!=', (int)$excludeReservationId);
+        }
+
+        if ($withReservation) {
+            $query->with('reservation');
+        }
+
+        return $query->first();
     }
 }

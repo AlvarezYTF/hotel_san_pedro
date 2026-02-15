@@ -27,7 +27,7 @@
                     <input id="export-start-date"
                            type="date"
                            name="start_date"
-                           value="{{ request('start_date', \Carbon\Carbon::now()->subMonths(3)->format('Y-m-d')) }}"
+                           value="{{ old('start_date', request('start_date', \Carbon\Carbon::now()->subMonths(3)->format('Y-m-d'))) }}"
                            min="{{ \Carbon\Carbon::now()->subYears(2)->format('Y-m-d') }}"
                            max="{{ \Carbon\Carbon::now()->addYears(1)->format('Y-m-d') }}"
                            required
@@ -39,7 +39,7 @@
                     <input id="export-end-date"
                            type="date"
                            name="end_date"
-                           value="{{ request('end_date', \Carbon\Carbon::now()->format('Y-m-d')) }}"
+                           value="{{ old('end_date', request('end_date', \Carbon\Carbon::now()->format('Y-m-d'))) }}"
                            min="{{ \Carbon\Carbon::now()->subYears(2)->format('Y-m-d') }}"
                            max="{{ \Carbon\Carbon::now()->addYears(1)->format('Y-m-d') }}"
                            required
@@ -52,13 +52,13 @@
                     <i class="fas fa-file-pdf mr-2"></i>
                     <span>Exportar PDF</span>
                 </button>
+
+                @if($errors->has('dates'))
+                    <p class="w-full text-xs font-semibold text-red-600">
+                        {{ $errors->first('dates') }}
+                    </p>
+                @endif
             </form>
-            <button type="button" onclick="openCreateReservationModal()"
-               class="inline-flex items-center justify-center px-4 sm:px-5 py-2.5 rounded-xl border-2 border-emerald-600 bg-emerald-600 text-white text-sm font-semibold hover:bg-emerald-700 hover:border-emerald-700 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500 shadow-sm hover:shadow-md">
-                <i class="fas fa-plus mr-2"></i>
-                <span>Nueva Reserva</span>
-            </button>
         </div>
     </div>
 </div>
-

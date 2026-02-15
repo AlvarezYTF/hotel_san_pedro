@@ -167,6 +167,8 @@ Route::middleware('auth')->group(function () {
     Route::middleware('permission:view_reservations')->group(function () {
         Route::get('/reservations', [ReservationController::class, 'index'])->name('reservations.index');
         Route::get('/reservations/{reservation}/download', [ReservationController::class, 'download'])->name('reservations.download');
+        Route::get('/reservations/{reservation}/guest-document', [ReservationController::class, 'viewGuestsDocument'])->name('reservations.guest-document.view');
+        Route::get('/reservations/{reservation}/guest-document/download', [ReservationController::class, 'downloadGuestsDocument'])->name('reservations.guest-document.download');
         Route::get('/reservations/export/monthly', [ReservationController::class, 'exportMonthlyReport'])->name('reservations.export.monthly');
         Route::get('/api/check-room-availability', [ReservationController::class, 'checkAvailability'])->name('api.check-availability');
         Route::get('/reservations/{reservation}/release-data', [ReservationController::class, 'getReleaseData'])->name('reservations.release-data');
@@ -180,6 +182,9 @@ Route::middleware('auth')->group(function () {
     Route::middleware('permission:edit_reservations')->group(function () {
         Route::get('/reservations/{reservation}/edit', [ReservationController::class, 'edit'])->name('reservations.edit');
         Route::put('/reservations/{reservation}', [ReservationController::class, 'update'])->name('reservations.update');
+        Route::post('/reservations/{reservation}/check-in', [ReservationController::class, 'checkIn'])->name('reservations.check-in');
+        Route::post('/reservations/{reservation}/payments', [ReservationController::class, 'registerPayment'])->name('reservations.register-payment');
+        Route::post('/reservations/{reservation}/payments/{payment}/cancel', [ReservationController::class, 'cancelPayment'])->name('reservations.cancel-payment');
     });
 
     Route::middleware('permission:delete_reservations')->group(function () {

@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
     <meta charset="utf-8">
-    <title>Comprobante de Reserva {{ $reservation->reservation_code ?? ('#' . $reservation->id) }}</title>
+    <title>Comprobante de Reserva</title>
     <style>
         body { font-family: DejaVu Sans, Arial, sans-serif; color: #1f2937; font-size: 12px; line-height: 1.45; }
         .header { border-bottom: 2px solid #10b981; padding-bottom: 12px; margin-bottom: 18px; }
@@ -36,7 +36,7 @@
 <body>
     <div class="header">
         <h1 class="title">Hotel San Pedro</h1>
-        <p class="subtitle">Comprobante de Reserva: {{ $reservation->reservation_code ?? ('RES-' . $reservation->id) }}</p>
+        <p class="subtitle">Comprobante de Reserva</p>
         <p class="subtitle">Fecha de emision: {{ ($issuedAt ?? now())->format('d/m/Y H:i') }}</p>
     </div>
 
@@ -45,19 +45,15 @@
         <table class="details">
             <tr>
                 <td class="label">Nombre</td>
-                <td>{{ $reservation->customer?->name ?? 'No disponible' }}</td>
+                <td>{{ $customerName ?? 'No disponible' }}</td>
             </tr>
             <tr>
                 <td class="label">Documento</td>
-                <td>{{ $reservation->customer?->taxProfile?->identification ?? 'No disponible' }}</td>
+                <td>{{ $customerIdentification ?? 'No disponible' }}</td>
             </tr>
             <tr>
                 <td class="label">Telefono</td>
-                <td>{{ $reservation->customer?->phone ?? 'No disponible' }}</td>
-            </tr>
-            <tr>
-                <td class="label">Correo</td>
-                <td>{{ $reservation->customer?->email ?? 'No disponible' }}</td>
+                <td>{{ $customerPhone ?? 'No disponible' }}</td>
             </tr>
         </table>
     </div>
@@ -77,15 +73,6 @@
                 <td class="label">Noches</td>
                 <td>{{ max(0, (int) ($nights ?? 0)) }}</td>
             </tr>
-            <tr>
-                <td class="label">Huespedes</td>
-                <td>
-                    Total: {{ (int) ($reservation->total_guests ?? 0) }}
-                    @if(!is_null($reservation->adults) || !is_null($reservation->children))
-                        (Adultos: {{ (int) ($reservation->adults ?? 0) }}, Ninos: {{ (int) ($reservation->children ?? 0) }})
-                    @endif
-                </td>
-            </tr>
         </table>
     </div>
 
@@ -98,7 +85,7 @@
                 @endforeach
             </ul>
         @else
-            <p>No hay habitaciones asociadas en reservation_rooms.</p>
+            <p>No hay habitaciones seleccionadas.</p>
         @endif
     </div>
 
@@ -124,14 +111,18 @@
                     <td class="balance">Saldo pendiente</td>
                     <td class="balance">${{ number_format((float) ($balanceDue ?? 0), 0, ',', '.') }}</td>
                 </tr>
+                <tr>
+                    <td>Estado</td>
+                    <td>{{ $status ?? 'Pendiente' }}</td>
+                </tr>
             </tbody>
         </table>
     </div>
 
-    @if(!empty($reservation->notes))
+    @if(!empty($notes))
         <div class="section">
             <div class="section-title">Observaciones</div>
-            <div class="notes">{{ $reservation->notes }}</div>
+            <div class="notes">{{ $notes }}</div>
         </div>
     @endif
 
