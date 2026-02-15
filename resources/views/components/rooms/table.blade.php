@@ -160,11 +160,13 @@
                                     </button>
                                 @endif
 
-                                <a href="{{ route('rooms.edit', $room) }}"
-                                    class="text-indigo-600 hover:text-indigo-700 transition-colors"
-                                    title="Editar">
-                                    <i class="fas fa-edit"></i>
-                                </a>
+                                @if (auth()->check() && auth()->user()->hasRole('Administrador'))
+                                    <a href="{{ route('rooms.edit', $room) }}"
+                                        class="text-indigo-600 hover:text-indigo-700 transition-colors"
+                                        title="Editar">
+                                        <i class="fas fa-edit"></i>
+                                    </a>
+                                @endif
                                 @if ($room->display_status !== \App\Enums\RoomStatus::LIBRE)
                                     <button
                                         @click="confirmRelease({{ $room->id }}, '{{ $room->room_number }}', {{ $room->total_debt ?? 0 }}, {{ $room->current_reservation->id ?? 'null' }})"
@@ -195,4 +197,3 @@
         {{ $rooms->links() }}
     </div>
 </div>
-

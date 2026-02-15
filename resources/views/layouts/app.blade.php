@@ -93,12 +93,12 @@
                 </a>
 
                 @can('view_products')
+                    <a href="{{ route('products.index') }}" @click="sidebarOpen = false"
+                        class="flex items-center px-4 py-3 text-gray-300 hover:bg-gray-700 hover:text-white transition-colors {{ request()->routeIs('products.index') ? 'bg-gray-700 text-white' : '' }}">
+                        <i class="fas fa-boxes w-5 text-center"></i>
+                        <span class="ml-3">Inventario</span>
+                    </a>
                     @if (Auth::user()->hasRole('Administrador'))
-                        <a href="{{ route('products.index') }}" @click="sidebarOpen = false"
-                            class="flex items-center px-4 py-3 text-gray-300 hover:bg-gray-700 hover:text-white transition-colors {{ request()->routeIs('products.index') ? 'bg-gray-700 text-white' : '' }}">
-                            <i class="fas fa-boxes w-5 text-center"></i>
-                            <span class="ml-3">Inventario</span>
-                        </a>
                         <div class="pl-4 space-y-1">
                             <a href="{{ route('products.history') }}" @click="sidebarOpen = false"
                                 class="flex items-center px-4 py-2 text-sm text-gray-400 hover:bg-gray-700 hover:text-white transition-colors {{ request()->routeIs('products.history') ? 'text-white font-bold' : '' }}">
@@ -140,13 +140,11 @@
                 </a>
 
                 @can('generate_invoices')
-                    @if (Auth::user()->hasRole('Administrador'))
-                        <a href="{{ route('electronic-invoices.index') }}" @click="sidebarOpen = false"
-                            class="flex items-center px-4 py-3 text-gray-300 hover:bg-gray-700 hover:text-white transition-colors {{ request()->routeIs('electronic-invoices.*') ? 'bg-gray-700 text-white' : '' }}">
-                            <i class="fas fa-file-invoice-dollar w-5"></i>
-                            <span class="ml-3">Facturas Electronicas</span>
-                        </a>
-                    @endif
+                    <a href="{{ route('electronic-invoices.index') }}" @click="sidebarOpen = false"
+                        class="flex items-center px-4 py-3 text-gray-300 hover:bg-gray-700 hover:text-white transition-colors {{ request()->routeIs('electronic-invoices.*') ? 'bg-gray-700 text-white' : '' }}">
+                        <i class="fas fa-file-invoice-dollar w-5"></i>
+                        <span class="ml-3">Facturas Electronicas</span>
+                    </a>
                 @endcan
 
 
@@ -161,16 +159,40 @@
                     @endif
                 @endcan --}}
 
-                @if (auth()->user()->can('view_shift_handovers') ||
-                        auth()->user()->can('manage_shift_handovers') ||
-                        auth()->user()->can('view_shift_cash_outs') ||
-                        auth()->user()->can('create_shift_cash_outs'))
+                @php
+                    $authUser = auth()->user();
+                    $shiftOperationsEnabled = app(\App\Services\ShiftControlService::class)->isOperationalEnabled();
+                    $showMyShiftLink = $shiftOperationsEnabled &&
+                        ($authUser->hasRole('Recepcionista Día') || $authUser->hasRole('Recepcionista Noche'));
+                    $showShiftHistoryLink = $authUser->hasRole('Administrador');
+                @endphp
+
+                @if (($authUser->can('view_shift_handovers') ||
+                        $authUser->can('manage_shift_handovers') ||
+                        $authUser->can('view_shift_cash_outs') ||
+                        $authUser->can('create_shift_cash_outs')) &&
+                        ($showMyShiftLink || $showShiftHistoryLink))
                     <div class="px-4 mt-4 mb-2">
                         <p class="text-xs font-semibold text-gray-400 uppercase tracking-wider">Gestion de Turnos</p>
                     </div>
 
-                    {{-- Historial: solo Administrador (aunque recepcionistas puedan entregar/recibir desde sus dashboards) --}}
-                    @if (auth()->user()->hasRole('Administrador'))
+                    {{-- Mi Turno: visible para recepcionistas --}}
+                    @if ($showMyShiftLink && $authUser->hasRole('Recepcionista Día'))
+                        <a href="{{ route('dashboard.receptionist.day') }}" @click="sidebarOpen = false"
+                            class="flex items-center px-4 py-3 text-gray-300 hover:bg-gray-700 hover:text-white transition-colors {{ request()->routeIs('dashboard.receptionist.day*') ? 'bg-gray-700 text-white' : '' }}">
+                            <i class="fas fa-cash-register w-5"></i>
+                            <span class="ml-3">Mi Turno</span>
+                        </a>
+                    @elseif ($showMyShiftLink && $authUser->hasRole('Recepcionista Noche'))
+                        <a href="{{ route('dashboard.receptionist.night') }}" @click="sidebarOpen = false"
+                            class="flex items-center px-4 py-3 text-gray-300 hover:bg-gray-700 hover:text-white transition-colors {{ request()->routeIs('dashboard.receptionist.night*') ? 'bg-gray-700 text-white' : '' }}">
+                            <i class="fas fa-cash-register w-5"></i>
+                            <span class="ml-3">Mi Turno</span>
+                        </a>
+                    @endif
+
+                    {{-- Historial: solo Administrador --}}
+                    @if ($showShiftHistoryLink)
                         <a href="{{ route('shift-handovers.index') }}" @click="sidebarOpen = false"
                             class="flex items-center px-4 py-3 text-gray-300 hover:bg-gray-700 hover:text-white transition-colors {{ request()->routeIs('shift-handovers.*') ? 'bg-gray-700 text-white' : '' }}">
                             <i class="fas fa-exchange-alt w-5"></i>
@@ -178,6 +200,7 @@
                         </a>
                     @endif
                 @endif
+
             </nav>
         </aside>
 

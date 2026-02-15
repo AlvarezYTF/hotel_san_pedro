@@ -15,7 +15,7 @@
         assignGuestsModal: @entangle('assignGuestsModal'),
         roomDailyHistoryModal: @entangle('roomDailyHistoryModal'),
         actionsMenuOpen: null,
-        reservationsAccordionOpen: true,
+        reservationsAccordionOpen: false,
         init() {
             const handleScroll = () => {
                 if (this.actionsMenuOpen !== null) {
@@ -260,10 +260,12 @@
     />
 
     <!-- MODAL: CREAR HABITACION -->
-    <x-room-manager.create-room-modal />
+    @if(auth()->check() && auth()->user()->hasRole('Administrador'))
+        <x-room-manager.create-room-modal />
+    @endif
 
     <!-- MODAL: EDITAR HABITACION -->
-    @if($roomEditData)
+    @if((auth()->check() && auth()->user()->hasRole('Administrador')) && $roomEditData)
         <x-room-manager.room-edit-modal 
             :room="$roomEditData['room']" 
             :statuses="$roomEditData['statuses']"

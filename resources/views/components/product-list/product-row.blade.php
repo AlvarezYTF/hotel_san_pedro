@@ -79,16 +79,20 @@
     <td class="px-6 py-4 whitespace-nowrap text-right">
         <div class="flex items-center justify-end space-x-2">
             <a href="{{ route('products.show', $product) }}" class="p-2 text-indigo-400 hover:text-indigo-600 transition-colors"><i class="fas fa-eye"></i></a>
-            <a href="{{ route('products.edit', $product) }}" class="p-2 text-blue-400 hover:text-blue-600 transition-colors"><i class="fas fa-edit"></i></a>
-            <button type="button" 
-                    @click="$dispatch('confirm-delete', { 
-                        id: {{ $product->id }}, 
-                        name: '{{ addslashes($product->name) }}' 
-                    })"
-                    class="p-2 text-rose-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-all duration-200"
-                    title="Eliminar producto">
-                <i class="fas fa-trash"></i>
-            </button>
+            @can('edit_products')
+                <a href="{{ route('products.edit', $product) }}" class="p-2 text-blue-400 hover:text-blue-600 transition-colors"><i class="fas fa-edit"></i></a>
+            @endcan
+            @can('delete_products')
+                <button type="button"
+                        @click="$dispatch('confirm-delete', {
+                            id: {{ $product->id }},
+                            name: '{{ addslashes($product->name) }}'
+                        })"
+                        class="p-2 text-rose-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-all duration-200"
+                        title="Eliminar producto">
+                    <i class="fas fa-trash"></i>
+                </button>
+            @endcan
         </div>
     </td>
 </tr>

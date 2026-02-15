@@ -96,7 +96,7 @@ class ShiftProductOutController extends Controller
             // Descontar del inventario y registrar movimiento
             $product->recordMovement(
                 -$request->quantity,
-                'salida',
+                'output',
                 "Salida por " . ShiftProductOutReason::from($request->reason)->label() . ($request->observations ? ": " . $request->observations : "")
             );
 
@@ -147,7 +147,7 @@ class ShiftProductOutController extends Controller
             // Reintegrar al inventario
             $product->recordMovement(
                 $productOut->quantity,
-                'entrada',
+                'input',
                 "Anulación de salida ID: {$productOut->id} ({$productOut->reason})"
             );
 

@@ -65,13 +65,13 @@
                             @foreach($upcomingArrivals as $reservation)
                                 <tr class="hover:bg-gray-50">
                                     <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                                        {{ $reservation->customer->name }}
+                                        {{ $reservation->customer->name ?? 'Sin cliente' }}
                                     </td>
                                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                        {{ $reservation->room->room_number }}
+                                        {{ $reservation->room->room_number ?? 'N/A' }}
                                     </td>
                                     <td class="px-6 py-4 whitespace-nowrap text-xs text-gray-500">
-                                        {{ $reservation->check_in_date->format('d M') }}
+                                        {{ $reservation->check_in_date ? $reservation->check_in_date->format('d M') : 'N/A' }}
                                     </td>
                                 </tr>
                             @endforeach
@@ -98,4 +98,3 @@
     </div>
 </div>
 @endsection
-

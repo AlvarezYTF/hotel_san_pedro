@@ -55,7 +55,7 @@ class SecurityControlMiddleware
 
         if ($activeShift) {
             Auth::logout();
-            return redirect()->route('login')->with('error', 'Acceso denegado: El usuario ' . $activeShift->entregadoPor->name . ' tiene un turno activo. Debe entregarlo para que usted pueda ingresar.');
+            return redirect()->route('login')->with('error', 'Acceso denegado: El usuario ' . $activeShift->receptionist_display_name . ' tiene un turno activo. Debe entregarlo para que usted pueda ingresar.');
         }
 
         // 3. IP Restriction

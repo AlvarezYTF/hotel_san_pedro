@@ -1,89 +1,116 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="es">
 <head>
     <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Comprobante de Reserva {{ $reservation->reservation_code ?? ('#' . $reservation->id) }}</title>
     <style>
-        body { font-family: DejaVu Sans, Arial, sans-serif; color: #1f2937; font-size: 12px; line-height: 1.45; }
-        .header { border-bottom: 2px solid #10b981; padding-bottom: 12px; margin-bottom: 18px; }
-        .title { font-size: 22px; margin: 0; color: #10b981; font-weight: 700; }
-        .subtitle { margin: 4px 0 0 0; color: #4b5563; font-size: 12px; }
-        .section { margin-top: 14px; }
-        .section-title {
-            background: #f3f4f6;
-            border-left: 4px solid #10b981;
-            padding: 6px 10px;
-            font-size: 11px;
-            font-weight: 700;
-            text-transform: uppercase;
-            color: #111827;
-            margin-bottom: 8px;
-        }
-        table { width: 100%; border-collapse: collapse; }
-        .details td { padding: 5px 2px; vertical-align: top; }
-        .label { width: 30%; font-weight: 700; color: #4b5563; }
-        .summary th, .summary td { border-bottom: 1px solid #e5e7eb; padding: 8px; }
-        .summary th { text-align: left; color: #374151; background: #f9fafb; font-size: 11px; }
-        .summary td:last-child, .summary th:last-child { text-align: right; }
-        .summary .balance { font-weight: 700; color: #b91c1c; }
-        .summary .deposit { color: #047857; }
+        @page { margin: 24px; }
+        body { font-family: DejaVu Sans, sans-serif; font-size: 11px; color: #111827; line-height: 1.45; }
+        .header { border-bottom: 2px solid #0f766e; padding-bottom: 10px; margin-bottom: 12px; }
+        .header-table { width: 100%; border-collapse: collapse; }
+        .header-table td { vertical-align: top; }
+        .logo-cell { width: 84px; }
+        .logo { width: 70px; height: auto; }
+        .brand { margin: 0 0 2px; font-size: 18px; font-weight: 800; color: #0f766e; }
+        .doc-title { margin: 0; font-size: 15px; font-weight: 700; color: #111827; }
+        .doc-subtitle { margin: 3px 0 0; font-size: 10px; color: #4b5563; }
+        .meta-right { text-align: right; font-size: 10px; color: #4b5563; }
+        .meta-right p { margin: 0 0 3px; }
+        .section { border: 1px solid #e5e7eb; border-radius: 6px; padding: 10px; margin-bottom: 10px; }
+        .section-title { margin: 0 0 8px; font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: .05em; color: #111827; }
+        .meta { width: 100%; border-collapse: collapse; }
+        .meta td { padding: 4px 6px; vertical-align: top; }
+        .k { font-size: 9px; color: #6b7280; text-transform: uppercase; font-weight: 700; letter-spacing: .04em; margin-bottom: 2px; }
+        .v { font-size: 11px; color: #111827; font-weight: 700; }
+        table.table { width: 100%; border-collapse: collapse; }
+        table.table th, table.table td { border-bottom: 1px solid #e5e7eb; padding: 6px 5px; font-size: 10px; }
+        table.table th { background: #f3f4f6; text-transform: uppercase; letter-spacing: .04em; color: #374151; text-align: left; font-size: 9px; }
+        .text-right { text-align: right; }
+        .notes { border: 1px solid #e5e7eb; border-radius: 6px; padding: 8px; background: #f9fafb; font-size: 10px; }
         .room-list { margin: 0; padding-left: 16px; }
-        .room-list li { margin-bottom: 3px; }
-        .notes { border: 1px solid #e5e7eb; border-radius: 6px; padding: 10px; background: #f9fafb; }
-        .footer { margin-top: 24px; border-top: 1px solid #e5e7eb; padding-top: 10px; font-size: 10px; color: #6b7280; text-align: center; }
+        .room-list li { margin-bottom: 3px; font-size: 10px; }
+        .v-green { color: #047857; }
+        .v-red { color: #b91c1c; }
+        .footer { margin-top: 12px; padding-top: 8px; border-top: 1px solid #e5e7eb; text-align: center; color: #6b7280; font-size: 9px; }
     </style>
 </head>
 <body>
+    @php
+        $logoDataUri = app(\App\Services\PdfBrandingService::class)->getHotelLogoDataUri();
+    @endphp
+
     <div class="header">
-        <h1 class="title">Hotel San Pedro</h1>
-        <p class="subtitle">Comprobante de Reserva: {{ $reservation->reservation_code ?? ('RES-' . $reservation->id) }}</p>
-        <p class="subtitle">Fecha de emision: {{ ($issuedAt ?? now())->format('d/m/Y H:i') }}</p>
+        <table class="header-table">
+            <tr>
+                <td class="logo-cell">
+                    @if($logoDataUri)
+                        <img src="{{ $logoDataUri }}" alt="Hotel San Pedro" class="logo">
+                    @endif
+                </td>
+                <td>
+                    <p class="brand">Hotel San Pedro</p>
+                    <p class="doc-title">Comprobante de Reserva</p>
+                    <p class="doc-subtitle">Codigo: {{ $reservation->reservation_code ?? ('RES-' . $reservation->id) }}</p>
+                </td>
+                <td class="meta-right">
+                    <p>Fecha emision: {{ ($issuedAt ?? now())->format('d/m/Y H:i') }}</p>
+                    <p>Reserva ID: #{{ $reservation->id }}</p>
+                </td>
+            </tr>
+        </table>
     </div>
 
     <div class="section">
-        <div class="section-title">Datos del cliente</div>
-        <table class="details">
+        <div class="section-title">Datos del Cliente</div>
+        <table class="meta">
             <tr>
-                <td class="label">Nombre</td>
-                <td>{{ $reservation->customer?->name ?? 'No disponible' }}</td>
+                <td style="width: 50%">
+                    <div class="k">Nombre</div>
+                    <div class="v">{{ $reservation->customer?->name ?? 'No disponible' }}</div>
+                </td>
+                <td style="width: 50%">
+                    <div class="k">Documento</div>
+                    <div class="v">{{ $reservation->customer?->taxProfile?->identification ?? 'No disponible' }}</div>
+                </td>
             </tr>
             <tr>
-                <td class="label">Documento</td>
-                <td>{{ $reservation->customer?->taxProfile?->identification ?? 'No disponible' }}</td>
-            </tr>
-            <tr>
-                <td class="label">Telefono</td>
-                <td>{{ $reservation->customer?->phone ?? 'No disponible' }}</td>
-            </tr>
-            <tr>
-                <td class="label">Correo</td>
-                <td>{{ $reservation->customer?->email ?? 'No disponible' }}</td>
+                <td>
+                    <div class="k">Telefono</div>
+                    <div class="v">{{ $reservation->customer?->phone ?? 'No disponible' }}</div>
+                </td>
+                <td>
+                    <div class="k">Correo</div>
+                    <div class="v">{{ $reservation->customer?->email ?? 'No disponible' }}</div>
+                </td>
             </tr>
         </table>
     </div>
 
     <div class="section">
         <div class="section-title">Estancia</div>
-        <table class="details">
+        <table class="meta">
             <tr>
-                <td class="label">Check-in</td>
-                <td>{{ $checkInDate ? $checkInDate->format('d/m/Y') : 'No definido' }}{{ !empty($checkInTime) ? ' ' . $checkInTime : '' }}</td>
-            </tr>
-            <tr>
-                <td class="label">Check-out</td>
-                <td>{{ $checkOutDate ? $checkOutDate->format('d/m/Y') : 'No definido' }}</td>
-            </tr>
-            <tr>
-                <td class="label">Noches</td>
-                <td>{{ max(0, (int) ($nights ?? 0)) }}</td>
-            </tr>
-            <tr>
-                <td class="label">Huespedes</td>
-                <td>
-                    Total: {{ (int) ($reservation->total_guests ?? 0) }}
-                    @if(!is_null($reservation->adults) || !is_null($reservation->children))
-                        (Adultos: {{ (int) ($reservation->adults ?? 0) }}, Ninos: {{ (int) ($reservation->children ?? 0) }})
-                    @endif
+                <td style="width: 25%">
+                    <div class="k">Check-in</div>
+                    <div class="v">{{ $checkInDate ? $checkInDate->format('d/m/Y') : 'No definido' }}{{ !empty($checkInTime) ? ' ' . $checkInTime : '' }}</div>
+                </td>
+                <td style="width: 25%">
+                    <div class="k">Check-out</div>
+                    <div class="v">{{ $checkOutDate ? $checkOutDate->format('d/m/Y') : 'No definido' }}</div>
+                </td>
+                <td style="width: 25%">
+                    <div class="k">Noches</div>
+                    <div class="v">{{ max(0, (int) ($nights ?? 0)) }}</div>
+                </td>
+                <td style="width: 25%">
+                    <div class="k">Huespedes</div>
+                    <div class="v">
+                        {{ (int) ($reservation->total_guests ?? 0) }}
+                        @if(!is_null($reservation->adults) || !is_null($reservation->children))
+                            (A: {{ (int) ($reservation->adults ?? 0) }}, N: {{ (int) ($reservation->children ?? 0) }})
+                        @endif
+                    </div>
                 </td>
             </tr>
         </table>
@@ -98,31 +125,31 @@
                 @endforeach
             </ul>
         @else
-            <p>No hay habitaciones asociadas en reservation_rooms.</p>
+            <div class="v">No hay habitaciones asociadas en reservation_rooms.</div>
         @endif
     </div>
 
     <div class="section">
-        <div class="section-title">Resumen economico</div>
-        <table class="summary">
+        <div class="section-title">Resumen Economico</div>
+        <table class="table">
             <thead>
                 <tr>
                     <th>Concepto</th>
-                    <th>Valor</th>
+                    <th class="text-right">Valor</th>
                 </tr>
             </thead>
             <tbody>
                 <tr>
                     <td>Total reserva</td>
-                    <td>${{ number_format((float) ($totalAmount ?? 0), 0, ',', '.') }}</td>
+                    <td class="text-right">${{ number_format((float) ($totalAmount ?? 0), 0, ',', '.') }}</td>
                 </tr>
                 <tr>
                     <td>Abono</td>
-                    <td class="deposit">-${{ number_format((float) ($depositAmount ?? 0), 0, ',', '.') }}</td>
+                    <td class="text-right v-green">-${{ number_format((float) ($depositAmount ?? 0), 0, ',', '.') }}</td>
                 </tr>
                 <tr>
-                    <td class="balance">Saldo pendiente</td>
-                    <td class="balance">${{ number_format((float) ($balanceDue ?? 0), 0, ',', '.') }}</td>
+                    <td class="v-red">Saldo pendiente</td>
+                    <td class="text-right v-red">${{ number_format((float) ($balanceDue ?? 0), 0, ',', '.') }}</td>
                 </tr>
             </tbody>
         </table>

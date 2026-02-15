@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Facades\DB;
 
 class ShiftHandover extends Model
 {
@@ -17,6 +18,7 @@ class ShiftHandover extends Model
         'from_shift_id',
         'to_shift_id',
         'entregado_por',
+        'receptionist_name',
         'recibido_por',
         'shift_type',
         'shift_date',
@@ -133,13 +135,54 @@ class ShiftHandover extends Model
         return (float) $this->base_esperada;
     }
 
+    public function getReceptionistDisplayNameAttribute(): string
+    {
+        if (filled($this->receptionist_name)) {
+            return (string) $this->receptionist_name;
+        }
+
+        return (string) ($this->entregadoPor?->name ?? 'N/A');
+    }
+
     public function updateTotals(): void
     {
-        $this->total_entradas_efectivo = $this->sales()->where('payment_method', 'efectivo')->sum('cash_amount')
-                                      + $this->sales()->where('payment_method', 'ambos')->sum('cash_amount');
+        $salesCashTotal = (float) $this->sales()->where('payment_method', 'efectivo')->sum('cash_amount')
+            + (float) $this->sales()->where('payment_method', 'ambos')->sum('cash_amount');
 
-        $this->total_entradas_transferencia = $this->sales()->where('payment_method', 'transferencia')->sum('transfer_amount')
-                                           + $this->sales()->where('payment_method', 'ambos')->sum('transfer_amount');
+        $salesTransferTotal = (float) $this->sales()->where('payment_method', 'transferencia')->sum('transfer_amount')
+            + (float) $this->sales()->where('payment_method', 'ambos')->sum('transfer_amount');
+
+        $windowStart = $this->started_at ?? $this->created_at ?? now();
+        $windowEnd = $this->ended_at ?? now();
+        if ($windowEnd->lt($windowStart)) {
+            $windowEnd = $windowStart->copy();
+        }
+
+        // Incluir pagos de hospedaje (tabla payments) en el mismo turno.
+        // Esto permite que "pago de noche" impacte la caja del recepcionista.
+        $lodgingPayments = DB::table('payments as p')
+            ->leftJoin('payments_methods as pm', 'pm.id', '=', 'p.payment_method_id')
+            ->where('p.amount', '>', 0)
+            ->whereBetween(DB::raw('COALESCE(p.paid_at, p.created_at)'), [$windowStart, $windowEnd])
+            ->selectRaw("
+                COALESCE(SUM(CASE
+                    WHEN LOWER(COALESCE(pm.code, '')) IN ('efectivo', 'cash')
+                      OR LOWER(COALESCE(pm.name, '')) = 'efectivo'
+                    THEN p.amount ELSE 0 END), 0) as cash_total
+            ")
+            ->selectRaw("
+                COALESCE(SUM(CASE
+                    WHEN LOWER(COALESCE(pm.code, '')) IN ('transferencia', 'transfer')
+                      OR LOWER(COALESCE(pm.name, '')) = 'transferencia'
+                    THEN p.amount ELSE 0 END), 0) as transfer_total
+            ")
+            ->first();
+
+        $paymentsCashTotal = (float) ($lodgingPayments->cash_total ?? 0);
+        $paymentsTransferTotal = (float) ($lodgingPayments->transfer_total ?? 0);
+
+        $this->total_entradas_efectivo = $salesCashTotal + $paymentsCashTotal;
+        $this->total_entradas_transferencia = $salesTransferTotal + $paymentsTransferTotal;
 
         // Total salidas de caja del turno:
         // - Gastos (CashOutflow)
@@ -177,4 +220,3 @@ class ShiftHandover extends Model
         return $query->where('shift_type', $type);
     }
 }
-

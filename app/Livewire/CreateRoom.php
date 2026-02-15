@@ -7,6 +7,7 @@ use App\Models\Room;
 use App\Models\RoomType;
 use App\Models\VentilationType;
 use App\Models\RoomRate;
+use Illuminate\Support\Facades\Auth;
 
 class CreateRoom extends Component
 {
@@ -145,6 +146,11 @@ class CreateRoom extends Component
 
     public function store(): void
     {
+        if (!Auth::user()?->hasRole('Administrador')) {
+            $this->dispatch('notify', type: 'error', message: 'Solo el administrador puede crear habitaciones.');
+            return;
+        }
+
         // Prevenir doble envío
         if ($this->isProcessing) {
             $this->dispatch('notify', type: 'warning', message: 'La solicitud está siendo procesada. Por favor espere.');
@@ -266,4 +272,3 @@ class CreateRoom extends Component
         ]);
     }
 }
-

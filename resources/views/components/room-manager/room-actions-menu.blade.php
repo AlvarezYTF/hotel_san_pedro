@@ -15,6 +15,7 @@
     
     // Solo permitir acciones en fecha actual (no historicas ni futuras)
     $canPerformActions = !$isFutureDate && !$isPastDate;
+    $canManageRooms = auth()->check() && auth()->user()->hasRole('Administrador');
 @endphp
 
 <div class="flex items-center justify-end gap-1.5">
@@ -104,7 +105,7 @@
     {{-- SIEMPRE VISIBLES (excepto fecha pasada para editar) --}}
     
     {{-- Editar habitacion (no disponible en fechas pasadas ni con stays activos) --}}
-    @if(!$isPastDate && !in_array($operationalStatus, ['occupied', 'pending_checkout']))
+    @if($canManageRooms && !$isPastDate && !in_array($operationalStatus, ['occupied', 'pending_checkout']))
         <button type="button"
             wire:click="openRoomEdit({{ $room->id }})"
             wire:loading.attr="disabled"

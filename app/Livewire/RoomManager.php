@@ -12,11 +12,15 @@ use App\Models\VentilationType;
 use App\Models\ReservationRoom;
 use App\Models\Reservation;
 use App\Models\Payment;
+use App\Models\Product;
+use App\Models\ReservationSale;
 use App\Models\RoomReleaseHistory;
 use App\Models\Stay;
+use App\Models\StayNight;
 use App\Enums\RoomDisplayStatus;
 use App\Support\HotelTime;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
@@ -1807,6 +1811,7 @@ class RoomManager extends Component
                 'quantity' => 1,
                 'payment_method' => 'efectivo',
             ];
+            $this->dispatch('initAddSaleSelect');
         } else {
             $this->newSale = null;
         }
@@ -1828,8 +1833,72 @@ class RoomManager extends Component
 
     public function addSale(): void
     {
-        // Placeholder: integrate with Sales logic if/when available
-        $this->dispatch('notify', type: 'error', message: 'Registrar consumo no está habilitado todavía.');
+        if (!$this->detailData || !isset($this->detailData['reservation']['id'])) {
+            $this->dispatch('notify', type: 'error', message: 'No se encontró la reserva.');
+            return;
+        }
+
+        if (!$this->newSale || empty($this->newSale['product_id'])) {
+            $this->dispatch('notify', type: 'error', message: 'Seleccione un producto.');
+            return;
+        }
+
+        $reservationId = $this->detailData['reservation']['id'];
+        $roomId = $this->detailData['room']['id'] ?? null;
+        $roomNumber = $this->detailData['room']['room_number'] ?? '?';
+        $productId = (int) $this->newSale['product_id'];
+        $quantity = max(1, (int) ($this->newSale['quantity'] ?? 1));
+        $paymentMethod = $this->newSale['payment_method'] ?? 'pendiente';
+
+        $product = Product::find($productId);
+        if (!$product) {
+            $this->dispatch('notify', type: 'error', message: 'Producto no encontrado.');
+            return;
+        }
+
+        if ($product->quantity < $quantity) {
+            $this->dispatch('notify', type: 'error', message: "Stock insuficiente. Disponible: {$product->quantity}");
+            return;
+        }
+
+        try {
+            DB::beginTransaction();
+
+            $isPaid = $paymentMethod !== 'pendiente';
+            $unitPrice = (float) $product->price;
+            $total = round($unitPrice * $quantity, 2);
+
+            ReservationSale::create([
+                'reservation_id' => $reservationId,
+                'product_id' => $productId,
+                'quantity' => $quantity,
+                'unit_price' => $unitPrice,
+                'total' => $total,
+                'payment_method' => $paymentMethod,
+                'is_paid' => $isPaid,
+            ]);
+
+            $product->recordMovement(
+                -$quantity,
+                'room_consumption',
+                "Consumo hab. {$roomNumber} - Reserva #{$reservationId}",
+                $roomId
+            );
+
+            $this->recalculateReservationFinancials($reservationId);
+
+            DB::commit();
+
+            $this->newSale = null;
+            $this->showAddSale = false;
+            $this->openRoomDetail($roomId);
+            $this->dispatch('notify', type: 'success', message: "Consumo registrado: {$product->name} x{$quantity}");
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            \Log::error('Error in addSale', ['error' => $e->getMessage(), 'trace' => $e->getTraceAsString()]);
+            $this->dispatch('notify', type: 'error', message: 'Error al registrar consumo: ' . $e->getMessage());
+        }
     }
 
     public function addDeposit(): void
@@ -1866,6 +1935,183 @@ class RoomManager extends Component
         }
     }
 
+    public function paySale($saleId, $method): void
+    {
+        try {
+            $sale = ReservationSale::find($saleId);
+            if (!$sale) {
+                $this->dispatch('notify', type: 'error', message: 'Consumo no encontrado.');
+                return;
+            }
+
+            if (!in_array($method, ['efectivo', 'transferencia', 'pendiente'])) {
+                $this->dispatch('notify', type: 'error', message: 'Método de pago inválido.');
+                return;
+            }
+
+            $isPaid = $method !== 'pendiente';
+            $sale->update([
+                'payment_method' => $method,
+                'is_paid' => $isPaid,
+            ]);
+
+            $this->recalculateReservationFinancials($sale->reservation_id);
+
+            if ($this->detailData && isset($this->detailData['room']['id'])) {
+                $this->openRoomDetail($this->detailData['room']['id']);
+            }
+
+            $message = $isPaid ? 'Pago de consumo registrado.' : 'Pago de consumo anulado.';
+            $this->dispatch('notify', type: 'success', message: $message);
+
+        } catch (\Exception $e) {
+            \Log::error('Error in paySale', ['sale_id' => $saleId, 'error' => $e->getMessage()]);
+            $this->dispatch('notify', type: 'error', message: 'Error: ' . $e->getMessage());
+        }
+    }
+
+    public function deleteDeposit($depositId, $amount): void
+    {
+        try {
+            $payment = Payment::find($depositId);
+            if (!$payment) {
+                $this->dispatch('notify', type: 'error', message: 'Pago no encontrado.');
+                return;
+            }
+
+            $reservationId = $this->detailData['reservation']['id'] ?? null;
+            if (!$reservationId || (int) $payment->reservation_id !== (int) $reservationId) {
+                $this->dispatch('notify', type: 'error', message: 'El pago no pertenece a esta reserva.');
+                return;
+            }
+
+            DB::beginTransaction();
+
+            $reversalAmount = -abs((float) $payment->amount);
+            Payment::create([
+                'reservation_id' => $payment->reservation_id,
+                'amount' => $reversalAmount,
+                'payment_method_id' => $payment->payment_method_id,
+                'reference' => "Anulacion de pago #{$payment->id}",
+                'paid_at' => now(),
+                'created_by' => auth()->id(),
+                'notes' => "Reversal of payment #{$payment->id}",
+            ]);
+
+            // Desmarcar stay_nights pagadas LIFO
+            $nightsToUnpay = abs((float) $payment->amount);
+            $paidNights = StayNight::where('reservation_id', $reservationId)
+                ->where('is_paid', true)
+                ->orderByDesc('date')
+                ->get();
+
+            foreach ($paidNights as $night) {
+                if ($nightsToUnpay <= 0) break;
+                $nightPrice = (float) $night->price;
+                if ($nightPrice <= 0) continue;
+                if ($nightsToUnpay >= $nightPrice) {
+                    $night->update(['is_paid' => false]);
+                    $nightsToUnpay -= $nightPrice;
+                }
+            }
+
+            $this->recalculateReservationFinancials($reservationId);
+
+            DB::commit();
+
+            if ($this->detailData && isset($this->detailData['room']['id'])) {
+                $this->openRoomDetail($this->detailData['room']['id']);
+            }
+
+            $this->dispatch('notify', type: 'success', message: 'Abono eliminado correctamente.');
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            \Log::error('Error in deleteDeposit', ['deposit_id' => $depositId, 'error' => $e->getMessage()]);
+            $this->dispatch('notify', type: 'error', message: 'Error: ' . $e->getMessage());
+        }
+    }
+
+    public function updateDeposit($reservationId, $amount): void
+    {
+        try {
+            $reservationId = (int) $reservationId;
+            $newTotal = (float) $amount;
+
+            if ($newTotal < 0) {
+                $this->dispatch('notify', type: 'error', message: 'El monto no puede ser negativo.');
+                return;
+            }
+
+            $reservation = Reservation::with('payments')->find($reservationId);
+            if (!$reservation) {
+                $this->dispatch('notify', type: 'error', message: 'Reserva no encontrada.');
+                return;
+            }
+
+            $currentDeposit = (float) $reservation->payments->sum('amount');
+            $difference = round($newTotal - $currentDeposit, 2);
+
+            if (abs($difference) < 0.01) {
+                $this->dispatch('notify', type: 'info', message: 'El abono ya es el monto indicado.');
+                return;
+            }
+
+            if ($difference > 0) {
+                $this->registerPayment($reservationId, $difference, 'efectivo', null, null, 'Ajuste de abono');
+            } else {
+                DB::beginTransaction();
+
+                $paymentMethodId = $this->getPaymentMethodId('efectivo');
+                Payment::create([
+                    'reservation_id' => $reservationId,
+                    'amount' => $difference,
+                    'payment_method_id' => $paymentMethodId,
+                    'reference' => 'Ajuste de abono (reduccion)',
+                    'paid_at' => now(),
+                    'created_by' => auth()->id(),
+                ]);
+
+                $this->recalculateReservationFinancials($reservationId);
+                DB::commit();
+            }
+
+            if ($this->detailData && isset($this->detailData['room']['id'])) {
+                $this->openRoomDetail($this->detailData['room']['id']);
+            }
+
+            $this->dispatch('notify', type: 'success', message: 'Abono actualizado correctamente.');
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            \Log::error('Error in updateDeposit', ['error' => $e->getMessage()]);
+            $this->dispatch('notify', type: 'error', message: 'Error: ' . $e->getMessage());
+        }
+    }
+
+    private function recalculateReservationFinancials(int $reservationId): void
+    {
+        $reservation = Reservation::with(['payments', 'sales'])->find($reservationId);
+        if (!$reservation) return;
+
+        $totalAmount = (float) StayNight::where('reservation_id', $reservationId)->sum('price');
+        if ($totalAmount <= 0) {
+            $totalAmount = (float) ($reservation->total_amount ?? 0);
+        }
+
+        $paymentsTotal = (float) ($reservation->payments->sum('amount') ?? 0);
+        $salesDebt = (float) ($reservation->sales->where('is_paid', false)->sum('total') ?? 0);
+        $balanceDue = $totalAmount - $paymentsTotal + $salesDebt;
+
+        $paymentStatusCode = $balanceDue <= 0 ? 'paid' : ($paymentsTotal > 0 ? 'partial' : 'pending');
+        $paymentStatusId = DB::table('payment_statuses')->where('code', $paymentStatusCode)->value('id');
+
+        $reservation->update([
+            'deposit_amount' => max(0, $paymentsTotal),
+            'balance_due' => max(0, $balanceDue),
+            'payment_status_id' => $paymentStatusId,
+        ]);
+    }
 
     /**
      * Registra un pago en la tabla payments (Single Source of Truth).
@@ -3277,8 +3523,10 @@ class RoomManager extends Component
             // CRITICAL: Forzar actualización inmediata de habitaciones para mostrar info de huésped y cuenta
             // Resetear paginación y forzar re-render completo
             $this->resetPage();
+            $this->dispatch('$refresh');
             // Disparar evento para resetear Alpine.js y forzar re-render de componentes
             $this->dispatch('room-view-changed', date: $this->date->toDateString());
+            $this->dispatch('room-rented', roomId: (int) $validated['room_id']);
         } catch (\Exception $e) {
             $this->dispatch('notify', type: 'error', message: 'Error: ' . $e->getMessage());
         }
@@ -3899,6 +4147,11 @@ class RoomManager extends Component
 
     public function openRoomEdit($roomId)
     {
+        if (!Auth::user()?->hasRole('Administrador')) {
+            $this->dispatch('notify', type: 'error', message: 'Solo el administrador puede editar habitaciones.');
+            return;
+        }
+
         $room = Room::with(['roomType', 'ventilationType', 'rates'])->find($roomId);
         if ($room) {
             $this->roomEditData = [

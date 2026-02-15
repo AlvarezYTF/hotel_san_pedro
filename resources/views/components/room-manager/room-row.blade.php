@@ -29,6 +29,8 @@
             ]);
         }
     }
+
+    $hasStayInfo = $stay && $stay->reservation;
 @endphp
 
 <tr
@@ -44,12 +46,6 @@
             if (this.isReleasing) return 'releasing';
             if (this.recentlyReleased) return 'released';
             return this.operationalStatus;
-        },
-        // Computed: Determina si mostrar info de huesped y cuenta
-        get shouldShowGuestInfo() {
-            // Mostrar cuando NO esta en proceso de liberacion Y el estado operativo es 'occupied' o 'pending_checkout'
-            return !this.isReleasing && !this.recentlyReleased && 
-                   (this.operationalStatus === 'occupied' || this.operationalStatus === 'pending_checkout');
         },
     }"
     x-init="
@@ -95,6 +91,15 @@
                     this.operationalStatus = 'free_clean';
                     this.recentlyReleased = false;
                     this.isReleasing = false;
+                }
+            });
+
+            // Listener: Arriendo confirmado - fuerza sincronizacion inmediata de columnas
+            window.addEventListener('room-rented', e => {
+                if (e.detail?.roomId === {{ $room->id }}) {
+                    this.operationalStatus = 'occupied';
+                    this.isReleasing = false;
+                    this.recentlyReleased = false;
                 }
             });
         }
@@ -178,43 +183,33 @@
     </td>
 
     <td class="px-6 py-4 align-top">
-        {{-- Solo mostrar info de huesped cuando estado operativo es 'occupied' --}}
-        <div x-show="shouldShowGuestInfo">
-            {{-- SINGLE SOURCE OF TRUTH: Pasar $stay explicitamente al componente --}}
+        @if($hasStayInfo)
             <x-room-manager.room-guest-info :room="$room" :stay="$stay" />
-        </div>
-        <div x-show="!shouldShowGuestInfo" x-cloak>
-            {{-- Mensaje especifico segun estado operativo --}}
-            <template x-if="operationalStatus === 'pending_cleaning'">
+        @else
+            @if($operationalStatus === 'pending_cleaning')
                 <span class="text-xs text-gray-500 italic">Checkout realizado</span>
-            </template>
-            <template x-if="operationalStatus !== 'pending_cleaning'">
+            @else
                 <span class="text-xs text-gray-400 italic">Sin arrendatario</span>
-            </template>
-        </div>
+            @endif
+        @endif
     </td>
 
     <td class="px-6 py-4 align-top">
-        {{-- Solo mostrar cuenta cuando estado operativo es 'occupied' --}}
-        <div x-show="shouldShowGuestInfo">
-            {{-- SINGLE SOURCE OF TRUTH: Pasar $stay explicitamente al componente --}}
+        @if($hasStayInfo)
             <x-room-manager.room-payment-info :room="$room" :stay="$stay" />
-        </div>
-        <div x-show="!shouldShowGuestInfo" x-cloak>
-            {{-- Mensaje segun estado operativo --}}
-            <template x-if="operationalStatus === 'pending_cleaning'">
+        @else
+            @if($operationalStatus === 'pending_cleaning')
                 <div class="flex flex-col">
                     <span class="text-xs text-gray-500 font-semibold">Cuenta cerrada</span>
                     <span class="text-[10px] text-gray-400">Marcar como limpia para arrendar</span>
                 </div>
-            </template>
-            <template x-if="operationalStatus !== 'pending_cleaning'">
+            @else
                 <div class="flex flex-col">
                     <span class="text-sm font-semibold text-gray-900">${{ number_format($room->base_price_per_night ?? 0, 0, ',', '.') }}</span>
                     <span class="text-xs text-gray-400">precio base</span>
                 </div>
-            </template>
-        </div>
+            @endif
+        @endif
     </td>
 
     <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium align-top" style="position: static;">

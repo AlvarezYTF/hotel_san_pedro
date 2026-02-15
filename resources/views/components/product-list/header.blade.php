@@ -21,22 +21,24 @@
         </div>
         
         <div class="flex flex-wrap gap-2">
-            <a href="{{ route('products.history') }}" 
-               class="inline-flex items-center justify-center px-4 py-2.5 rounded-xl border border-indigo-200 bg-indigo-50 text-indigo-700 text-sm font-semibold hover:bg-indigo-100 transition-all duration-200 shadow-sm">
-                <i class="fas fa-history mr-2"></i>
-                <span>Historial</span>
-            </a>
-            <a href="{{ route('products.history') }}" 
-               class="inline-flex items-center justify-center px-4 py-2.5 rounded-xl border border-amber-200 bg-amber-50 text-amber-700 text-sm font-semibold hover:bg-amber-100 transition-all duration-200 shadow-sm">
-                <i class="fas fa-exchange-alt mr-2"></i>
-                <span>Movimientos</span>
-            </a>
+            @can('edit_products')
+                <a href="{{ route('products.history') }}"
+                   class="inline-flex items-center justify-center px-4 py-2.5 rounded-xl border border-indigo-200 bg-indigo-50 text-indigo-700 text-sm font-semibold hover:bg-indigo-100 transition-all duration-200 shadow-sm">
+                    <i class="fas fa-history mr-2"></i>
+                    <span>Historial</span>
+                </a>
+                <a href="{{ route('products.history') }}"
+                   class="inline-flex items-center justify-center px-4 py-2.5 rounded-xl border border-amber-200 bg-amber-50 text-amber-700 text-sm font-semibold hover:bg-amber-100 transition-all duration-200 shadow-sm">
+                    <i class="fas fa-exchange-alt mr-2"></i>
+                    <span>Movimientos</span>
+                </a>
+            @endcan
             @can('create_products')
-            <a href="{{ route('products.create') }}" 
-               class="inline-flex items-center justify-center px-4 sm:px-5 py-2.5 rounded-xl border-2 border-blue-600 bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 hover:border-blue-700 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 shadow-sm hover:shadow-md">
-                <i class="fas fa-plus mr-2"></i>
-                <span>Nuevo Producto</span>
-            </a>
+                <a href="{{ route('products.create') }}"
+                   class="inline-flex items-center justify-center px-4 sm:px-5 py-2.5 rounded-xl border-2 border-blue-600 bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 hover:border-blue-700 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 shadow-sm hover:shadow-md">
+                    <i class="fas fa-plus mr-2"></i>
+                    <span>Nuevo Producto</span>
+                </a>
             @endcan
         </div>
     </div>

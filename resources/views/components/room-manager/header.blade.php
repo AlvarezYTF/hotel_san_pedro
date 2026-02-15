@@ -1,5 +1,9 @@
 @props(['roomsCount'])
 
+@php
+    $canManageRooms = auth()->check() && auth()->user()->hasRole('Administrador');
+@endphp
+
 <div class="bg-white rounded-xl border border-gray-100 p-4 sm:p-6">
     <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div class="flex items-center space-x-3 sm:space-x-4">
@@ -20,11 +24,13 @@
             </div>
         </div>
         
-        <button type="button"
-                wire:click="$set('createRoomModal', true)"
-                class="inline-flex items-center justify-center px-4 sm:px-5 py-2.5 rounded-xl border-2 border-blue-600 bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 hover:border-blue-700 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 shadow-sm hover:shadow-md">
-            <i class="fas fa-plus mr-2"></i>
-            <span>Nueva Habitacion</span>
-        </button>
+        @if($canManageRooms)
+            <button type="button"
+                    wire:click="$set('createRoomModal', true)"
+                    class="inline-flex items-center justify-center px-4 sm:px-5 py-2.5 rounded-xl border-2 border-blue-600 bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 hover:border-blue-700 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 shadow-sm hover:shadow-md">
+                <i class="fas fa-plus mr-2"></i>
+                <span>Nueva Habitacion</span>
+            </button>
+        @endif
     </div>
 </div>

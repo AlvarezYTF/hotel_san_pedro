@@ -60,6 +60,7 @@ return Application::configure(basePath: dirname(__DIR__))
 
         $middleware->web(append: [
             \App\Http\Middleware\SecurityControlMiddleware::class,
+            \App\Http\Middleware\EnsureReceptionistActiveShift::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
