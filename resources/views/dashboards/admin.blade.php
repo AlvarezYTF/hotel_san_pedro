@@ -52,7 +52,7 @@
                             type="submit"
                             class="px-4 py-2 rounded-lg text-sm font-bold text-white {{ $shiftOperationsEnabled ? 'bg-red-600 hover:bg-red-700' : 'bg-emerald-600 hover:bg-emerald-700' }}"
                         >
-                            {{ $shiftOperationsEnabled ? 'Desactivar aperturas' : 'Activar aperturas' }}
+                            {{ $shiftOperationsEnabled ? 'Desactivar turnos' : 'Activar turnos' }}
                         </button>
                     </form>
 

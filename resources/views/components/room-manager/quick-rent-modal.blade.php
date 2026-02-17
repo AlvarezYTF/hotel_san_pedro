@@ -152,9 +152,9 @@
                             <div class="space-y-2 max-h-32 overflow-y-auto">
                                 @foreach($additionalGuests as $index => $guest)
                                     <div class="flex items-center justify-between p-2 bg-gray-50 rounded-lg border border-gray-200">
-                                        <div class="flex-1">
-                                            <p class="text-xs font-bold text-gray-900">{{ $guest['name'] }}</p>
-                                            <p class="text-[10px] text-gray-500">ID: {{ $guest['identification'] }}</p>
+                                        <div class="flex-1 min-w-0">
+                                            <p class="text-xs font-bold text-gray-900 truncate" title="{{ $guest['name'] }}">{{ $guest['name'] }}</p>
+                                            <p class="text-[10px] text-gray-500 truncate" title="ID: {{ $guest['identification'] }}">ID: {{ $guest['identification'] }}</p>
                                         </div>
                                         <button type="button" 
                                                 wire:click="removeGuest({{ $index }})"
@@ -363,4 +363,3 @@
     </div>
     @endif
 </div>
-

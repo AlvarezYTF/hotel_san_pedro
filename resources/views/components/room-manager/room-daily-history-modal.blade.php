@@ -65,7 +65,7 @@
                                     <div class="mb-3">
                                         <div class="flex items-center space-x-2 mb-1">
                                             <i class="fas fa-user text-xs text-gray-400"></i>
-                                            <span class="text-sm font-semibold text-gray-900">{{ $release['customer_name'] }}</span>
+                                            <span class="text-sm font-semibold text-gray-900 truncate max-w-[230px]" title="{{ $release['customer_name'] }}">{{ $release['customer_name'] }}</span>
                                         </div>
                                         @if($release['customer_identification'] && $release['customer_identification'] !== 'N/A')
                                             <span class="text-xs text-gray-500 ml-5">{{ $release['customer_identification'] }}</span>
@@ -167,4 +167,3 @@
     </div>
     @endif
 </div>
-

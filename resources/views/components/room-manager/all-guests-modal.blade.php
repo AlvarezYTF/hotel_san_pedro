@@ -124,8 +124,8 @@
                                             <i class="fas fa-user"></i>
                                         </div>
                                         <div class="flex-1">
-                                            <div class="flex items-center space-x-2 mb-1">
-                                                <h4 class="font-semibold text-gray-900">{{ $guest['name'] }}</h4>
+                                            <div class="flex items-center space-x-2 mb-1 min-w-0">
+                                                <h4 class="font-semibold text-gray-900 max-w-[260px] truncate" title="{{ $guest['name'] }}">{{ $guest['name'] }}</h4>
                                                 @if($guest['is_primary'])
                                                     <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
                                                         Principal
@@ -303,4 +303,3 @@
     </div>
 </div>
 @endif
-

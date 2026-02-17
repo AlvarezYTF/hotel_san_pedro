@@ -74,7 +74,8 @@
                     @if($reservation->customer)
                         <button type="button"
                                 wire:click="showAllGuests({{ $reservation->id }}, {{ $room->id }})"
-                                class="text-blue-600 hover:text-blue-800 underline hover:bg-blue-50 px-1 rounded transition-colors">
+                                title="{{ $reservation->customer->name }}"
+                                class="block w-full truncate text-left text-blue-600 hover:text-blue-800 underline hover:bg-blue-50 px-1 rounded transition-colors">
                             {{ $reservation->customer->name }}
                         </button>
                     @else
@@ -147,4 +148,3 @@
         </button>
     </div>
 @endif
-

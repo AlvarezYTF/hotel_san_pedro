@@ -80,7 +80,7 @@
                                                         Principal
                                                     </span>
                                                 </div>
-                                                <h4 class="text-sm font-black text-gray-900 mb-2" x-text="guestsData.main_guest.name"></h4>
+                                                <h4 class="text-sm font-black text-gray-900 mb-2 truncate" :title="guestsData.main_guest.name || ''" x-text="guestsData.main_guest.name"></h4>
                                                 <div class="grid grid-cols-2 gap-2 mt-2">
                                                     <div>
                                                         <p class="text-[9px] font-bold text-gray-400 uppercase mb-0.5">Identificación</p>
@@ -107,7 +107,7 @@
                                             Adicionales (<span x-text="guestsData.guests.filter(g => !g.is_main).length"></span>)
                                         </h4>
                                         <div class="overflow-x-auto">
-                                            <table class="min-w-full divide-y divide-gray-200">
+                                            <table class="min-w-[760px] w-full divide-y divide-gray-200">
                                                 <thead class="bg-gray-50">
                                                     <tr>
                                                         <th scope="col" class="px-3 py-2 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Nombre</th>
@@ -119,8 +119,8 @@
                                                 <tbody class="bg-white divide-y divide-gray-200">
                                                     <template x-for="(guest, index) in guestsData.guests.filter(g => !g.is_main)" :key="guest.id">
                                                         <tr class="hover:bg-gray-50">
-                                                            <td class="px-3 py-2 whitespace-nowrap">
-                                                                <div class="text-xs font-bold text-gray-900" x-text="guest.name"></div>
+                                                            <td class="px-3 py-2">
+                                                                <div class="text-xs font-bold text-gray-900 max-w-[180px] truncate" :title="guest.name || ''" x-text="guest.name"></div>
                                                             </td>
                                                             <td class="px-3 py-2 whitespace-nowrap">
                                                                 <div class="text-xs text-gray-700" x-text="guest.identification || 'N/A'"></div>
@@ -128,8 +128,8 @@
                                                             <td class="px-3 py-2 whitespace-nowrap">
                                                                 <div class="text-xs text-gray-700" x-text="guest.phone || 'N/A'"></div>
                                                             </td>
-                                                            <td class="px-3 py-2 whitespace-nowrap">
-                                                                <div class="text-xs text-gray-700" x-text="guest.email || 'N/A'"></div>
+                                                            <td class="px-3 py-2">
+                                                                <div class="text-xs text-gray-700 max-w-[220px] truncate" :title="guest.email || 'N/A'" x-text="guest.email || 'N/A'"></div>
                                                             </td>
                                                         </tr>
                                                     </template>
@@ -163,4 +163,3 @@
         </div>
     </div>
 </div>
-

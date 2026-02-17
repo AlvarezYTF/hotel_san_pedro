@@ -53,30 +53,34 @@
                 @if($upcomingArrivals->isEmpty())
                     <p class="p-6 text-sm text-gray-500 text-center">No hay llegadas programadas</p>
                 @else
-                    <table class="min-w-full divide-y divide-gray-100">
-                        <thead class="bg-gray-50">
-                            <tr>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Cliente</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Hab</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Fecha</th>
-                            </tr>
-                        </thead>
-                        <tbody class="bg-white divide-y divide-gray-100">
-                            @foreach($upcomingArrivals as $reservation)
-                                <tr class="hover:bg-gray-50">
-                                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                                        {{ $reservation->customer->name ?? 'Sin cliente' }}
-                                    </td>
-                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                        {{ $reservation->room->room_number ?? 'N/A' }}
-                                    </td>
-                                    <td class="px-6 py-4 whitespace-nowrap text-xs text-gray-500">
-                                        {{ $reservation->check_in_date ? $reservation->check_in_date->format('d M') : 'N/A' }}
-                                    </td>
+                    <div class="overflow-x-auto">
+                        <table class="min-w-[560px] w-full divide-y divide-gray-100">
+                            <thead class="bg-gray-50">
+                                <tr>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase w-[240px]">Cliente</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Hab</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Fecha</th>
                                 </tr>
-                            @endforeach
-                        </tbody>
-                    </table>
+                            </thead>
+                            <tbody class="bg-white divide-y divide-gray-100">
+                                @foreach($upcomingArrivals as $reservation)
+                                    <tr class="hover:bg-gray-50">
+                                        <td class="px-6 py-4 text-sm font-medium text-gray-900 w-[240px] max-w-[240px]">
+                                            <span class="block truncate" title="{{ $reservation->customer->name ?? 'Sin cliente' }}">
+                                                {{ $reservation->customer->name ?? 'Sin cliente' }}
+                                            </span>
+                                        </td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                            {{ $reservation->room->room_number ?? 'N/A' }}
+                                        </td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-xs text-gray-500">
+                                            {{ $reservation->check_in_date ? $reservation->check_in_date->format('d M') : 'N/A' }}
+                                        </td>
+                                    </tr>
+                                @endforeach
+                            </tbody>
+                        </table>
+                    </div>
                 @endif
             </div>
         </div>

@@ -182,7 +182,7 @@
         @endif
     </td>
 
-    <td class="px-6 py-4 align-top">
+    <td class="px-6 py-4 align-top w-[280px] max-w-[280px]">
         @if($hasStayInfo)
             <x-room-manager.room-guest-info :room="$room" :stay="$stay" :selectedDate="$selectedDate" />
         @else
@@ -220,4 +220,3 @@
         @endif
     </td>
 </tr>
-

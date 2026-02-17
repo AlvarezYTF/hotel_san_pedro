@@ -151,7 +151,7 @@
                                 <div>
                                     <h4 class="text-xs font-bold text-gray-900 uppercase tracking-widest mb-4">Consumos</h4>
                                     <div class="overflow-x-auto">
-                                        <table class="min-w-full divide-y divide-gray-100">
+                                        <table class="min-w-[640px] w-full divide-y divide-gray-100">
                                             <thead class="bg-gray-50">
                                                 <tr>
                                                     <th class="px-4 py-3 text-left text-[9px] font-bold text-gray-400 uppercase">Producto</th>
@@ -163,7 +163,7 @@
                                             <tbody class="bg-white divide-y divide-gray-50">
                                                 <template x-for="sale in roomData.sales" :key="sale.id">
                                                     <tr>
-                                                        <td class="px-4 py-3 text-sm font-bold text-gray-900" x-text="sale.product?.name || 'N/A'"></td>
+                                                        <td class="px-4 py-3 text-sm font-bold text-gray-900 max-w-[220px] truncate" :title="sale.product?.name || 'N/A'" x-text="sale.product?.name || 'N/A'"></td>
                                                         <td class="px-4 py-3 text-sm text-center font-bold text-gray-500" x-text="sale.quantity"></td>
                                                         <td class="px-4 py-3 text-center">
                                                             <span class="text-[9px] font-bold uppercase px-2 py-1 rounded-full"
@@ -184,7 +184,7 @@
                                 <div>
                                     <h4 class="text-xs font-bold text-gray-900 uppercase tracking-widest mb-4">Historial de Abonos</h4>
                                     <div class="overflow-x-auto">
-                                        <table class="min-w-full divide-y divide-gray-100">
+                                        <table class="min-w-[700px] w-full divide-y divide-gray-100">
                                             <thead class="bg-gray-50">
                                                 <tr>
                                                     <th class="px-4 py-3 text-left text-[9px] font-bold text-gray-400 uppercase">Fecha</th>
@@ -203,7 +203,7 @@
                                                                   :class="deposit.payment_method === 'efectivo' ? 'text-emerald-600 bg-emerald-50' : 'text-blue-600 bg-blue-50'"
                                                                   x-text="deposit.payment_method"></span>
                                                         </td>
-                                                        <td class="px-4 py-3 text-sm text-gray-500" x-text="deposit.notes || '-'"></td>
+                                                        <td class="px-4 py-3 text-sm text-gray-500 max-w-[260px] truncate" :title="deposit.notes || '-'" x-text="deposit.notes || '-'"></td>
                                                     </tr>
                                                 </template>
                                             </tbody>
@@ -220,7 +220,7 @@
                                         <span class="text-[9px] text-gray-500 font-medium">Total: <strong x-text="'$' + new Intl.NumberFormat('es-CO', {minimumFractionDigits: 0, maximumFractionDigits: 0}).format(roomData.total_refunds || 0)"></strong></span>
                                     </div>
                                     <div class="overflow-x-auto">
-                                        <table class="min-w-full divide-y divide-gray-100">
+                                        <table class="min-w-[560px] w-full divide-y divide-gray-100">
                                             <thead class="bg-gray-50">
                                                 <tr>
                                                     <th class="px-4 py-3 text-left text-[9px] font-bold text-gray-400 uppercase">Fecha</th>
@@ -435,4 +435,3 @@
         </div>
     </div>
 </div>
-

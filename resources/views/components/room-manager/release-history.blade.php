@@ -5,12 +5,12 @@
     </div>
 
     <div class="overflow-x-auto">
-        <table class="min-w-full divide-y divide-gray-200">
+        <table class="min-w-[980px] w-full divide-y divide-gray-200">
             <thead class="bg-gray-50">
                 <tr>
                     <th class="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Fecha</th>
                     <th class="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Habitacion</th>
-                    <th class="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Huesped</th>
+                    <th class="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider w-[260px]">Huesped</th>
                     <th class="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Estancia</th>
                     <th class="px-4 py-3 text-right text-xs font-bold text-gray-700 uppercase tracking-wider">Financiero</th>
                     <th class="px-4 py-3 text-center text-xs font-bold text-gray-700 uppercase tracking-wider">Estado</th>
@@ -27,9 +27,13 @@
                         <td class="px-4 py-3 whitespace-nowrap">
                             <div class="text-sm font-bold text-gray-900">#{{ $history->room_number }}</div>
                         </td>
-                        <td class="px-4 py-4">
-                            <div class="text-sm font-bold text-gray-900">{{ $history->customer_name }}</div>
-                            <div class="text-xs text-gray-500">{{ $history->customer_identification ?? 'N/A' }}</div>
+                        <td class="px-4 py-4 w-[260px] max-w-[260px]">
+                            <div class="text-sm font-bold text-gray-900 truncate" title="{{ $history->customer_name }}">
+                                {{ $history->customer_name }}
+                            </div>
+                            <div class="text-xs text-gray-500 truncate" title="{{ $history->customer_identification ?? 'N/A' }}">
+                                {{ $history->customer_identification ?? 'N/A' }}
+                            </div>
                         </td>
                         <td class="px-4 py-3 whitespace-nowrap">
                             <div class="text-sm text-gray-900">{{ \Carbon\Carbon::parse($history->check_in_date)->format('d/m/Y') }}</div>
@@ -92,5 +96,4 @@
         </div>
     @endif
 </div>
-
 

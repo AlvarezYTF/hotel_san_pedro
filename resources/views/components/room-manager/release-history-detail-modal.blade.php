@@ -124,7 +124,7 @@
                     <div class="mb-6">
                         <h4 class="text-sm font-bold text-gray-900 uppercase tracking-wider mb-4">Consumos</h4>
                         <div class="overflow-x-auto">
-                            <table class="min-w-full divide-y divide-gray-200">
+                            <table class="min-w-[760px] w-full divide-y divide-gray-200">
                                 <thead class="bg-gray-50">
                                     <tr>
                                         <th class="px-4 py-2 text-left text-xs font-bold text-gray-500 uppercase">Producto</th>
@@ -140,7 +140,7 @@
                                             $sale = is_array($sale) ? $sale : (array) $sale;
                                         @endphp
                                         <tr>
-                                            <td class="px-4 py-3 text-sm font-bold text-gray-900">{{ $sale['product_name'] ?? 'N/A' }}</td>
+                                            <td class="px-4 py-3 text-sm font-bold text-gray-900 max-w-[220px] truncate" title="{{ $sale['product_name'] ?? 'N/A' }}">{{ $sale['product_name'] ?? 'N/A' }}</td>
                                             <td class="px-4 py-3 text-sm text-center text-gray-900">{{ $sale['quantity'] ?? 0 }}</td>
                                             <td class="px-4 py-3 text-sm text-right text-gray-900">${{ number_format($sale['unit_price'] ?? 0, 0, ',', '.') }}</td>
                                             <td class="px-4 py-3 text-sm text-right font-bold text-gray-900">${{ number_format($sale['total'] ?? 0, 0, ',', '.') }}</td>
@@ -164,7 +164,7 @@
                     <div class="mb-6">
                         <h4 class="text-sm font-bold text-gray-900 uppercase tracking-wider mb-4">Historial de Abonos</h4>
                         <div class="overflow-x-auto">
-                            <table class="min-w-full divide-y divide-gray-200">
+                            <table class="min-w-[700px] w-full divide-y divide-gray-200">
                                 <thead class="bg-gray-50">
                                     <tr>
                                         <th class="px-4 py-2 text-left text-xs font-bold text-gray-500 uppercase">Fecha</th>
@@ -186,7 +186,7 @@
                                                     {{ ucfirst($deposit['payment_method'] ?? 'N/A') }}
                                                 </span>
                                             </td>
-                                            <td class="px-4 py-3 text-sm text-gray-500">{{ $deposit['notes'] ?? '-' }}</td>
+                                            <td class="px-4 py-3 text-sm text-gray-500 max-w-[260px] truncate" title="{{ $deposit['notes'] ?? '-' }}">{{ $deposit['notes'] ?? '-' }}</td>
                                         </tr>
                                     @endforeach
                                 </tbody>
@@ -207,7 +207,7 @@
                             <span class="text-xs text-gray-500 font-medium">Total: <strong class="text-blue-600">${{ number_format($totalRefunds, 0, ',', '.') }}</strong></span>
                         </div>
                         <div class="overflow-x-auto">
-                            <table class="min-w-full divide-y divide-gray-200">
+                            <table class="min-w-[560px] w-full divide-y divide-gray-200">
                                 <thead class="bg-gray-50">
                                     <tr>
                                         <th class="px-4 py-2 text-left text-xs font-bold text-gray-500 uppercase">Fecha</th>
@@ -306,4 +306,3 @@
         </div>
     </div>
 </div>
-

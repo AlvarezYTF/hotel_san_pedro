@@ -100,8 +100,8 @@
                             </div>
                             @endif
 
-                            <div class="max-h-48 overflow-y-auto custom-scrollbar">
-                                <table class="min-w-full divide-y divide-gray-50">
+                            <div class="max-h-48 overflow-y-auto overflow-x-auto custom-scrollbar">
+                                <table class="min-w-[640px] w-full divide-y divide-gray-50">
                                     <thead class="bg-gray-50">
                                         <tr>
                                             <th class="px-4 py-2 text-left text-[9px] font-bold text-gray-400 uppercase">Producto</th>
@@ -147,8 +147,8 @@
                                 <h4 class="text-xs font-bold text-gray-900 uppercase tracking-widest">Historial de Devoluciones</h4>
                                 <span class="text-[9px] text-gray-500 font-medium">Total: ${{ number_format($detailData['total_refunds'] ?? 0, 0, ',', '.') }}</span>
                             </div>
-                            <div class="max-h-32 overflow-y-auto custom-scrollbar">
-                                <table class="min-w-full divide-y divide-gray-50">
+                            <div class="max-h-32 overflow-y-auto overflow-x-auto custom-scrollbar">
+                                <table class="min-w-[640px] w-full divide-y divide-gray-50">
                                     <thead class="bg-gray-50">
                                         <tr>
                                             <th class="px-4 py-2 text-left text-[9px] font-bold text-gray-400 uppercase">Fecha</th>
@@ -211,8 +211,8 @@
                             </div>
                             @endif
 
-                            <div class="max-h-48 overflow-y-auto custom-scrollbar">
-                                <table class="min-w-full divide-y divide-gray-50">
+                            <div class="max-h-48 overflow-y-auto overflow-x-auto custom-scrollbar">
+                                <table class="min-w-[700px] w-full divide-y divide-gray-50">
                                     <thead class="bg-gray-50">
                                         <tr>
                                             <th class="px-4 py-2 text-left text-[9px] font-bold text-gray-400 uppercase">Fecha</th>
@@ -260,8 +260,8 @@
                         <!-- Historial de Estadía -->
                         <div class="space-y-4 pt-4 border-t border-gray-100">
                             <h4 class="text-xs font-bold text-gray-900 uppercase tracking-widest">Estado de Pago por Noches</h4>
-                            <div class="max-h-48 overflow-y-auto custom-scrollbar">
-                                <table class="min-w-full divide-y divide-gray-50">
+                            <div class="max-h-48 overflow-y-auto overflow-x-auto custom-scrollbar">
+                                <table class="min-w-[640px] w-full divide-y divide-gray-50">
                                     <thead class="bg-gray-50">
                                         <tr>
                                             <th class="px-4 py-2 text-left text-[9px] font-bold text-gray-400 uppercase">Fecha</th>
@@ -329,4 +329,3 @@
         </div>
     </div>
 </div>
-

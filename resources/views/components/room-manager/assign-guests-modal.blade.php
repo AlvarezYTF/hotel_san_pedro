@@ -135,12 +135,12 @@
                         <div class="space-y-1.5">
                             @foreach($assignGuestsForm['additional_guests'] as $index => $guest)
                                 <div class="flex items-center justify-between p-2 bg-gray-50 rounded-lg border border-gray-200">
-                                    <div class="flex items-center space-x-2">
+                                    <div class="flex items-center space-x-2 min-w-0 flex-1">
                                         <i class="fas fa-user text-gray-400 text-xs"></i>
-                                        <div>
-                                            <span class="text-xs font-semibold text-gray-900">{{ $guest['name'] ?? 'N/A' }}</span>
+                                        <div class="min-w-0">
+                                            <span class="block text-xs font-semibold text-gray-900 truncate" title="{{ $guest['name'] ?? 'N/A' }}">{{ $guest['name'] ?? 'N/A' }}</span>
                                             @if(!empty($guest['identification']))
-                                                <span class="text-[10px] text-gray-500 ml-2">{{ $guest['identification'] }}</span>
+                                                <span class="block text-[10px] text-gray-500 truncate" title="{{ $guest['identification'] }}">{{ $guest['identification'] }}</span>
                                             @endif
                                         </div>
                                     </div>

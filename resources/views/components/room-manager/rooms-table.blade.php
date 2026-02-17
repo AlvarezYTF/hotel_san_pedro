@@ -1,15 +1,15 @@
 ﻿@props(['rooms', 'currentDate'])
 
-<div class="bg-white rounded-xl border border-gray-100" style="overflow: visible;">
-    <div style="overflow: visible;">
-        <table class="min-w-full divide-y divide-gray-100" style="position: static;">
+<div class="bg-white rounded-xl border border-gray-100 overflow-hidden">
+    <div class="overflow-x-auto">
+        <table class="min-w-[1120px] w-full divide-y divide-gray-100" style="position: static;">
             <thead class="bg-gray-50">
                 <tr>
                     <th class="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Habitacion</th>
                     <th class="px-6 py-4 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider">Estado</th>
                     <th class="px-6 py-4 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider">Estado de Limpieza</th>
                     <th class="px-6 py-4 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider">Ventilacion</th>
-                    <th class="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Huesped Actual / Info</th>
+                    <th class="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider w-[280px]">Huesped Actual / Info</th>
                     <th class="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Cuenta</th>
                     <th class="px-6 py-4 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">Acciones</th>
                 </tr>
@@ -36,5 +36,3 @@
         {{ $rooms->links() }}
     </div>
 </div>
-
-
