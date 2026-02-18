@@ -1,4 +1,4 @@
-<div class="max-w-6xl mx-auto">
+<div class="{{ $isModal ? '' : 'max-w-6xl mx-auto' }}">
     <form method="POST" action="{{ route('sales.store') }}" id="sale-form" x-data="{ submitting: false }" @submit.prevent="
         submitting = true;
         @this.call('validateBeforeSubmit').then((result) => {
@@ -431,11 +431,20 @@
                 </p>
 
                 <div class="flex flex-col sm:flex-row gap-3">
-                    <a href="{{ route('sales.index') }}"
-                       class="inline-flex items-center justify-center px-4 sm:px-6 py-2.5 rounded-xl border border-gray-300 text-sm font-semibold text-gray-700 bg-white hover:bg-gray-50 transition-colors duration-200">
-                        <i class="fas fa-arrow-left mr-2"></i>
-                        Volver
-                    </a>
+                    @if($isModal)
+                        <button type="button"
+                                wire:click="$dispatch('sales-close-modal')"
+                                class="inline-flex items-center justify-center px-4 sm:px-6 py-2.5 rounded-xl border border-gray-300 text-sm font-semibold text-gray-700 bg-white hover:bg-gray-50 transition-colors duration-200">
+                            <i class="fas fa-times mr-2"></i>
+                            Cerrar
+                        </button>
+                    @else
+                        <a href="{{ route('sales.index') }}"
+                           class="inline-flex items-center justify-center px-4 sm:px-6 py-2.5 rounded-xl border border-gray-300 text-sm font-semibold text-gray-700 bg-white hover:bg-gray-50 transition-colors duration-200">
+                            <i class="fas fa-arrow-left mr-2"></i>
+                            Volver
+                        </a>
+                    @endif
 
                     <button type="submit"
                             x-bind:disabled="submitting"

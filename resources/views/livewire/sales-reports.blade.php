@@ -137,7 +137,7 @@
                     <tbody class="bg-white divide-y divide-gray-200">
                         @foreach($sales as $sale)
                             <tr>
-                                <td class="px-4 py-3 text-sm text-gray-900">{{ $sale->sale_date->format('d/m/Y H:i') }}</td>
+                                <td class="px-4 py-3 text-sm text-gray-900">{{ $sale->sale_date->format('d/m/Y') }} {{ $sale->created_at?->format('H:i') }}</td>
                                 <td class="px-4 py-3 text-sm text-gray-900">{{ $sale->user->name }}</td>
                                 <td class="px-4 py-3 text-sm text-gray-900">
                                     @if($sale->room)

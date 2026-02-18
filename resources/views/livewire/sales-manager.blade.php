@@ -2,6 +2,9 @@
     filtersOpen: @entangle('filtersOpen'),
     receptionistId: @entangle('receptionist_id'),
     isAdmin: {{ Auth::user()->hasRole('Administrador') ? 'true' : 'false' }},
+    createSaleModalOpen: @entangle('createSaleModalOpen'),
+    showSaleModalOpen: @entangle('showSaleModalOpen'),
+    editSaleModalOpen: @entangle('editSaleModalOpen'),
     confirmingDelete: false,
     deleteFormAction: ''
 }">
@@ -28,11 +31,12 @@
             
             <div class="flex items-center space-x-3">
                 @can('create_sales')
-                <a href="{{ route('sales.create') }}" 
+                <button type="button"
+                   wire:click="openCreateSaleModal"
                    class="inline-flex items-center justify-center px-4 sm:px-5 py-2.5 rounded-xl border-2 border-green-600 bg-green-600 text-white text-sm font-semibold hover:bg-green-700 hover:border-green-700 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 shadow-sm hover:shadow-md">
                     <i class="fas fa-plus mr-2"></i>
                     <span>Nueva Venta</span>
-                </a>
+                </button>
                 @endcan
                 
                 @can('update_products')
@@ -320,7 +324,7 @@
                             <tr class="hover:bg-gray-50/50 transition-colors duration-150 group">
                                 <td class="px-4 py-4 whitespace-nowrap">
                                     <div class="text-sm font-medium text-gray-900">{{ $sale->sale_date->format('d/m/Y') }}</div>
-                                    <div class="text-xs text-gray-500">{{ $sale->sale_date->format('H:i') }}</div>
+                                    <div class="text-xs text-gray-500">{{ $sale->created_at?->format('H:i') }}</div>
                                 </td>
                                 <td class="px-4 py-4 whitespace-nowrap">
                                     <div class="text-sm text-gray-900">{{ $sale->user->name }}</div>
@@ -400,17 +404,19 @@
                                 </td>
                                 <td class="px-4 py-4 whitespace-nowrap text-right">
                                     <div class="flex items-center justify-end space-x-1.5">
-                                        <a href="{{ route('sales.show', $sale) }}" 
+                                        <button type="button"
+                                           wire:click="openShowSaleModal({{ $sale->id }})"
                                            class="p-2 text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded-lg transition-all duration-200" 
                                            title="Ver detalle">
                                             <i class="fas fa-eye text-sm"></i>
-                                        </a>
+                                        </button>
                                         @can('edit_sales')
-                                        <a href="{{ route('sales.edit', $sale) }}" 
+                                        <button type="button"
+                                           wire:click="openEditSaleModal({{ $sale->id }})"
                                            class="p-2 text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50 rounded-lg transition-all duration-200" 
                                            title="Editar">
                                             <i class="fas fa-edit text-sm"></i>
-                                        </a>
+                                        </button>
                                         @endcan
                                         @can('delete_sales')
                                         <button type="button" 
@@ -439,16 +445,113 @@
                 </div>
                 <h3 class="text-sm font-semibold text-gray-900 mb-1">No se encontraron ventas</h3>
                 <p class="text-xs text-gray-500 mb-4">Intente ajustar los filtros de búsqueda</p>
-                <a href="{{ route('sales.create') }}" 
+                <button type="button"
+                   wire:click="openCreateSaleModal"
                    class="inline-flex items-center px-4 py-2 rounded-lg bg-green-600 text-white text-sm font-medium hover:bg-green-700 transition-all duration-200">
                     <i class="fas fa-plus mr-2"></i>
                     Crear Primera Venta
-                </a>
+                </button>
             </div>
         @endif
     </div>
 
     <!-- Modal de Confirmación Estilizado -->
+    <!-- Modal Nueva Venta -->
+    <div x-show="createSaleModalOpen"
+         class="fixed inset-0 z-[90] overflow-y-auto"
+         x-transition:enter="transition ease-out duration-300"
+         x-transition:enter-start="opacity-0"
+         x-transition:enter-end="opacity-100"
+         x-transition:leave="transition ease-in duration-200"
+         x-transition:leave-start="opacity-100"
+         x-transition:leave-end="opacity-0"
+         @keydown.escape.window="$wire.closeCreateSaleModal()"
+         x-cloak>
+        <div class="fixed inset-0 bg-gray-900/60 backdrop-blur-sm" @click="$wire.closeCreateSaleModal()"></div>
+        <div class="flex min-h-full items-center justify-center p-4 sm:p-6">
+            <div class="relative w-full max-w-6xl max-h-[92vh] overflow-y-auto rounded-2xl bg-gray-50 shadow-2xl border border-gray-100">
+                <div class="sticky top-0 z-10 flex items-center justify-between border-b border-gray-200 bg-white px-4 py-3 sm:px-6">
+                    <div class="flex items-center gap-2">
+                        <i class="fas fa-plus text-green-600"></i>
+                        <h3 class="text-sm sm:text-base font-semibold text-gray-900">Nueva Venta</h3>
+                    </div>
+                    <button type="button" @click="$wire.closeCreateSaleModal()" class="text-gray-400 hover:text-gray-700">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <div class="p-4 sm:p-6">
+                    @if($createSaleModalOpen)
+                        <livewire:create-sale :is-modal="true" :wire:key="'sales-create-modal-'.$createSaleModalKey" />
+                    @endif
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Ver Venta -->
+    <div x-show="showSaleModalOpen"
+         class="fixed inset-0 z-[91] overflow-y-auto"
+         x-transition:enter="transition ease-out duration-300"
+         x-transition:enter-start="opacity-0"
+         x-transition:enter-end="opacity-100"
+         x-transition:leave="transition ease-in duration-200"
+         x-transition:leave-start="opacity-100"
+         x-transition:leave-end="opacity-0"
+         @keydown.escape.window="$wire.closeShowSaleModal()"
+         x-cloak>
+        <div class="fixed inset-0 bg-gray-900/60 backdrop-blur-sm" @click="$wire.closeShowSaleModal()"></div>
+        <div class="flex min-h-full items-center justify-center p-4 sm:p-6">
+            <div class="relative w-full max-w-5xl max-h-[92vh] overflow-y-auto rounded-2xl bg-gray-50 shadow-2xl border border-gray-100">
+                <div class="sticky top-0 z-10 flex items-center justify-between border-b border-gray-200 bg-white px-4 py-3 sm:px-6">
+                    <div class="flex items-center gap-2">
+                        <i class="fas fa-eye text-blue-600"></i>
+                        <h3 class="text-sm sm:text-base font-semibold text-gray-900">Detalle de Venta</h3>
+                    </div>
+                    <button type="button" @click="$wire.closeShowSaleModal()" class="text-gray-400 hover:text-gray-700">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <div class="p-4 sm:p-6">
+                    @if($showSaleModalOpen && $this->selectedSale)
+                        <livewire:show-sale :sale="$this->selectedSale" :is-modal="true" :wire:key="'sales-show-modal-'.$selectedSaleId.'-'.$showSaleModalKey" />
+                    @endif
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Editar Venta -->
+    <div x-show="editSaleModalOpen"
+         class="fixed inset-0 z-[92] overflow-y-auto"
+         x-transition:enter="transition ease-out duration-300"
+         x-transition:enter-start="opacity-0"
+         x-transition:enter-end="opacity-100"
+         x-transition:leave="transition ease-in duration-200"
+         x-transition:leave-start="opacity-100"
+         x-transition:leave-end="opacity-0"
+         @keydown.escape.window="$wire.closeEditSaleModal()"
+         x-cloak>
+        <div class="fixed inset-0 bg-gray-900/60 backdrop-blur-sm" @click="$wire.closeEditSaleModal()"></div>
+        <div class="flex min-h-full items-center justify-center p-4 sm:p-6">
+            <div class="relative w-full max-w-5xl max-h-[92vh] overflow-y-auto rounded-2xl bg-gray-50 shadow-2xl border border-gray-100">
+                <div class="sticky top-0 z-10 flex items-center justify-between border-b border-gray-200 bg-white px-4 py-3 sm:px-6">
+                    <div class="flex items-center gap-2">
+                        <i class="fas fa-edit text-indigo-600"></i>
+                        <h3 class="text-sm sm:text-base font-semibold text-gray-900">Editar Venta</h3>
+                    </div>
+                    <button type="button" @click="$wire.closeEditSaleModal()" class="text-gray-400 hover:text-gray-700">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <div class="p-4 sm:p-6">
+                    @if($editSaleModalOpen && $this->selectedSale)
+                        <livewire:edit-sale :sale="$this->selectedSale" :is-modal="true" :wire:key="'sales-edit-modal-'.$selectedSaleId.'-'.$editSaleModalKey" />
+                    @endif
+                </div>
+            </div>
+        </div>
+    </div>
+
     <div x-show="confirmingDelete" 
          class="fixed inset-0 z-[100] overflow-y-auto" 
          x-transition:enter="transition ease-out duration-300"

@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\Auth;
 
 class EditSale extends Component
 {
+    public bool $isModal = false;
     public Sale $sale;
     public $payment_method;
     public $cash_amount;
@@ -35,8 +36,9 @@ class EditSale extends Component
         'debt_status.in' => 'El estado de deuda debe ser pagado o pendiente.',
     ];
 
-    public function mount(Sale $sale)
+    public function mount(Sale $sale, bool $isModal = false)
     {
+        $this->isModal = $isModal;
         $this->sale = $sale->load(['user', 'room', 'items.product']);
         $this->payment_method = $sale->payment_method;
         $this->cash_amount = $sale->cash_amount;

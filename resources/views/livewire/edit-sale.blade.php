@@ -1,4 +1,4 @@
-<div class="max-w-4xl mx-auto">
+<div class="{{ $isModal ? '' : 'max-w-4xl mx-auto' }}">
     <form method="POST" action="{{ route('sales.update', $sale) }}" id="edit-sale-form" x-data="{ submitting: false }" @submit.prevent="
         submitting = true;
         @this.call('validateBeforeSubmit').then((result) => {
@@ -254,11 +254,20 @@
         <!-- Botones de Acción -->
         <div class="bg-white rounded-xl border border-gray-100 p-4 sm:p-6">
             <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-                <a href="{{ route('sales.show', $sale) }}" 
-                   class="inline-flex items-center justify-center px-4 sm:px-6 py-2.5 rounded-xl border border-gray-300 text-sm font-semibold text-gray-700 bg-white hover:bg-gray-50 transition-colors duration-200">
-                    <i class="fas fa-arrow-left mr-2"></i>
-                    Cancelar
-                </a>
+                @if($isModal)
+                    <button type="button"
+                            wire:click="$dispatch('sales-close-modal')"
+                            class="inline-flex items-center justify-center px-4 sm:px-6 py-2.5 rounded-xl border border-gray-300 text-sm font-semibold text-gray-700 bg-white hover:bg-gray-50 transition-colors duration-200">
+                        <i class="fas fa-times mr-2"></i>
+                        Cerrar
+                    </button>
+                @else
+                    <a href="{{ route('sales.show', $sale) }}" 
+                       class="inline-flex items-center justify-center px-4 sm:px-6 py-2.5 rounded-xl border border-gray-300 text-sm font-semibold text-gray-700 bg-white hover:bg-gray-50 transition-colors duration-200">
+                        <i class="fas fa-arrow-left mr-2"></i>
+                        Cancelar
+                    </a>
+                @endif
                 
                 <button type="submit" 
                         x-bind:disabled="submitting"

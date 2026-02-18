@@ -14,6 +14,8 @@ use Carbon\Carbon;
 
 class CreateSale extends Component
 {
+    public bool $isModal = false;
+
     // Form data
     public $sale_date;
     public $room_id = '';
@@ -76,8 +78,9 @@ class CreateSale extends Component
         'items.*.quantity.min' => 'La cantidad debe ser mayor a 0.',
     ];
 
-    public function mount()
+    public function mount(bool $isModal = false)
     {
+        $this->isModal = $isModal;
         $this->sale_date = now()->format('Y-m-d');
 
         // Cargar habitaciones ocupadas usando estado operacional (rooms.status ya no existe)

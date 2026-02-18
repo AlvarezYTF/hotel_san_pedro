@@ -4,6 +4,7 @@ namespace App\Livewire;
 
 use Livewire\Component;
 use Livewire\WithPagination;
+use Livewire\Attributes\On;
 use App\Models\Sale;
 use App\Models\Room;
 use App\Models\Category;
@@ -26,6 +27,15 @@ class SalesManager extends Component
 
     // Estado para filtros avanzados
     public $filtersOpen = false;
+
+    // Estado de modales
+    public bool $createSaleModalOpen = false;
+    public bool $showSaleModalOpen = false;
+    public bool $editSaleModalOpen = false;
+    public ?int $selectedSaleId = null;
+    public int $createSaleModalKey = 0;
+    public int $showSaleModalKey = 0;
+    public int $editSaleModalKey = 0;
 
     // Query string para mantener filtros en URL
     protected $queryString = [
@@ -132,6 +142,93 @@ class SalesManager extends Component
                !empty($this->payment_method) ||
                !empty($this->category_id) ||
                !empty($this->room_id);
+    }
+
+    public function openCreateSaleModal(): void
+    {
+        if (!Auth::user()?->can('create_sales')) {
+            return;
+        }
+
+        $this->closeAllSaleModals();
+        $this->createSaleModalOpen = true;
+        $this->createSaleModalKey++;
+    }
+
+    public function closeCreateSaleModal(): void
+    {
+        $this->createSaleModalOpen = false;
+    }
+
+    public function openShowSaleModal(int $saleId): void
+    {
+        if (!Auth::user()?->can('view_sales') || !$this->saleExists($saleId)) {
+            return;
+        }
+
+        $this->closeAllSaleModals();
+        $this->selectedSaleId = $saleId;
+        $this->showSaleModalOpen = true;
+        $this->showSaleModalKey++;
+    }
+
+    public function closeShowSaleModal(): void
+    {
+        $this->showSaleModalOpen = false;
+        $this->selectedSaleId = null;
+    }
+
+    public function openEditSaleModal(int $saleId): void
+    {
+        if (!Auth::user()?->can('edit_sales') || !$this->saleExists($saleId)) {
+            return;
+        }
+
+        $this->closeAllSaleModals();
+        $this->selectedSaleId = $saleId;
+        $this->editSaleModalOpen = true;
+        $this->editSaleModalKey++;
+    }
+
+    public function closeEditSaleModal(): void
+    {
+        $this->editSaleModalOpen = false;
+        $this->selectedSaleId = null;
+    }
+
+    #[On('sales-open-show-modal')]
+    public function openShowSaleModalFromEvent(int $saleId): void
+    {
+        $this->openShowSaleModal($saleId);
+    }
+
+    #[On('sales-open-edit-modal')]
+    public function openEditSaleModalFromEvent(int $saleId): void
+    {
+        $this->openEditSaleModal($saleId);
+    }
+
+    #[On('sales-close-modal')]
+    public function closeAllSaleModals(): void
+    {
+        $this->createSaleModalOpen = false;
+        $this->showSaleModalOpen = false;
+        $this->editSaleModalOpen = false;
+        $this->selectedSaleId = null;
+    }
+
+    private function saleExists(int $saleId): bool
+    {
+        return Sale::whereKey($saleId)->exists();
+    }
+
+    public function getSelectedSaleProperty(): ?Sale
+    {
+        if (!$this->selectedSaleId) {
+            return null;
+        }
+
+        return Sale::find($this->selectedSaleId);
     }
 
     public function render()

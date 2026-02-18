@@ -110,7 +110,7 @@
                                 <div class="flex items-center justify-between">
                                     <div class="flex-1">
                                         <p class="text-sm font-medium text-gray-900">
-                                            {{ $sale->sale_date->format('d/m/Y H:i') }}
+                                            {{ $sale->sale_date->format('d/m/Y') }} {{ $sale->created_at?->format('H:i') }}
                                         </p>
                                         <p class="text-xs text-gray-500">
                                             {{ $sale->user->name }} - 

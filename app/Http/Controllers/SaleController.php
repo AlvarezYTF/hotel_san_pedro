@@ -10,6 +10,7 @@ use App\Models\Product;
 use App\Models\Room;
 use App\Models\Category;
 use App\Models\Shift;
+use App\Models\ShiftHandover;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -99,10 +100,19 @@ class SaleController extends Controller
                 $debtStatus = 'pagado';
             }
 
-            // Validar turno operativo abierto
+            $isAdmin = $user->hasRole('Administrador');
+
+            // Validar turno operativo abierto (excepto administradores)
             $operationalShift = Shift::openOperational()->first();
             $activeHandover = $user->turnoActivo()->first();
-            if (!$operationalShift || !$activeHandover || (int) ($activeHandover->from_shift_id ?? $activeHandover->id) !== (int) $operationalShift->id) {
+            if (
+                !$isAdmin &&
+                (
+                    !$operationalShift ||
+                    !$activeHandover ||
+                    (int) ($activeHandover->from_shift_id ?? $activeHandover->id) !== (int) $operationalShift->id
+                )
+            ) {
                 DB::rollBack();
                 return back()->withInput()->withErrors(['turno' => 'Debe existir un turno operativo abierto para registrar la venta.']);
             }
@@ -111,7 +121,7 @@ class SaleController extends Controller
             $sale = Sale::create([
                 'user_id' => $user->id,
                 'room_id' => $request->room_id ?: null,
-                'shift_handover_id' => $activeHandover->id,
+                'shift_handover_id' => $activeHandover?->id,
                 'payment_method' => $request->payment_method,
                 'cash_amount' => $cashAmount,
                 'transfer_amount' => $transferAmount,
@@ -138,8 +148,10 @@ class SaleController extends Controller
                 $product->recordMovement(-$item['quantity'], 'sale', "Venta #{$sale->id}", $sale->room_id);
             }
 
-            // Actualizar totales del turno
-            $activeHandover->updateTotals();
+            // Actualizar totales del turno cuando existe asociación
+            if ($activeHandover) {
+                $activeHandover->updateTotals();
+            }
 
             $this->auditLog('sale_create', "Venta #{$sale->id} registrada por {$total}. Método: {$sale->payment_method}", ['sale_id' => $sale->id]);
 
@@ -273,11 +285,14 @@ class SaleController extends Controller
                 $product->recordMovement($item['quantity'], 'adjustment', "Venta #{$sale->id} eliminada (restauración)");
             }
 
-            $shift = $sale->shiftHandover;
+            $shiftHandoverId = $sale->shift_handover_id;
             $sale->delete();
 
-            if ($shift) {
-                $shift->updateTotals();
+            if ($shiftHandoverId) {
+                $shift = ShiftHandover::find($shiftHandoverId);
+                if ($shift) {
+                    $shift->updateTotals();
+                }
             }
 
             $this->auditLog('sale_delete', "Venta #{$sale->id} eliminada. Total era: {$sale->total}", ['sale_id' => $sale->id]);
