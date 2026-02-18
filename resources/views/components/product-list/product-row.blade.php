@@ -26,6 +26,7 @@
                         type="button"
                         wire:click="decreaseStock({{ $product->id }})"
                         wire:loading.attr="disabled"
+                        wire:target="decreaseStock({{ $product->id }})"
                         class="px-2.5 py-1.5 text-xs font-black text-gray-700 hover:bg-gray-50 disabled:opacity-60 disabled:cursor-not-allowed"
                         title="Disminuir stock"
                         aria-label="Disminuir stock"
@@ -37,6 +38,7 @@
                         type="button"
                         wire:click="increaseStock({{ $product->id }})"
                         wire:loading.attr="disabled"
+                        wire:target="increaseStock({{ $product->id }})"
                         class="px-2.5 py-1.5 text-xs font-black text-gray-700 hover:bg-gray-50 disabled:opacity-60 disabled:cursor-not-allowed"
                         title="Aumentar stock"
                         aria-label="Aumentar stock"
@@ -44,6 +46,15 @@
                         <i class="fas fa-plus"></i>
                     </button>
                 </div>
+                <button
+                    type="button"
+                    wire:click="openStockModal({{ $product->id }})"
+                    class="inline-flex items-center justify-center h-7 w-7 rounded-lg border border-gray-200 text-gray-500 hover:text-indigo-600 hover:border-indigo-200 hover:bg-indigo-50 transition-colors"
+                    title="Ajuste manual"
+                    aria-label="Ajuste manual"
+                >
+                    <i class="fas fa-sliders-h text-[11px]"></i>
+                </button>
             @endcan
         </div>
         @if($product->quantity <= 5 && $product->quantity > 0)
@@ -78,9 +89,21 @@
     </td>
     <td class="px-6 py-4 whitespace-nowrap text-right">
         <div class="flex items-center justify-end space-x-2">
-            <a href="{{ route('products.show', $product) }}" class="p-2 text-indigo-400 hover:text-indigo-600 transition-colors"><i class="fas fa-eye"></i></a>
+            @can('view_products')
+                <button type="button"
+                        wire:click="openShowModal({{ $product->id }})"
+                        class="p-2 text-indigo-400 hover:text-indigo-600 transition-colors"
+                        title="Ver detalle">
+                    <i class="fas fa-eye"></i>
+                </button>
+            @endcan
             @can('edit_products')
-                <a href="{{ route('products.edit', $product) }}" class="p-2 text-blue-400 hover:text-blue-600 transition-colors"><i class="fas fa-edit"></i></a>
+                <button type="button"
+                        wire:click="openEditModal({{ $product->id }})"
+                        class="p-2 text-blue-400 hover:text-blue-600 transition-colors"
+                        title="Editar">
+                    <i class="fas fa-edit"></i>
+                </button>
             @endcan
             @can('delete_products')
                 <button type="button"
@@ -96,4 +119,3 @@
         </div>
     </td>
 </tr>
-

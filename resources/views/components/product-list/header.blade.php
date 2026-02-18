@@ -34,13 +34,13 @@
                 </a>
             @endcan
             @can('create_products')
-                <a href="{{ route('products.create') }}"
+                <button type="button"
+                   wire:click="openCreateModal"
                    class="inline-flex items-center justify-center px-4 sm:px-5 py-2.5 rounded-xl border-2 border-blue-600 bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 hover:border-blue-700 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 shadow-sm hover:shadow-md">
                     <i class="fas fa-plus mr-2"></i>
                     <span>Nuevo Producto</span>
-                </a>
+                </button>
             @endcan
         </div>
     </div>
 </div>
-

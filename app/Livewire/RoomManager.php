@@ -30,6 +30,11 @@ class RoomManager extends Component
     use WithPagination;
     private const ALLOWED_STATUS_FILTERS = ['libre', 'ocupada', 'pendiente_checkout', 'sucia'];
 
+    public function dehydrate(): void
+    {
+        $this->sanitizeUtf8PublicState();
+    }
+
     // Propiedades de estado
     public string $activeTab = 'rooms';
     public $currentDate = null;
@@ -5489,6 +5494,8 @@ class RoomManager extends Component
 
     public function render()
     {
+        $this->sanitizeUtf8PublicState();
+
         $rooms = $this->getRoomsQuery()->paginate(30);
         $dailyStats = $this->getDailyOverviewStats();
         $receptionReservationsSummary = $this->getReceptionReservationsSummary();
@@ -5647,5 +5654,51 @@ class RoomManager extends Component
             'dailyStats' => $dailyStats,
             'receptionReservationsSummary' => $receptionReservationsSummary,
         ]);
+    }
+
+    /**
+     * Sanitiza todas las propiedades publicas serializables para evitar
+     * errores "Malformed UTF-8" durante la respuesta JSON de Livewire.
+     */
+    private function sanitizeUtf8PublicState(): void
+    {
+        $reflection = new \ReflectionObject($this);
+
+        foreach ($reflection->getProperties(\ReflectionProperty::IS_PUBLIC) as $property) {
+            if ($property->isStatic() || !$property->isInitialized($this)) {
+                continue;
+            }
+
+            $name = $property->getName();
+            $value = $this->{$name};
+            $this->{$name} = $this->sanitizeUtf8Value($value);
+        }
+    }
+
+    private function sanitizeUtf8Value(mixed $value): mixed
+    {
+        if (is_string($value)) {
+            if (mb_check_encoding($value, 'UTF-8')) {
+                return $value;
+            }
+
+            $fixed = @mb_convert_encoding($value, 'UTF-8', 'UTF-8');
+            if (is_string($fixed) && mb_check_encoding($fixed, 'UTF-8')) {
+                return $fixed;
+            }
+
+            $fallback = @iconv('UTF-8', 'UTF-8//IGNORE', $value);
+            return is_string($fallback) ? $fallback : '';
+        }
+
+        if (is_array($value)) {
+            foreach ($value as $key => $item) {
+                $value[$key] = $this->sanitizeUtf8Value($item);
+            }
+
+            return $value;
+        }
+
+        return $value;
     }
 }
